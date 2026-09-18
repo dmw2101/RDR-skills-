@@ -1,0 +1,69 @@
+{
+  "evaluation_code": {
+    "repository": "https://github.com/microsoft/SkillOpt",
+    "commit": "79124b37e9a6371e13b753f8bcd7adb1e493ade1",
+    "local_path": "benchmarks/skillopt",
+    "license": "MIT"
+  },
+  "benchmarks": [
+    {
+      "id": "spreadsheetbench",
+      "skill": "skills/spreadsheetbench/initial.md",
+      "manifest": "benchmarks/skillopt/data/spreadsheetbench_id_split",
+      "counts": {"train": 80, "val": 40, "test": 280},
+      "source": "https://huggingface.co/datasets/KAKA22/SpreadsheetBench",
+      "revision": "ab0b742b0fc95b946f212d80ac7771b5531272e4",
+      "source_file": "spreadsheetbench_verified_400.tar.gz",
+      "sha256": "10ef893dd29cb13ab97143ea787e68cdc9574a13873ab9a54e50b31dc03fc949",
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "alfworld",
+      "skill": "skills/alfworld/initial.md",
+      "manifest": "benchmarks/skillopt/data/alfworld_path_split",
+      "counts": {"train": 39, "val": 18, "test": 134},
+      "source": "https://github.com/alfworld/alfworld",
+      "source_files": [
+        "https://github.com/alfworld/alfworld/releases/download/0.2.2/json_2.1.1_json.zip",
+        "https://github.com/alfworld/alfworld/releases/download/0.2.2/json_2.1.1_pddl.zip",
+        "https://github.com/alfworld/alfworld/releases/download/0.4.2/json_2.1.3_tw-pddl.zip"
+      ],
+      "license": "MIT (code); check upstream game-data terms"
+    },
+    {
+      "id": "docvqa",
+      "skill": "skills/docvqa/initial.md",
+      "manifest": "benchmarks/skillopt/data/docvqa_id_split",
+      "counts": {"train": 107, "val": 53, "test": 374},
+      "source": "https://huggingface.co/datasets/lmms-lab-encoder/DocVQA",
+      "revision": "539088ef8a8ada01ac8e2e6d4e372586748a265e",
+      "source_config": "DocVQA",
+      "source_split": "validation",
+      "license": "Apache-2.0 (dataset listing)"
+    },
+    {
+      "id": "searchqa",
+      "skill": "skills/searchqa/initial.md",
+      "manifest": "benchmarks/skillopt/data/searchqa_id_split",
+      "counts": {"train": 400, "val": 200, "test": 1400},
+      "source": "https://huggingface.co/datasets/lucadiliello/searchqa",
+      "revision": "c1a979068ba118d85467179b704031d113d689cc",
+      "license": "not specified in the dataset listing"
+    },
+    {
+      "id": "livemathematicianbench",
+      "skill": "skills/livemathematicianbench/initial.md",
+      "manifest": "benchmarks/skillopt/data/livemathematicianbench_id_split",
+      "counts": {"train": 35, "val": 17, "test": 125},
+      "source": "https://huggingface.co/datasets/LiveMathematicianBench/LiveMathematicianBench",
+      "revision": "b72450f6ce96c26158d64d945a5d31ef7727be41",
+      "source_files": {
+        "data/202511/qa_202511_final.json": "5dafc9d65c0b593a7f3be5fc62fb7ad741bccff51f22c1fce5baa2564a0b24ea",
+        "data/202512/qa_202512_final.json": "e54b5300763db319f36efd4ddc4ee97f24da1381d9de9d0a71ea815429548561",
+        "data/202601/qa_202601_final.json": "15b36733086c9a348f8e3227f31a411819dfeeaee5196d618a02ce714ca29027",
+        "data/202602/qa_202602_final.json": "39092b91f0045b689522d8ddcc3188ea24c33d590da79826ef7f036c71e52611"
+      },
+      "license": "not specified in the dataset listing"
+    }
+  ]
+}
