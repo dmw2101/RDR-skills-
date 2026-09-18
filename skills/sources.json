@@ -1,0 +1,28 @@
+{
+  "source_repository": "https://github.com/microsoft/SkillOpt",
+  "source_commit": "79124b37e9a6371e13b753f8bcd7adb1e493ade1",
+  "license": "LICENSES/SkillOpt-MIT.txt",
+  "skills": [
+    {
+      "id": "spreadsheetbench",
+      "benchmark": "SpreadsheetBench-Verified 400",
+      "local_path": "skills/spreadsheetbench/initial.md",
+      "source_path": "skillopt/envs/spreadsheetbench/skills/initial.md",
+      "sha256": "5c49d03008aea2c7151b134da20f2258a746c7323b76f0e49ec2c1ea8c131f26"
+    },
+    {
+      "id": "alfworld",
+      "benchmark": "ALFWorld",
+      "local_path": "skills/alfworld/initial.md",
+      "source_path": "skillopt/envs/alfworld/skills/initial.md",
+      "sha256": "01bd29e825b81715e7b592e135a9a9d6d0f812a5e84dcd56b51cc1075247f941"
+    },
+    {
+      "id": "docvqa",
+      "benchmark": "DocVQA",
+      "local_path": "skills/docvqa/initial.md",
+      "source_path": "skillopt/envs/docvqa/skills/initial.md",
+      "sha256": "60fa9bae90590a50970c9d5d33d92eaa412bf1fa380bd00c8343430202795d97"
+    }
+  ]
+}
