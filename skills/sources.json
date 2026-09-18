@@ -23,6 +23,20 @@
       "local_path": "skills/docvqa/initial.md",
       "source_path": "skillopt/envs/docvqa/skills/initial.md",
       "sha256": "60fa9bae90590a50970c9d5d33d92eaa412bf1fa380bd00c8343430202795d97"
+    },
+    {
+      "id": "searchqa",
+      "benchmark": "SearchQA",
+      "local_path": "skills/searchqa/initial.md",
+      "source_path": "skillopt/envs/searchqa/skills/initial.md",
+      "sha256": "d3ed21de4a5216da7c3cd63acc2330dc78227524753c9d29573e6692f48d6709"
+    },
+    {
+      "id": "livemathematicianbench",
+      "benchmark": "LiveMathematicianBench",
+      "local_path": "skills/livemathematicianbench/initial.md",
+      "source_path": "skillopt/envs/livemathematicianbench/skills/initial.md",
+      "sha256": "84d545e168a047349fe4f6851708c6e34a7fc755c6ae3804775cbc671a8aab3f"
     }
   ]
 }
