@@ -7,3 +7,20 @@ This repository holds base skills and their paired evaluation benchmarks. The `s
 The `benchmarks/` directory now contains a pinned SkillOpt evaluation-code snapshot, lightweight published split manifests, source provenance, and on-demand preparation scripts. Large raw data is deliberately excluded from Git and is not downloaded until an experiment needs it. See `benchmarks/README.md`. No results in this repository should be interpreted as benchmark runs.
 
 Anthropic's [official xlsx skill](https://github.com/anthropics/skills/tree/main/skills/xlsx) is an external comparison source only. It is not copied here because its [license](https://github.com/anthropics/skills/blob/main/skills/xlsx/LICENSE.txt) restricts copying and distribution. The spreadsheet file in this repository is SkillOpt's MIT-licensed seed skill, not Anthropic's skill.
+
+## Base RDR engine
+
+`src/rdr_engine/` is a standalone, domain-independent Python package implementing single-conclusion RDR traversal, oracle-driven learning, consistency checks, and versioned JSON persistence. It has no runtime dependencies and does not import or modify the skills or benchmarks.
+
+With Python 3.10 or newer, run from the repository root (preferably in a virtual environment):
+
+```sh
+python -m pip install -e .
+python -m rdr_engine.demo
+python -m unittest discover -s tests -v
+python -m unittest discover -s benchmarks -p test_preparation.py -v
+```
+
+On Windows, `py -3.12` can replace `python`. The demo and tests are offline; benchmark preparation tests use fixtures, not downloaded datasets.
+
+See [the engine guide](docs/rdr-engine.md) for the three replaceable components, API, persistence format, and correspondence to `rdr.md`. Live LLM adapters, Markdown compilation, and skill execution are intentionally separate future integrations.
