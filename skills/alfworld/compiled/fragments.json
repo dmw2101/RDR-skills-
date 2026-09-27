@@ -1,0 +1,213 @@
+{
+  "fragments": [
+    {
+      "end": 1,
+      "id": "frag_28bb66f1648dfbd6",
+      "order": 1,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 1,
+      "text": "# ALFWorld Embodied Agent Skill\n"
+    },
+    {
+      "end": 3,
+      "id": "frag_46085c04e77c9421",
+      "order": 3,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 3,
+      "text": "## Overview\n"
+    },
+    {
+      "end": 7,
+      "id": "frag_04698c56e0d6ecbd",
+      "order": 4,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_46085c04e77c9421"
+      ],
+      "role": "instruction",
+      "start": 4,
+      "text": "This skill guides agents operating in the ALFWorld text-based embodied environment.\nThe agent must complete household tasks by navigating rooms, interacting with objects,\nand using appliances. Actions must be chosen from the admissible action list provided\nat each step.\n"
+    },
+    {
+      "end": 9,
+      "id": "frag_f363140ead0d0ec5",
+      "order": 9,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_46085c04e77c9421"
+      ],
+      "role": "instruction",
+      "start": 9,
+      "text": "**Output format**: Always output `<think>...</think>` for reasoning, then `<action>...</action>` for the chosen action.\n"
+    },
+    {
+      "end": 11,
+      "id": "frag_abb6f049c9486ad5",
+      "order": 11,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 11,
+      "text": "---\n"
+    },
+    {
+      "end": 13,
+      "id": "frag_f12a7c1465eda73f",
+      "order": 13,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 13,
+      "text": "## Task Types\n"
+    },
+    {
+      "end": 16,
+      "id": "frag_b618ac7af8cfdcd6",
+      "order": 15,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 15,
+      "text": "| Type | Goal | Key Steps |\n|------|------|-----------|\n"
+    },
+    {
+      "end": 17,
+      "id": "frag_9533b3bb4a2527d0",
+      "order": 17,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_f12a7c1465eda73f",
+        "frag_b618ac7af8cfdcd6"
+      ],
+      "role": "instruction",
+      "start": 17,
+      "text": "| Pick & Place | Put object X in/on receptacle Y | Find X -> take X -> go to Y -> put X in/on Y |\n"
+    },
+    {
+      "end": 18,
+      "id": "frag_05f976bcffc388ad",
+      "order": 18,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_f12a7c1465eda73f",
+        "frag_b618ac7af8cfdcd6"
+      ],
+      "role": "instruction",
+      "start": 18,
+      "text": "| Pick Two & Place | Put two instances of X in/on Y | Find X1 -> take -> place -> find X2 -> take -> place |\n"
+    },
+    {
+      "end": 19,
+      "id": "frag_b0c6fabcc4840ce7",
+      "order": 19,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_f12a7c1465eda73f",
+        "frag_b618ac7af8cfdcd6"
+      ],
+      "role": "instruction",
+      "start": 19,
+      "text": "| Examine in Light | Examine object X under desklamp | Find X -> take X -> find desklamp -> use desklamp |\n"
+    },
+    {
+      "end": 20,
+      "id": "frag_49ad5ac8cb3cfd7f",
+      "order": 20,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_f12a7c1465eda73f",
+        "frag_b618ac7af8cfdcd6"
+      ],
+      "role": "instruction",
+      "start": 20,
+      "text": "| Clean & Place | Clean object X and put in/on Y | Find X -> take X -> go to sink -> clean X -> go to Y -> put X |\n"
+    },
+    {
+      "end": 21,
+      "id": "frag_aa0ed87e75aa77af",
+      "order": 21,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_f12a7c1465eda73f",
+        "frag_b618ac7af8cfdcd6"
+      ],
+      "role": "instruction",
+      "start": 21,
+      "text": "| Heat & Place | Heat object X and put in/on Y | Find X -> take X -> go to microwave -> heat X -> go to Y -> put X |\n"
+    },
+    {
+      "end": 22,
+      "id": "frag_cb6ae4c9d6a0f130",
+      "order": 22,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_f12a7c1465eda73f",
+        "frag_b618ac7af8cfdcd6"
+      ],
+      "role": "instruction",
+      "start": 22,
+      "text": "| Cool & Place | Cool object X and put in/on Y | Find X -> take X -> go to fridge -> cool X -> go to Y -> put X |\n"
+    },
+    {
+      "end": 24,
+      "id": "frag_c6ca1853ad701384",
+      "order": 24,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 24,
+      "text": "---\n"
+    },
+    {
+      "end": 26,
+      "id": "frag_4407cfac83b0088b",
+      "order": 26,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 26,
+      "text": "## General Principles\n"
+    },
+    {
+      "end": 35,
+      "id": "frag_d9e47edae2290bfe",
+      "order": 28,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_4407cfac83b0088b"
+      ],
+      "role": "instruction",
+      "start": 28,
+      "text": "1. **Decompose the task**: Parse the goal into ordered sub-goals (locate, acquire, transform, deliver). Complete each before moving to the next.\n2. **Systematic exploration**: Search each surface and container exactly once before revisiting. Open closed containers (drawers, cabinets, fridge) before judging them empty.\n3. **Grab immediately**: When a required object is visible and reachable, take it right away before moving elsewhere.\n4. **Transform before placing**: If the task requires cleaning, heating, or cooling, perform the state change at the appropriate appliance before heading to the final destination.\n5. **Direct delivery**: Once holding the transformed (or untransformed) goal object, navigate straight to the target receptacle and place it.\n6. **Track progress**: Maintain an internal count of how many objects still need to be found and placed. Only stop searching when the count reaches zero.\n7. **Avoid loops**: Never repeat the same action more than twice in a row. If stuck, move to a different unexplored location.\n8. **Only choose admissible actions**: Always pick an action from the admissible action list. Do not invent actions.\n"
+    },
+    {
+      "end": 37,
+      "id": "frag_1272edd2f80c95ef",
+      "order": 37,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 37,
+      "text": "---\n"
+    },
+    {
+      "end": 39,
+      "id": "frag_222212614c89f265",
+      "order": 39,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 39,
+      "text": "## Common Mistakes to Avoid\n"
+    },
+    {
+      "end": 45,
+      "id": "frag_7ec9ada24e5d87f1",
+      "order": 41,
+      "requires": [
+        "frag_28bb66f1648dfbd6",
+        "frag_222212614c89f265"
+      ],
+      "role": "instruction",
+      "start": 41,
+      "text": "- **Revisiting searched locations**: Keep track of which surfaces/containers have been checked; do not re-examine them.\n- **Ignoring visible objects**: If the target object appears in the observation, pick it up immediately.\n- **Skipping state changes**: Do not place an object at the destination without first cleaning/heating/cooling it when required.\n- **Premature termination**: Do not stop the episode until all goal conditions are verified as met.\n- **Action loops**: Repeatedly toggling or examining the same object wastes steps. Move on to new locations instead.\n"
+    }
+  ],
+  "schema_version": 1,
+  "source_sha256": "01bd29e825b81715e7b592e135a9a9d6d0f812a5e84dcd56b51cc1075247f941"
+}

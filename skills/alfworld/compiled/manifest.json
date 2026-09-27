@@ -1,0 +1,27 @@
+{
+  "feature_schema": {
+    "features": {
+      "task_type": {
+        "description": "Household task type inferred from the initial visible goal; use unknown if the goal is ambiguous.",
+        "values": [
+          "pick_place",
+          "pick_two_place",
+          "examine_in_light",
+          "clean_place",
+          "heat_place",
+          "cool_place",
+          "unknown"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "c52cdeace2e99ecc007f10e62c4860bf67f71515266ad806e0d295d83bfb17ba",
+  "fragments_sha256": "e8a5e9f9727dfea4a3858d0b9557ea5947d5e6de7b1dcaa2e81bcc3bf746897a",
+  "generated_at": "2026-09-27T11:23:52.612303+00:00",
+  "ir_sha256": "3c6dcdf3eca984a78f2e9de852897d8d7eba68240332879e1504a199c85438bf",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "1",
+  "schema_version": 1,
+  "source_sha256": "01bd29e825b81715e7b592e135a9a9d6d0f812a5e84dcd56b51cc1075247f941",
+  "tree_sha256": "b3ab8aa775c42e6492bdf759ee4bc14c03d4828b973fa880e5ebc419c169aef5"
+}

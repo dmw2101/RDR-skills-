@@ -1,0 +1,165 @@
+{
+  "excluded": [
+    {
+      "end": 1,
+      "reason": "Title heading.",
+      "start": 1
+    },
+    {
+      "end": 3,
+      "reason": "Section heading.",
+      "start": 3
+    },
+    {
+      "end": 11,
+      "reason": "Horizontal separator.",
+      "start": 11
+    },
+    {
+      "end": 13,
+      "reason": "Section heading.",
+      "start": 13
+    },
+    {
+      "end": 16,
+      "reason": "Table header and delimiter.",
+      "start": 15
+    },
+    {
+      "end": 24,
+      "reason": "Horizontal separator.",
+      "start": 24
+    },
+    {
+      "end": 26,
+      "reason": "Section heading.",
+      "start": 26
+    },
+    {
+      "end": 37,
+      "reason": "Horizontal separator.",
+      "start": 37
+    },
+    {
+      "end": 39,
+      "reason": "Section heading.",
+      "start": 39
+    }
+  ],
+  "root": [
+    {
+      "end": 7,
+      "start": 4
+    },
+    {
+      "end": 9,
+      "start": 9
+    },
+    {
+      "end": 35,
+      "start": 28
+    },
+    {
+      "end": 45,
+      "start": 41
+    }
+  ],
+  "rules": [
+    {
+      "id": "pick_and_place_flow",
+      "source": [
+        {
+          "end": 17,
+          "start": 17
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "pick_place"
+        }
+      ]
+    },
+    {
+      "id": "pick_two_and_place_flow",
+      "source": [
+        {
+          "end": 18,
+          "start": 18
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "pick_two_place"
+        }
+      ]
+    },
+    {
+      "id": "examine_in_light_flow",
+      "source": [
+        {
+          "end": 19,
+          "start": 19
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "examine_in_light"
+        }
+      ]
+    },
+    {
+      "id": "clean_and_place_flow",
+      "source": [
+        {
+          "end": 20,
+          "start": 20
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ]
+    },
+    {
+      "id": "heat_and_place_flow",
+      "source": [
+        {
+          "end": 21,
+          "start": 21
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ]
+    },
+    {
+      "id": "cool_and_place_flow",
+      "source": [
+        {
+          "end": 22,
+          "start": 22
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ]
+    }
+  ]
+}

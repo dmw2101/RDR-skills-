@@ -1,0 +1,98 @@
+"""Evaluate typed skill predicates and derive conservative pre-execution cases."""
+
+from __future__ import annotations
+
+import re
+from typing import Any, Mapping
+
+from .skill_compiler import FeatureSchema
+
+
+class SkillConditionEvaluator:
+    def __init__(self, feature_schema: FeatureSchema) -> None:
+        self.feature_schema = feature_schema
+
+    def validate_case(self, case: Any, required_fields: set[str] | None = None) -> None:
+        if not isinstance(case, dict):
+            raise ValueError("a skill case must be a JSON object")
+        required = required_fields if required_fields is not None else set(self.feature_schema.features)
+        for field in required:
+            spec = self.feature_schema.features.get(field)
+            if spec is None:
+                raise ValueError(f"unknown case feature {field!r}")
+            if field not in case:
+                raise ValueError(f"missing required case feature {field!r}")
+            if not isinstance(case[field], str) or case[field] not in spec.values:
+                raise ValueError(f"invalid value for {field!r}; allowed: {spec.values}")
+
+    def evaluate(self, condition: Any, case: Any) -> bool:
+        if not isinstance(condition, dict) or set(condition) != {"field", "op", "value"}:
+            raise ValueError("invalid skill predicate")
+        field, op, value = condition["field"], condition["op"], condition["value"]
+        if not isinstance(field, str) or field not in self.feature_schema.features:
+            raise ValueError(f"unknown predicate feature {field!r}")
+        self.validate_case(case, {field})
+        allowed = self.feature_schema.features[field].values
+        if op == "eq" and isinstance(value, str) and value in allowed:
+            return case[field] == value
+        if op == "in" and isinstance(value, list) and value and all(
+            isinstance(item, str) and item in allowed for item in value
+        ):
+            return case[field] in value
+        raise ValueError(f"invalid predicate for {field!r}")
+
+
+def _alfworld_task_type(task: str) -> str:
+    cues = {
+        "examine_in_light": r"\b(examine|inspect)\b",
+        "clean_place": r"\b(clean|wash|washed)\b",
+        "heat_place": r"\b(heat|hot|warm)\b",
+        "cool_place": r"\b(cool|cold|chill)\b",
+        "pick_two_place": r"\b(two|2)\b",
+    }
+    matched = [name for name, pattern in cues.items() if re.search(pattern, task, re.I)]
+    if len(matched) == 1:
+        return matched[0]
+    if matched:
+        return "unknown"
+    return "pick_place" if re.search(r"\b(put|place|move)\b", task, re.I) else "unknown"
+
+
+def build_case(
+    skill_id: str, task: str, visible_inputs: Mapping[str, str] | None,
+    feature_schema: FeatureSchema,
+) -> dict[str, str]:
+    """Use only the task and explicitly visible pre-execution feature values.
+
+    Heuristics provide a convenient demo case. Pass an explicit feature value in
+    visible_inputs when the task wording is ambiguous or inputs need inspection.
+    """
+    if not isinstance(task, str):
+        raise ValueError("task must be text")
+    case = {
+        field: "unknown" for field, spec in feature_schema.features.items()
+        if "unknown" in spec.values
+    }
+    if skill_id == "alfworld":
+        case["task_type"] = _alfworld_task_type(task)
+    elif skill_id == "livemathematicianbench":
+        case["has_quantifier"] = (
+            "yes" if re.search(r"\b(all|every|each|exists|there is|some|any)\b", task, re.I)
+            else "no"
+        )
+    elif skill_id == "spreadsheetbench":
+        if re.search(r"\b(aggregate|aggregation|sort|group|filter|merge|transform|bulk)\b", task, re.I):
+            case["operation"] = "bulk_transform"
+        elif re.search(r"\b(cell|range|value)\b", task, re.I):
+            case["operation"] = "simple_cell_edit"
+        else:
+            case["operation"] = "other" if task.strip() else "unknown"
+        if re.search(r"\bpreserve\b.{0,25}\bformatting\b", task, re.I):
+            case["preserve_formatting"] = "yes"
+
+    for field, value in (visible_inputs or {}).items():
+        if field not in feature_schema.features:
+            raise ValueError(f"unknown visible feature {field!r}")
+        case[field] = value
+    SkillConditionEvaluator(feature_schema).validate_case(case)
+    return case

@@ -23,4 +23,29 @@ python -m unittest discover -s benchmarks -p test_preparation.py -v
 
 On Windows, `py -3.12` can replace `python`. The demo and tests are offline; benchmark preparation tests use fixtures, not downloaded datasets.
 
-See [the engine guide](docs/rdr-engine.md) for the three replaceable components, API, persistence format, and correspondence to `rdr.md`. Live LLM adapters, Markdown compilation, and skill execution are intentionally separate future integrations.
+See [the engine guide](docs/rdr-engine.md) for the three replaceable components, API, persistence format, and correspondence to `rdr.md`.
+
+## Compile and preview a base skill
+
+[The conversion plan](docs/base-skill-to-rdr-plan.md) is implemented through extraction, compilation, and rendering. Model extraction reads the whole skill and proposes source-referenced rules; inspect that JSON before compiling. Compilation and rendering are offline and do **not** call an oracle or Gemini. ALFWorld's `compiled/` directory contains the rule list shown in the first conversion example and its generated tree, so it can be previewed immediately.
+
+These are **PowerShell commands** (not Command Prompt commands). Run them from the repository root:
+
+```powershell
+Set-Location "C:\Users\user\Desktop\Ashwin-SOP\RDR-skills"
+py -3.12 -m pip install -e ".[skill-compiler]"
+py -3.12 -m rdr_engine.skill_tool render skills/alfworld --% --case {"task_type":"heat_place"} --show-path
+py -3.12 -m rdr_engine.skill_tool render skills/alfworld --task "Heat an apple and put it in the bowl"
+```
+
+In PowerShell, `--%` passes the JSON after it to Python literally. Without it, PowerShell may strip the required double quotes and cause a JSON parsing error. The `--task` form needs no JSON quoting.
+
+To regenerate the existing ALFWorld tree from its saved rule list, run `py -3.12 -m rdr_engine.skill_tool compile skills/alfworld --model-id gemini-3.8-flash --force`. For another skill, first set `GEMINI_API_KEY` (or replace the placeholder in `src/rdr_engine/skill_compiler.py`), then run:
+
+```powershell
+py -3.12 -m rdr_engine.skill_compiler skills/docvqa/initial.md --output skills/docvqa/compiled/ir.json
+py -3.12 -m rdr_engine.skill_tool compile skills/docvqa
+py -3.12 -m rdr_engine.skill_tool render skills/docvqa --% --case {}
+```
+
+`skill_compiler` prints JSON if `--output` is omitted and refuses to overwrite an existing file. The prompt is in `src/rdr_engine/prompts/skill_to_rules_system.md`; allowed task features are in `skills/feature_schemas.json`. `skill_tool compile` writes `fragments.json`, `tree.json`, and `manifest.json` alongside the reviewed `ir.json`; it refuses to replace existing artifacts without `--force`. `render --case` uses explicit observable feature values. `render --task` derives a conservative demo case from visible text; ambiguous cases should use `--case` instead. The engine still returns the last true node's local conclusion; the renderer composes all matched fragments into the Markdown shown to an agent. Benchmark execution and trace-driven updates are not connected yet.

@@ -1,0 +1,85 @@
+"""Compose the fragments selected by a classical RDR prediction path."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .engine import RDREngine
+from .skill_compiler import Fragment, FragmentCatalog, _table_rows
+from .types import EvaluationStep, Prediction
+
+
+@dataclass(frozen=True)
+class RenderedSkill:
+    markdown: str
+    selected_ids: tuple[str, ...]
+    path: tuple[EvaluationStep, ...]
+
+
+class SkillRenderer:
+    def render(
+        self, prediction: Prediction, engine: RDREngine, catalog: FragmentCatalog
+    ) -> RenderedSkill:
+        engine._check_prediction(prediction)
+        nodes = engine.nodes
+        by_id = {fragment.id: fragment for fragment in catalog.fragments}
+        active: set[str] = set()
+        for step in prediction.path:
+            if not step.matched:
+                continue
+            operation = nodes[step.node_id].conclusion
+            if not isinstance(operation, dict) or set(operation) != {"add", "remove"}:
+                raise ValueError(f"node {step.node_id} has invalid fragment operation")
+            for key in ("remove", "add"):
+                values = operation[key]
+                if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                    raise ValueError(f"node {step.node_id} has invalid {key} list")
+                for fragment_id in values:
+                    if fragment_id not in by_id:
+                        raise ValueError(f"node {step.node_id} refers to missing fragment {fragment_id}")
+                    if key == "remove":
+                        active.discard(fragment_id)
+                    else:
+                        active.add(fragment_id)
+
+        pending = list(active)
+        while pending:
+            fragment_id = pending.pop()
+            for required in by_id[fragment_id].requires:
+                if required not in by_id:
+                    raise ValueError(f"missing required fragment {required}")
+                if required not in active:
+                    active.add(required)
+                    pending.append(required)
+
+        selected = sorted((by_id[item] for item in active), key=lambda f: (f.order, f.end, f.id))
+        rows = _table_rows(catalog.skill_input.lines)
+        header_id_by_span = {
+            (fragment.start, fragment.end): fragment.id
+            for fragment in selected if fragment.role == "non_instruction"
+        }
+
+        def table_header(fragment: Fragment) -> str | None:
+            span = rows.get(fragment.start)
+            if span is not None:
+                return header_id_by_span.get(span)
+            if (fragment.start, fragment.end) in set(rows.values()):
+                return fragment.id
+            return None
+
+        pieces: list[str] = []
+        previous: Fragment | None = None
+        for fragment in selected:
+            if previous is not None:
+                same_table = (
+                    table_header(previous) is not None
+                    and table_header(previous) == table_header(fragment)
+                )
+                separator = "\n" if same_table or fragment.start == previous.end + 1 else "\n\n"
+                pieces.append(separator)
+            pieces.append(fragment.text.rstrip("\r\n"))
+            previous = fragment
+        markdown = "".join(pieces)
+        if markdown:
+            markdown += "\n"
+        return RenderedSkill(markdown, tuple(fragment.id for fragment in selected), prediction.path)

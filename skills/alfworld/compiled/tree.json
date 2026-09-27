@@ -1,0 +1,1221 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "conclusion": {
+        "add": [
+          "frag_04698c56e0d6ecbd",
+          "frag_f363140ead0d0ec5",
+          "frag_d9e47edae2290bfe",
+          "frag_7ec9ada24e5d87f1"
+        ],
+        "remove": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "false_child": null,
+      "id": 0,
+      "true_child": 1
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_9533b3bb4a2527d0"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "pick_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 33,
+      "id": 1,
+      "true_child": 2
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_05f976bcffc388ad"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "pick_two_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 18,
+      "id": 2,
+      "true_child": 3
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_b0c6fabcc4840ce7"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "examine_in_light"
+        }
+      ],
+      "evidence": [],
+      "false_child": 11,
+      "id": 3,
+      "true_child": 4
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 8,
+      "id": 4,
+      "true_child": 5
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 7,
+      "id": 5,
+      "true_child": 6
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 6,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 7,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 10,
+      "id": 8,
+      "true_child": 9
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 9,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 10,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 15,
+      "id": 11,
+      "true_child": 12
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 14,
+      "id": 12,
+      "true_child": 13
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 13,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 14,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 17,
+      "id": 15,
+      "true_child": 16
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 16,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 17,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_b0c6fabcc4840ce7"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "examine_in_light"
+        }
+      ],
+      "evidence": [],
+      "false_child": 26,
+      "id": 18,
+      "true_child": 19
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 23,
+      "id": 19,
+      "true_child": 20
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 22,
+      "id": 20,
+      "true_child": 21
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 21,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 22,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 25,
+      "id": 23,
+      "true_child": 24
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 24,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 25,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 30,
+      "id": 26,
+      "true_child": 27
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 29,
+      "id": 27,
+      "true_child": 28
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 28,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 29,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 32,
+      "id": 30,
+      "true_child": 31
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 31,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 32,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_05f976bcffc388ad"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "pick_two_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 49,
+      "id": 33,
+      "true_child": 34
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_b0c6fabcc4840ce7"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "examine_in_light"
+        }
+      ],
+      "evidence": [],
+      "false_child": 42,
+      "id": 34,
+      "true_child": 35
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 39,
+      "id": 35,
+      "true_child": 36
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 38,
+      "id": 36,
+      "true_child": 37
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 37,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 38,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 41,
+      "id": 39,
+      "true_child": 40
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 40,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 41,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 46,
+      "id": 42,
+      "true_child": 43
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 45,
+      "id": 43,
+      "true_child": 44
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 44,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 45,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 48,
+      "id": 46,
+      "true_child": 47
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 47,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 48,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_b0c6fabcc4840ce7"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "examine_in_light"
+        }
+      ],
+      "evidence": [],
+      "false_child": 57,
+      "id": 49,
+      "true_child": 50
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 54,
+      "id": 50,
+      "true_child": 51
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 53,
+      "id": 51,
+      "true_child": 52
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 52,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 53,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 56,
+      "id": 54,
+      "true_child": 55
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 55,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 56,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_49ad5ac8cb3cfd7f"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 61,
+      "id": 57,
+      "true_child": 58
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 60,
+      "id": 58,
+      "true_child": 59
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 59,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 60,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_aa0ed87e75aa77af"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": 63,
+      "id": 61,
+      "true_child": 62
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 62,
+      "true_child": null
+    },
+    {
+      "conclusion": {
+        "add": [
+          "frag_cb6ae4c9d6a0f130"
+        ],
+        "remove": []
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "eq",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "false_child": null,
+      "id": 63,
+      "true_child": null
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 1
+}

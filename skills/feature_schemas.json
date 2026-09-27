@@ -1,0 +1,30 @@
+{
+  "spreadsheetbench": {
+    "operation": {
+      "description": "Operation requested in the visible task instruction before solving it.",
+      "values": ["bulk_transform", "simple_cell_edit", "other", "unknown"]
+    },
+    "has_formulas": {
+      "description": "Whether formulas are present in the input workbook, if the workbook is available for inspection before solving.",
+      "values": ["yes", "no", "unknown"]
+    },
+    "preserve_formatting": {
+      "description": "Whether the visible task requires existing formatting to be preserved.",
+      "values": ["yes", "no", "unknown"]
+    }
+  },
+  "alfworld": {
+    "task_type": {
+      "description": "Household task type inferred from the initial visible goal; use unknown if the goal is ambiguous.",
+      "values": ["pick_place", "pick_two_place", "examine_in_light", "clean_place", "heat_place", "cool_place", "unknown"]
+    }
+  },
+  "docvqa": {},
+  "livemathematicianbench": {
+    "has_quantifier": {
+      "description": "Whether the visible question or options include a quantifier such as every or exists.",
+      "values": ["yes", "no", "unknown"]
+    }
+  },
+  "searchqa": {}
+}
