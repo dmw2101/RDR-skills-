@@ -40,7 +40,48 @@ py -3.12 -m rdr_engine.skill_tool render skills/alfworld --task "Heat an apple a
 
 In PowerShell, `--%` passes the JSON after it to Python literally. Without it, PowerShell may strip the required double quotes and cause a JSON parsing error. The `--task` form needs no JSON quoting.
 
-To regenerate the existing ALFWorld tree from its saved rule list, run `py -3.12 -m rdr_engine.skill_tool compile skills/alfworld --model-id gemini-3.8-flash --force`. For another skill, first set `GEMINI_API_KEY` (or replace the placeholder in `src/rdr_engine/skill_compiler.py`), then run:
+To regenerate the existing ALFWorld tree from its saved rule list, run `py -3.12 -m rdr_engine.skill_tool compile skills/alfworld --model-id gemini-3.8-flash --force`.
+
+### Create an RDR tree for a new skill
+
+Run these from the repository root in PowerShell. Put the source Markdown at
+`skills/my_skill/initial.md`, then add a `my_skill` entry to
+`skills/feature_schemas.json`. Use `{}` when you have no reliable task feature
+yet; otherwise list only features and values observable before the agent acts.
+Create the folder and copy the source skill first (replace the source path):
+
+```powershell
+New-Item -ItemType Directory -Force skills/my_skill
+Copy-Item "C:\path\to\my-skill.md" skills/my_skill/initial.md
+```
+
+Add a feature schema entry like this inside `skills/feature_schemas.json`:
+
+```json
+"my_skill": {
+  "task_type": {
+    "description": "Task type stated in the user's request.",
+    "values": ["type_a", "type_b", "unknown"]
+  }
+}
+```
+
+Install the compiler extra once, and set `GEMINI_API_KEY` in the shell. The
+first command asks Gemini to propose a source-referenced rule list and saves it
+as `ir.json`. Review the proposed ranges and conditions before compiling:
+
+```powershell
+py -3.12 -m rdr_engine.skill_compiler skills/my_skill/initial.md --features skills/feature_schemas.json --output skills/my_skill/compiled/ir.json
+py -3.12 -m rdr_engine.skill_tool compile skills/my_skill --model-id gemini-3.8-flash
+py -3.12 -m rdr_engine.skill_tool render skills/my_skill --% --case {"task_type":"type_a"} --show-path
+```
+
+The compile command is offline: it reads the reviewed `ir.json` and writes
+`fragments.json`, `tree.json`, and `manifest.json` alongside it. The render
+command traverses that tree and prints the task-specific Markdown skill. Use
+`--force` on `compile` only when intentionally rebuilding existing artifacts.
+
+For an already-present skill such as DocVQA, the same extraction command is:
 
 ```powershell
 py -3.12 -m rdr_engine.skill_compiler skills/docvqa/initial.md --output skills/docvqa/compiled/ir.json
