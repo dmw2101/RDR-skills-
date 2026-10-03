@@ -21,7 +21,7 @@ from .types import ConditionEvaluator
 
 GEMINI_API_KEY = "REPLACE_WITH_YOUR_GEMINI_API_KEY"
 DEFAULT_MODEL = "gemini-3.8-flash"
-PROMPT_VERSION = "1"
+PROMPT_VERSION = "2"
 ARTIFACT_VERSION = 1
 
 
@@ -42,15 +42,15 @@ class LineRange(StrictModel):
 
 class Predicate(StrictModel):
     field: str = Field(min_length=1, description="Name from the supplied feature schema.")
-    op: Literal["eq", "in"]
+    op: Literal["eq", "in", "contains"]
     value: str | list[str] = Field(
-        description="One allowed value for eq, or a nonempty list for in."
+        description="One allowed value for eq/contains, or a nonempty list for in."
     )
 
     @model_validator(mode="after")
     def check_value_shape(self) -> Predicate:
-        if self.op == "eq" and (not isinstance(self.value, str) or not self.value):
-            raise ValueError("eq requires one nonempty string value")
+        if self.op in ("eq", "contains") and (not isinstance(self.value, str) or not self.value):
+            raise ValueError(f"{self.op} requires one nonempty string value")
         if self.op == "in":
             if not isinstance(self.value, list) or not self.value:
                 raise ValueError("in requires a nonempty list of values")
@@ -80,6 +80,7 @@ class SkillIR(StrictModel):
 class FeatureSpec(StrictModel):
     description: str = Field(min_length=1)
     values: list[str] = Field(min_length=1)
+    multiple: bool = Field(default=False, description="Whether the case supplies a list of selected values.")
 
     @model_validator(mode="after")
     def check_values(self) -> FeatureSpec:
@@ -240,6 +241,13 @@ class SkillIRValidator:
                         "unknown_feature", f"rule {rule.id!r} uses unknown feature {predicate.field!r}"
                     ))
                     continue
+                if (predicate.op == "contains") != feature.multiple:
+                    expected = "contains" if feature.multiple else "eq or in"
+                    issues.append(ValidationIssue(
+                        "invalid_feature_operator",
+                        f"rule {rule.id!r} must use {expected} for {predicate.field!r}",
+                    ))
+                    continue
                 values = {predicate.value} if isinstance(predicate.value, str) else set(predicate.value)
                 invalid = values - set(feature.values)
                 if invalid:
@@ -248,6 +256,9 @@ class SkillIRValidator:
                         f"rule {rule.id!r} uses {predicate.field} value(s) {sorted(invalid)!r}; "
                         f"allowed: {feature.values!r}",
                     ))
+                if feature.multiple:
+                    # Different membership requirements may all hold in one case.
+                    continue
                 if predicate.field in possible_by_field:
                     possible_by_field[predicate.field] &= values
                     if not possible_by_field[predicate.field]:

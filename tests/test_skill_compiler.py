@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 import unittest
+from itertools import product
 from pathlib import Path
 
 from rdr_engine.skill_cases import SkillConditionEvaluator
@@ -36,7 +37,7 @@ class SkillCompilerTests(unittest.TestCase):
         tree = SkillTreeCompiler().compile(self.ir, catalog, SkillConditionEvaluator(self.schema))
         self.assertEqual(len(tree.nodes), 64)
         self.assertEqual(tree.nodes[0].conclusion["add"], catalog.ids_for(self.ir.root))
-        heat = tree.predict({"task_type": "heat_place"})
+        heat = tree.predict({"task_type": ["heat_place"]})
         self.assertEqual(sum(step.matched for step in heat.path), 2)
         self.assertEqual(heat.conclusion["add"], catalog.ids_for(self.ir.rules[4].source))
 
@@ -49,7 +50,7 @@ class SkillCompilerTests(unittest.TestCase):
             shutil.copyfile(SKILL / "compiled" / "ir.json", ir_path)
             built, _ = SkillBundle.build(directory, ir_path=ir_path, feature_schema=self.schema)
             loaded, _ = SkillBundle.load(directory)
-            case = {"task_type": "heat_place"}
+            case = {"task_type": ["heat_place"]}
             self.assertEqual(built.predict(case).path, loaded.predict(case).path)
             with (directory / "compiled" / "fragments.json").open("a") as stream:
                 stream.write(" ")
@@ -62,6 +63,15 @@ class SkillCompilerTests(unittest.TestCase):
         too_many = self.ir.model_copy(update={"rules": self.ir.rules + [extra]})
         with self.assertRaisesRegex(ValueError, "at most 6"):
             SkillTreeCompiler().compile(too_many, catalog, SkillConditionEvaluator(self.schema))
+
+    def test_all_membership_combinations_follow_the_expected_path(self) -> None:
+        catalog = FragmentCatalog.from_ir(self.source, self.ir)
+        tree = SkillTreeCompiler().compile(self.ir, catalog, SkillConditionEvaluator(self.schema))
+        for matches in product((False, True), repeat=len(self.ir.rules)):
+            labels = [rule.when[0].value for rule, matched in zip(self.ir.rules, matches) if matched]
+            with self.subTest(labels=labels):
+                prediction = tree.predict({"task_type": labels})
+                self.assertEqual([step.matched for step in prediction.path], [True, *matches])
 
     def test_searchqa_placeholder_is_metadata(self) -> None:
         source = SkillInput.from_markdown(ROOT / "skills" / "searchqa" / "initial.md")

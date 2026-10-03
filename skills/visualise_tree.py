@@ -10,7 +10,7 @@ whose entries carry ``id``, ``conditions``, ``conclusion``, ``evidence``,
 ``true_child`` and ``false_child``). Conditions and conclusions are drawn as
 generic JSON; the skill-compiler forms get extra treatment:
 
-* ``{"field", "op": "eq" | "in", "value"}`` conditions are pretty-printed and
+* ``{"field", "op": "eq" | "in" | "contains", "value"}`` conditions are pretty-printed and
   used for a conservative static reachability check. Branches whose path
   constraints contradict each other are greyed out (or hidden).
 * ``{"add": [...], "remove": [...]}`` conclusions are resolved against a
@@ -123,11 +123,11 @@ SCALARS = (str, int, float, bool, type(None))
 
 
 def is_predicate(condition: Any) -> bool:
-    """True for the skill compiler's {field, op: eq|in, value} predicates."""
+    """True for the skill compiler's scalar and membership predicates."""
     if not (isinstance(condition, dict) and isinstance(condition.get("field"), str) and "value" in condition):
         return False
     value = condition["value"]
-    if condition.get("op") == "eq":
+    if condition.get("op") in ("eq", "contains"):
         return isinstance(value, SCALARS)
     if condition.get("op") == "in":
         return isinstance(value, list) and all(isinstance(item, SCALARS) for item in value)
@@ -139,6 +139,8 @@ def format_condition(condition: Any) -> str:
         op, value = condition["op"], condition["value"]
         if op == "eq":
             return f"{condition['field']} = {value}"
+        if op == "contains":
+            return f"{condition['field']} contains {value}"
         return f"{condition['field']} ∈ {{{', '.join(map(str, value))}}}"
     if isinstance(condition, str):
         return condition
@@ -164,8 +166,10 @@ def snippet(text: str, limit: int = 60) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def show_values(name: str, values: frozenset, negate: bool = False) -> str:
+def show_values(name: str, values: frozenset, negate: bool = False, multiple: bool = False) -> str:
     shown = sorted(map(str, values))
+    if multiple:
+        return f"{name} {'does not contain' if negate else 'contains'} {', '.join(shown)}"
     if len(shown) == 1:
         return f"{name} {'≠' if negate else '='} {shown[0]}"
     return f"{name} {'∉' if negate else '∈'} {{{', '.join(shown)}}}"
@@ -177,6 +181,7 @@ class FieldConstraint:
 
     requires: tuple[tuple[int, frozenset], ...] = ()
     excludes: tuple[tuple[int, frozenset], ...] = ()
+    multiple: bool = False
 
     def candidates(self, domain: list[Any] | None) -> set | None:
         base = None if domain is None else set(domain)
@@ -189,9 +194,18 @@ class FieldConstraint:
         return base
 
     def describe(self, name: str) -> str:
-        parts = [f"#{n} requires {show_values(name, v)}" for n, v in self.requires]
-        parts += [f"#{n} requires {show_values(name, v, negate=True)}" for n, v in self.excludes]
-        return "; ".join(parts) + ", which no value satisfies"
+        parts = [f"#{n} requires {show_values(name, v, multiple=self.multiple)}" for n, v in self.requires]
+        parts += [f"#{n} requires {show_values(name, v, negate=True, multiple=self.multiple)}" for n, v in self.excludes]
+        return "; ".join(parts) + (", which no list satisfies" if self.multiple else ", which no value satisfies")
+
+    def impossible(self, domain: list[Any] | None) -> bool:
+        if self.multiple:
+            required = set().union(*(values for _, values in self.requires))
+            excluded = set().union(*(values for _, values in self.excludes))
+            # All positive memberships may coexist. An empty list is valid too.
+            return bool(required & excluded) or (domain is not None and not required <= set(domain))
+        remaining = self.candidates(domain)
+        return remaining is not None and not remaining
 
 
 Constraints = dict[str, FieldConstraint]
@@ -199,20 +213,19 @@ Constraints = dict[str, FieldConstraint]
 
 def apply(constraints: Constraints, condition: dict[str, Any], node_id: int, negate: bool) -> Constraints:
     name = condition["field"]
-    values = frozenset([condition["value"]] if condition["op"] == "eq" else condition["value"])
-    current = constraints.get(name, FieldConstraint())
+    values = frozenset([condition["value"]] if condition["op"] in ("eq", "contains") else condition["value"])
+    current = constraints.get(name, FieldConstraint(multiple=condition["op"] == "contains"))
     if negate:
-        updated = FieldConstraint(current.requires, current.excludes + ((node_id, values),))
+        updated = FieldConstraint(current.requires, current.excludes + ((node_id, values),), current.multiple)
     else:
-        updated = FieldConstraint(current.requires + ((node_id, values),), current.excludes)
+        updated = FieldConstraint(current.requires + ((node_id, values),), current.excludes, current.multiple)
     return {**constraints, name: updated}
 
 
 def conflict(constraints: Constraints, domains: dict[str, list[Any]]) -> str | None:
     """Describe the first unsatisfiable field, or None if all are satisfiable."""
     for name, constraint in constraints.items():
-        remaining = constraint.candidates(domains.get(name))
-        if remaining is not None and not remaining:
+        if constraint.impossible(domains.get(name)):
             return constraint.describe(name)
     return None
 

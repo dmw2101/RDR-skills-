@@ -8,6 +8,9 @@ from typing import Any, Mapping
 from .skill_compiler import FeatureSchema
 
 
+FeatureValue = str | list[str]
+
+
 class SkillConditionEvaluator:
     def __init__(self, feature_schema: FeatureSchema) -> None:
         self.feature_schema = feature_schema
@@ -22,7 +25,15 @@ class SkillConditionEvaluator:
                 raise ValueError(f"unknown case feature {field!r}")
             if field not in case:
                 raise ValueError(f"missing required case feature {field!r}")
-            if not isinstance(case[field], str) or case[field] not in spec.values:
+            value = case[field]
+            if spec.multiple:
+                if not isinstance(value, list) or any(
+                    not isinstance(item, str) or item not in spec.values for item in value
+                ):
+                    raise ValueError(f"invalid value for {field!r}; expected a list from {spec.values}")
+                if len(value) != len(set(value)):
+                    raise ValueError(f"duplicate values for {field!r}")
+            elif not isinstance(value, str) or value not in spec.values:
                 raise ValueError(f"invalid value for {field!r}; allowed: {spec.values}")
 
     def evaluate(self, condition: Any, case: Any) -> bool:
@@ -32,7 +43,12 @@ class SkillConditionEvaluator:
         if not isinstance(field, str) or field not in self.feature_schema.features:
             raise ValueError(f"unknown predicate feature {field!r}")
         self.validate_case(case, {field})
-        allowed = self.feature_schema.features[field].values
+        spec = self.feature_schema.features[field]
+        allowed = spec.values
+        if spec.multiple:
+            if op == "contains" and isinstance(value, str) and value in allowed:
+                return value in case[field]
+            raise ValueError(f"invalid predicate for {field!r}; use contains for a multiple-value feature")
         if op == "eq" and isinstance(value, str) and value in allowed:
             return case[field] == value
         if op == "in" and isinstance(value, list) and value and all(
@@ -42,7 +58,7 @@ class SkillConditionEvaluator:
         raise ValueError(f"invalid predicate for {field!r}")
 
 
-def _alfworld_task_type(task: str) -> str:
+def _alfworld_task_types(task: str) -> list[str]:
     cues = {
         "examine_in_light": r"\b(examine|inspect)\b",
         "clean_place": r"\b(clean|wash|washed)\b",
@@ -51,17 +67,15 @@ def _alfworld_task_type(task: str) -> str:
         "pick_two_place": r"\b(two|2)\b",
     }
     matched = [name for name, pattern in cues.items() if re.search(pattern, task, re.I)]
-    if len(matched) == 1:
-        return matched[0]
     if matched:
-        return "unknown"
-    return "pick_place" if re.search(r"\b(put|place|move)\b", task, re.I) else "unknown"
+        return matched
+    return ["pick_place"] if re.search(r"\b(put|place|move)\b", task, re.I) else []
 
 
 def build_case(
-    skill_id: str, task: str, visible_inputs: Mapping[str, str] | None,
+    skill_id: str, task: str, visible_inputs: Mapping[str, FeatureValue] | None,
     feature_schema: FeatureSchema,
-) -> dict[str, str]:
+) -> dict[str, FeatureValue]:
     """Use only the task and explicitly visible pre-execution feature values.
 
     Heuristics provide a convenient demo case. Pass an explicit feature value in
@@ -69,12 +83,13 @@ def build_case(
     """
     if not isinstance(task, str):
         raise ValueError("task must be text")
-    case = {
-        field: "unknown" for field, spec in feature_schema.features.items()
-        if "unknown" in spec.values
+    case: dict[str, FeatureValue] = {
+        field: [] if spec.multiple else "unknown"
+        for field, spec in feature_schema.features.items()
+        if spec.multiple or "unknown" in spec.values
     }
     if skill_id == "alfworld":
-        case["task_type"] = _alfworld_task_type(task)
+        case["task_type"] = _alfworld_task_types(task)
     elif skill_id == "livemathematicianbench":
         case["has_quantifier"] = (
             "yes" if re.search(r"\b(all|every|each|exists|there is|some|any)\b", task, re.I)
@@ -89,6 +104,14 @@ def build_case(
             case["operation"] = "other" if task.strip() else "unknown"
         if re.search(r"\bpreserve\b.{0,25}\bformatting\b", task, re.I):
             case["preserve_formatting"] = "yes"
+
+    # Older bundles omitted `multiple` and still expect one scalar value.
+    for field, value in list(case.items()):
+        spec = feature_schema.features[field]
+        if spec.multiple and isinstance(value, str):
+            case[field] = [] if value == "unknown" else [value]
+        elif not spec.multiple and isinstance(value, list):
+            case[field] = value[0] if len(value) == 1 else "unknown"
 
     for field, value in (visible_inputs or {}).items():
         if field not in feature_schema.features:

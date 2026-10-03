@@ -2,7 +2,8 @@
   "feature_schema": {
     "features": {
       "task_type": {
-        "description": "Household task type inferred from the initial visible goal; use unknown if the goal is ambiguous.",
+        "description": "All household goal categories recognized in the visible request. Categories such as heat_place already include picking and placement; do not add plain pick_place for those steps. Use an empty list if no category is recognized.",
+        "multiple": true,
         "values": [
           "pick_place",
           "pick_two_place",
@@ -15,13 +16,13 @@
       }
     }
   },
-  "feature_schema_sha256": "c52cdeace2e99ecc007f10e62c4860bf67f71515266ad806e0d295d83bfb17ba",
+  "feature_schema_sha256": "100aa34ce38cb70987fcc03baba30bd75214ce9acb077e2848bf4368a7ca56e6",
   "fragments_sha256": "e8a5e9f9727dfea4a3858d0b9557ea5947d5e6de7b1dcaa2e81bcc3bf746897a",
-  "generated_at": "2026-09-27T11:23:52.612303+00:00",
-  "ir_sha256": "3c6dcdf3eca984a78f2e9de852897d8d7eba68240332879e1504a199c85438bf",
+  "generated_at": "2026-10-02T19:50:02.479655+00:00",
+  "ir_sha256": "814fe6a29d98a13c442a79136574a3642fa2871d86cfc49043137ab048f8afaf",
   "model_id": "gemini-3.8-flash",
-  "prompt_version": "1",
+  "prompt_version": "2",
   "schema_version": 1,
   "source_sha256": "01bd29e825b81715e7b592e135a9a9d6d0f812a5e84dcd56b51cc1075247f941",
-  "tree_sha256": "b3ab8aa775c42e6492bdf759ee4bc14c03d4828b973fa880e5ebc419c169aef5"
+  "tree_sha256": "8e4024842fc0326261b943d419d3b99962ca4eaa1043981d5b54cee94bc2502d"
 }

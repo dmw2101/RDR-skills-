@@ -76,7 +76,7 @@
       "when": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "pick_place"
         }
       ]
@@ -92,7 +92,7 @@
       "when": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "pick_two_place"
         }
       ]
@@ -108,7 +108,7 @@
       "when": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "examine_in_light"
         }
       ]
@@ -124,7 +124,7 @@
       "when": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ]
@@ -140,7 +140,7 @@
       "when": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ]
@@ -156,7 +156,7 @@
       "when": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ]

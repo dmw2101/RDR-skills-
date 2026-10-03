@@ -27,7 +27,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "pick_place"
         }
       ],
@@ -46,7 +46,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "pick_two_place"
         }
       ],
@@ -65,7 +65,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "examine_in_light"
         }
       ],
@@ -84,7 +84,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -103,7 +103,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -122,7 +122,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -141,7 +141,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -160,7 +160,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -179,7 +179,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -198,7 +198,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -217,7 +217,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -236,7 +236,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -255,7 +255,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -274,7 +274,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -293,7 +293,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -312,7 +312,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -331,7 +331,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -350,7 +350,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "examine_in_light"
         }
       ],
@@ -369,7 +369,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -388,7 +388,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -407,7 +407,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -426,7 +426,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -445,7 +445,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -464,7 +464,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -483,7 +483,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -502,7 +502,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -521,7 +521,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -540,7 +540,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -559,7 +559,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -578,7 +578,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -597,7 +597,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -616,7 +616,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -635,7 +635,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "pick_two_place"
         }
       ],
@@ -654,7 +654,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "examine_in_light"
         }
       ],
@@ -673,7 +673,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -692,7 +692,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -711,7 +711,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -730,7 +730,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -749,7 +749,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -768,7 +768,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -787,7 +787,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -806,7 +806,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -825,7 +825,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -844,7 +844,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -863,7 +863,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -882,7 +882,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -901,7 +901,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -920,7 +920,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -939,7 +939,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "examine_in_light"
         }
       ],
@@ -958,7 +958,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -977,7 +977,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -996,7 +996,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -1015,7 +1015,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -1034,7 +1034,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -1053,7 +1053,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -1072,7 +1072,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -1091,7 +1091,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "clean_place"
         }
       ],
@@ -1110,7 +1110,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -1129,7 +1129,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -1148,7 +1148,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -1167,7 +1167,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "heat_place"
         }
       ],
@@ -1186,7 +1186,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],
@@ -1205,7 +1205,7 @@
       "conditions": [
         {
           "field": "task_type",
-          "op": "eq",
+          "op": "contains",
           "value": "cool_place"
         }
       ],

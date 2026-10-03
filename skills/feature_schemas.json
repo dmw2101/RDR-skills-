@@ -15,7 +15,8 @@
   },
   "alfworld": {
     "task_type": {
-      "description": "Household task type inferred from the initial visible goal; use unknown if the goal is ambiguous.",
+      "description": "All household goal categories recognized in the visible request. Categories such as heat_place already include picking and placement; do not add plain pick_place for those steps. Use an empty list if no category is recognized.",
+      "multiple": true,
       "values": ["pick_place", "pick_two_place", "examine_in_light", "clean_place", "heat_place", "cool_place", "unknown"]
     }
   },
