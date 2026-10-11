@@ -1,0 +1,305 @@
+{
+  "root": [
+    {
+      "start": 11,
+      "end": 11
+    },
+    {
+      "start": 298,
+      "end": 307
+    },
+    {
+      "start": 311,
+      "end": 314
+    }
+  ],
+  "rules": [
+    {
+      "id": "extract_content",
+      "when": [
+        {
+          "field": "operation",
+          "op": "eq",
+          "value": "extract_content"
+        }
+      ],
+      "source": [
+        {
+          "start": 15,
+          "end": 26
+        },
+        {
+          "start": 56,
+          "end": 64
+        },
+        {
+          "start": 81,
+          "end": 89
+        },
+        {
+          "start": 91,
+          "end": 100
+        },
+        {
+          "start": 102,
+          "end": 119
+        },
+        {
+          "start": 191,
+          "end": 201
+        },
+        {
+          "start": 271,
+          "end": 277
+        }
+      ]
+    },
+    {
+      "id": "combine_or_split",
+      "when": [
+        {
+          "field": "operation",
+          "op": "eq",
+          "value": "combine_or_split"
+        }
+      ],
+      "source": [
+        {
+          "start": 32,
+          "end": 44
+        },
+        {
+          "start": 46,
+          "end": 54
+        }
+      ]
+    },
+    {
+      "id": "rotate_pages",
+      "when": [
+        {
+          "field": "operation",
+          "op": "eq",
+          "value": "rotate_pages"
+        }
+      ],
+      "source": [
+        {
+          "start": 66,
+          "end": 77
+        }
+      ]
+    },
+    {
+      "id": "create_or_watermark",
+      "when": [
+        {
+          "field": "operation",
+          "op": "eq",
+          "value": "create_or_watermark"
+        }
+      ],
+      "source": [
+        {
+          "start": 123,
+          "end": 140
+        },
+        {
+          "start": 142,
+          "end": 167
+        },
+        {
+          "start": 169,
+          "end": 187
+        },
+        {
+          "start": 252,
+          "end": 269
+        }
+      ]
+    },
+    {
+      "id": "qpdf_commands",
+      "when": [
+        {
+          "field": "operation",
+          "op": "in",
+          "value": [
+            "combine_or_split",
+            "rotate_pages",
+            "password_security"
+          ]
+        }
+      ],
+      "source": [
+        {
+          "start": 203,
+          "end": 217
+        }
+      ]
+    },
+    {
+      "id": "pdftk_commands",
+      "when": [
+        {
+          "field": "operation",
+          "op": "in",
+          "value": [
+            "combine_or_split",
+            "rotate_pages"
+          ]
+        }
+      ],
+      "source": [
+        {
+          "start": 219,
+          "end": 229
+        }
+      ]
+    },
+    {
+      "id": "scanned_image_ocr",
+      "when": [
+        {
+          "field": "source_kind",
+          "op": "eq",
+          "value": "scanned_image"
+        }
+      ],
+      "source": [
+        {
+          "start": 233,
+          "end": 250
+        }
+      ]
+    },
+    {
+      "id": "password_security",
+      "when": [
+        {
+          "field": "operation",
+          "op": "eq",
+          "value": "password_security"
+        }
+      ],
+      "source": [
+        {
+          "start": 279,
+          "end": 294
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "start": 1,
+      "end": 5,
+      "reason": "Front matter metadata and license terms."
+    },
+    {
+      "start": 6,
+      "end": 10,
+      "reason": "Title, section heading, and blank lines."
+    },
+    {
+      "start": 12,
+      "end": 14,
+      "reason": "Section heading and blank lines."
+    },
+    {
+      "start": 27,
+      "end": 31,
+      "reason": "Section headings and blank lines."
+    },
+    {
+      "start": 45,
+      "end": 45,
+      "reason": "Blank line."
+    },
+    {
+      "start": 55,
+      "end": 55,
+      "reason": "Blank line."
+    },
+    {
+      "start": 65,
+      "end": 65,
+      "reason": "Blank line."
+    },
+    {
+      "start": 78,
+      "end": 80,
+      "reason": "Section heading and blank lines."
+    },
+    {
+      "start": 90,
+      "end": 90,
+      "reason": "Blank line."
+    },
+    {
+      "start": 101,
+      "end": 101,
+      "reason": "Blank line."
+    },
+    {
+      "start": 120,
+      "end": 122,
+      "reason": "Section heading and blank lines."
+    },
+    {
+      "start": 141,
+      "end": 141,
+      "reason": "Blank line."
+    },
+    {
+      "start": 168,
+      "end": 168,
+      "reason": "Blank line."
+    },
+    {
+      "start": 188,
+      "end": 190,
+      "reason": "Section heading and blank lines."
+    },
+    {
+      "start": 202,
+      "end": 202,
+      "reason": "Blank line."
+    },
+    {
+      "start": 218,
+      "end": 218,
+      "reason": "Blank line."
+    },
+    {
+      "start": 230,
+      "end": 232,
+      "reason": "Section heading and blank lines."
+    },
+    {
+      "start": 251,
+      "end": 251,
+      "reason": "Blank line."
+    },
+    {
+      "start": 270,
+      "end": 270,
+      "reason": "Blank line."
+    },
+    {
+      "start": 278,
+      "end": 278,
+      "reason": "Blank line."
+    },
+    {
+      "start": 295,
+      "end": 297,
+      "reason": "Section heading and blank lines."
+    },
+    {
+      "start": 308,
+      "end": 310,
+      "reason": "Section heading and blank lines."
+    }
+  ]
+}

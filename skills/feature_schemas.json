@@ -21,6 +21,17 @@
     }
   },
   "docvqa": {},
+  "pdf": {
+    "operation": {
+      "description": "All operations requested for this PDF task. Choose extract_content for text, tables, images, or OCR; combine_or_split for merging or splitting files; rotate_pages for rotation; create_or_watermark for creating or watermarking; fill_forms for form completion; password_security for encryption or decryption. Multiple categories may apply; use an empty list if none is recognized.",
+      "multiple": true,
+      "values": ["extract_content", "combine_or_split", "rotate_pages", "create_or_watermark", "fill_forms", "password_security", "other", "unknown"]
+    },
+    "source_kind": {
+      "description": "Known content type of the input PDF, relevant to extraction: text-based, scanned/image-only, or mixed. Use unknown if not known before acting.",
+      "values": ["text_based", "scanned_image", "mixed", "unknown"]
+    }
+  },
   "livemathematicianbench": {
     "has_quantifier": {
       "description": "Whether the visible question or options include a quantifier such as every or exists.",

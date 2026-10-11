@@ -35,7 +35,7 @@ Illustrative model output (before fragment extraction):
 }
 ```
 
-Line ranges above are illustrative, not the real spreadsheet skill's line numbers. The `when` clause is a conjunction over **observable task features**. For version 1, allow only typed `eq` and `in` predicates on an approved feature schema. A fragment without a defensible condition stays in the root if generally applicable; otherwise flag it for human review. Never silently discard instructions.
+Line ranges above are illustrative, not the real spreadsheet skill's line numbers. The `when` clause is a conjunction over **observable task features**. Single-value features support `eq` and `in`. `FeatureSpec.multiple` defaults to false; when true, cases hold lists and predicates use `contains`. Different memberships of one feature may hold together. ALFWorld and PDF examples now use multiple labels, while older single-value schemas remain supported. A fragment without a defensible condition stays in the root if generally applicable; otherwise flag it for human review. Never silently discard instructions.
 
 ## Implementation steps
 

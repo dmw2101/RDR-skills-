@@ -105,6 +105,9 @@ def build_case(
         if re.search(r"\bpreserve\b.{0,25}\bformatting\b", task, re.I):
             case["preserve_formatting"] = "yes"
 
+    if skill_id == "pdf":
+        case.update(_pdf_case(task))
+
     # Older bundles omitted `multiple` and still expect one scalar value.
     for field, value in list(case.items()):
         spec = feature_schema.features[field]
@@ -119,3 +122,37 @@ def build_case(
         case[field] = value
     SkillConditionEvaluator(feature_schema).validate_case(case)
     return case
+
+
+def _pdf_case(task: str) -> dict[str, FeatureValue]:
+    """Infer all matching PDF operations and explicit source-type cues."""
+    cues = {
+        "extract_content": (
+            r"\b(extract(?:ing|ion)?|read(?:ing)?|ocr)\b"
+            r"|\bmake\b.{0,40}\bsearchable\b"
+        ),
+        "combine_or_split": r"\b(merg(?:e|ing)|combin(?:e|ing)|split(?:ting)?|separat(?:e|ing))\b",
+        "rotate_pages": r"\b(rotat(?:e|ing|ion)|reorient)\b",
+        "create_or_watermark": r"\b(creat(?:e|ing)|generat(?:e|ing)|watermark(?:s|ing)?)\b",
+        "fill_forms": r"\b(fill(?:ing)?|complete)\b.{0,40}\b(forms?|fields?)\b",
+        "password_security": (
+            r"\b(encrypt(?:ing|ion)?|decrypt(?:ing|ion)?|unlock)\b"
+            r"|\bpassword[- ]protect\b"
+            r"|\b(add|remove|set|change)\b.{0,40}\bpassword\b"
+        ),
+    }
+    matched = [name for name, pattern in cues.items() if re.search(pattern, task, re.I)]
+
+    scanned = bool(re.search(r"\b(scanned|image[- ](?:only|based)|ocr)\b", task, re.I))
+    text_based = bool(re.search(
+        r"\b(text[- ]based|born[- ]digital|digitally[- ]generated|selectable text)\b", task, re.I
+    ))
+    if re.search(r"\bmixed\b", task, re.I) or (scanned and text_based):
+        source_kind = "mixed"
+    elif scanned:
+        source_kind = "scanned_image"
+    elif text_based:
+        source_kind = "text_based"
+    else:
+        source_kind = "unknown"
+    return {"operation": matched, "source_kind": source_kind}

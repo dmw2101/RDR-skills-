@@ -1,0 +1,39 @@
+{
+  "feature_schema": {
+    "features": {
+      "operation": {
+        "description": "All operations requested for this PDF task. Choose extract_content for text, tables, images, or OCR; combine_or_split for merging or splitting files; rotate_pages for rotation; create_or_watermark for creating or watermarking; fill_forms for form completion; password_security for encryption or decryption. Multiple categories may apply; use an empty list if none is recognized.",
+        "multiple": true,
+        "values": [
+          "extract_content",
+          "combine_or_split",
+          "rotate_pages",
+          "create_or_watermark",
+          "fill_forms",
+          "password_security",
+          "other",
+          "unknown"
+        ]
+      },
+      "source_kind": {
+        "description": "Known content type of the input PDF, relevant to extraction: text-based, scanned/image-only, or mixed. Use unknown if not known before acting.",
+        "multiple": false,
+        "values": [
+          "text_based",
+          "scanned_image",
+          "mixed",
+          "unknown"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "78e3e5c52bd6a96e275efdb1f62df4a741b9c10fa7a3bfd8faa350cbe5a1e3e8",
+  "fragments_sha256": "361287a53669e974f0300c1e1cfff72924367a237864fbda3ab190304f95797f",
+  "generated_at": "2026-10-02T19:50:03.561400+00:00",
+  "ir_sha256": "a9540bcbbdcc918a9996a6ed174762e5709df40d7cb03231a2f9e9f98421046c",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "2",
+  "schema_version": 1,
+  "source_sha256": "9f78b8359fbd4943ad260a7a1e436e5a96503406d6c34e99f69223d647d85b9c",
+  "tree_sha256": "b9390fae1eb23d0e64773aed89a351d4556ed5236ddb3b058e8081bf6b755c69"
+}

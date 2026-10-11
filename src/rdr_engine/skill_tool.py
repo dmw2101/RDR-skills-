@@ -26,7 +26,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     render_parser = commands.add_parser("render", help="Predict and print selected Markdown")
     render_parser.add_argument("skill_dir", type=Path)
     context = render_parser.add_mutually_exclusive_group(required=True)
-    context.add_argument("--case", help="Explicit JSON feature object")
+    context.add_argument("--case", help="Inline JSON feature object; prefer --case-file in PowerShell")
+    context.add_argument("--case-file", type=Path, help="UTF-8 JSON file containing the feature object")
     context.add_argument("--task", help="Visible natural-language task; uses conservative heuristics")
     render_parser.add_argument("--visible", help="JSON object of inspected pre-execution feature values")
     render_parser.add_argument("--show-path", action="store_true")
@@ -51,8 +52,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         schema = FeatureSchema.model_validate(manifest["feature_schema"])
         evaluator = SkillConditionEvaluator(schema)
         tree, catalog = SkillBundle.load(directory, evaluator)
-        if args.case is not None:
-            case = json.loads(args.case)
+        if args.case is not None or args.case_file is not None:
+            case_text = (
+                args.case_file.read_text(encoding="utf-8-sig")
+                if args.case_file is not None else args.case
+            )
+            case = json.loads(case_text)
             required = {
                 condition["field"]
                 for node in tree.nodes for condition in node.conditions

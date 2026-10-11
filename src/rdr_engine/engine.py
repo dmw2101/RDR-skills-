@@ -218,7 +218,7 @@ class RDREngine:
         return UpdateResult(
             prediction, correction, "unresolved", self._revision,
             attempts=self._max_selection_attempts, reason=reason,
-        )
+        )       
 
     def _call_author(self, method: str, *args: object) -> list[JSONValue]:
         try:

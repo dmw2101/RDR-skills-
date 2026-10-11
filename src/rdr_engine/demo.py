@@ -74,7 +74,7 @@ def main() -> None:
         print(f"  {case['name']}: predicted {result.prediction.conclusion}; {result.status}")
         assert engine.predict(case).conclusion == expected
 
-    print("\nTree (true = right, false = left):")
+    print("\nTree (true = right, false = left):")   
     for node in engine.nodes:
         print(
             f"  {node.id}: {list(node.conditions) or 'true'} -> {node.conclusion}; "

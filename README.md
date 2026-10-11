@@ -1,92 +1,28 @@
-# RDR skills and benchmarks
+# RDR Skills
 
-This repository holds base skills and their paired evaluation benchmarks. The `skills/` directory currently contains five unmodified initial skills from [Microsoft SkillOpt](https://github.com/microsoft/SkillOpt): SpreadsheetBench, ALFWorld, DocVQA, SearchQA, and LiveMathematicianBench. These are starting points for later RDR conversion, not optimized checkpoints. SearchQA is an intentionally near-empty seed suitable for an empty-start control.
+This research prototype represents procedural skills as Ripple-Down Rule (RDR) trees. A tree selects relevant parts of a Markdown skill for a task, while the underlying RDR engine also supports adding localized exceptions from feedback.
 
-`skills/sources.json` records the pinned upstream commit, original paths, and SHA-256 checksums. The copied files retain their original `initial.md` names so the experimental baseline stays unchanged. Their license is in `LICENSES/SkillOpt-MIT.txt`.
+## What is here
 
-The `benchmarks/` directory now contains a pinned SkillOpt evaluation-code snapshot, lightweight published split manifests, source provenance, and on-demand preparation scripts. Large raw data is deliberately excluded from Git and is not downloaded until an experiment needs it. See `benchmarks/README.md`. No results in this repository should be interpreted as benchmark runs.
+- `src/rdr_engine/`: standalone RDR engine, skill compiler, and skill renderer.
+- `skills/`: seed skills, source metadata, feature schemas, and compiled examples.
+- `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
+- `tests/`: automated tests for the engine and skill pipeline.
 
-Anthropic's [official xlsx skill](https://github.com/anthropics/skills/tree/main/skills/xlsx) is an external comparison source only. It is not copied here because its [license](https://github.com/anthropics/skills/blob/main/skills/xlsx/LICENSE.txt) restricts copying and distribution. The spreadsheet file in this repository is SkillOpt's MIT-licensed seed skill, not Anthropic's skill.
+The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. The ALFWorld demo can identify multiple task categories in one natural-language query; membership conditions select all matching guidance. The compiler still duplicates decision nodes on both branches and caps the tree at six conditional rules. Trace-driven updates, an oracle/verifier integration, and benchmark evaluation are not yet connected.
 
-## Base RDR engine
+## Run commands
 
-`src/rdr_engine/` is a standalone, domain-independent Python package implementing single-conclusion RDR traversal, oracle-driven learning, consistency checks, and versioned JSON persistence. It has no runtime dependencies and does not import or modify the skills or benchmarks.
+Use the [PowerShell 5.1 command guide](docs/commands.md) for copy-paste instructions to:
 
-With Python 3.10 or newer, run from the repository root (preferably in a virtual environment):
+1. Build a new tree from a skill.
+2. Query an existing tree with a task type.
+3. Query an existing tree with a natural-language task.
 
-```sh
-python -m pip install -e .
-python -m rdr_engine.demo
-python -m unittest discover -s tests -v
-python -m unittest discover -s benchmarks -p test_preparation.py -v
-```
+The command guide assumes PowerShell is already open at this repository's root. It avoids inline JSON arguments, which PowerShell 5.1 can pass incorrectly to Python.
 
-On Windows, `py -3.12` can replace `python`. The demo and tests are offline; benchmark preparation tests use fixtures, not downloaded datasets.
+## Further documentation
 
-See [the engine guide](docs/rdr-engine.md) for the three replaceable components, API, persistence format, and correspondence to `rdr.md`.
-
-## Compile and preview a base skill
-
-[The conversion plan](docs/base-skill-to-rdr-plan.md) is implemented through extraction, compilation, and rendering. Model extraction reads the whole skill and proposes source-referenced rules; inspect that JSON before compiling. Compilation and rendering are offline and do **not** call an oracle or Gemini. ALFWorld's `compiled/` directory contains the rule list shown in the first conversion example and its generated tree, so it can be previewed immediately.
-
-These are **PowerShell commands** (not Command Prompt commands). Run them from the repository root:
-
-```powershell
-Set-Location "C:\Users\user\Desktop\Ashwin-SOP\RDR-skills"
-py -3.12 -m pip install -e ".[skill-compiler]"
-py -3.12 -m rdr_engine.skill_tool render skills/alfworld --% --case {"task_type":"heat_place"} --show-path
-py -3.12 -m rdr_engine.skill_tool render skills/alfworld --task "Heat an apple and put it in the bowl"
-```
-
-In PowerShell, `--%` passes the JSON after it to Python literally. Without it, PowerShell may strip the required double quotes and cause a JSON parsing error. The `--task` form needs no JSON quoting.
-
-To regenerate the existing ALFWorld tree from its saved rule list, run `py -3.12 -m rdr_engine.skill_tool compile skills/alfworld --model-id gemini-3.8-flash --force`.
-
-### Create an RDR tree for a new skill
-
-Run these from the repository root in PowerShell. Put the source Markdown at
-`skills/my_skill/initial.md`, then add a `my_skill` entry to
-`skills/feature_schemas.json`. Use `{}` when you have no reliable task feature
-yet; otherwise list only features and values observable before the agent acts.
-Create the folder and copy the source skill first (replace the source path):
-
-```powershell
-New-Item -ItemType Directory -Force skills/my_skill
-Copy-Item "C:\path\to\my-skill.md" skills/my_skill/initial.md
-```
-
-Add a feature schema entry like this inside `skills/feature_schemas.json`:
-
-```json
-"my_skill": {
-  "task_type": {
-    "description": "Task type stated in the user's request.",
-    "values": ["type_a", "type_b", "unknown"]
-  }
-}
-```
-
-Install the compiler extra once, and set `GEMINI_API_KEY` in the shell. The
-first command asks Gemini to propose a source-referenced rule list and saves it
-as `ir.json`. Review the proposed ranges and conditions before compiling:
-
-```powershell
-py -3.12 -m rdr_engine.skill_compiler skills/my_skill/initial.md --features skills/feature_schemas.json --output skills/my_skill/compiled/ir.json
-py -3.12 -m rdr_engine.skill_tool compile skills/my_skill --model-id gemini-3.8-flash
-py -3.12 -m rdr_engine.skill_tool render skills/my_skill --% --case {"task_type":"type_a"} --show-path
-```
-
-The compile command is offline: it reads the reviewed `ir.json` and writes
-`fragments.json`, `tree.json`, and `manifest.json` alongside it. The render
-command traverses that tree and prints the task-specific Markdown skill. Use
-`--force` on `compile` only when intentionally rebuilding existing artifacts.
-
-For an already-present skill such as DocVQA, the same extraction command is:
-
-```powershell
-py -3.12 -m rdr_engine.skill_compiler skills/docvqa/initial.md --output skills/docvqa/compiled/ir.json
-py -3.12 -m rdr_engine.skill_tool compile skills/docvqa
-py -3.12 -m rdr_engine.skill_tool render skills/docvqa --% --case {}
-```
-
-`skill_compiler` prints JSON if `--output` is omitted and refuses to overwrite an existing file. The prompt is in `src/rdr_engine/prompts/skill_to_rules_system.md`; allowed task features are in `skills/feature_schemas.json`. `skill_tool compile` writes `fragments.json`, `tree.json`, and `manifest.json` alongside the reviewed `ir.json`; it refuses to replace existing artifacts without `--force`. `render --case` uses explicit observable feature values. `render --task` derives a conservative demo case from visible text; ambiguous cases should use `--case` instead. The engine still returns the last true node's local conclusion; the renderer composes all matched fragments into the Markdown shown to an agent. Benchmark execution and trace-driven updates are not connected yet.
+- [RDR engine overview](docs/rdr-engine.md)
+- [Base-skill-to-RDR implementation plan](docs/base-skill-to-rdr-plan.md)
+- [Skills and benchmark inventory](benchmarks/README.md)

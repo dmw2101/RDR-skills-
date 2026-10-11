@@ -1,0 +1,15 @@
+{
+  "id": "anthropic-pdf",
+  "status": "external_reference_only",
+  "source_repository": "https://github.com/anthropics/skills",
+  "source_commit": "33375500bcea98d610eb30ce10ac4e59b89c390d",
+  "source_path": "skills/pdf",
+  "license": "Proprietary; see upstream LICENSE.txt",
+  "license_url": "https://github.com/anthropics/skills/blob/33375500bcea98d610eb30ce10ac4e59b89c390d/skills/pdf/LICENSE.txt",
+  "import_blocker": "Upstream terms restrict copying, retention outside Anthropic services, derivative works, and redistribution.",
+  "references": {
+    "skill": "https://github.com/anthropics/skills/blob/33375500bcea98d610eb30ce10ac4e59b89c390d/skills/pdf/SKILL.md",
+    "forms": "https://github.com/anthropics/skills/blob/33375500bcea98d610eb30ce10ac4e59b89c390d/skills/pdf/FORMS.md",
+    "advanced": "https://github.com/anthropics/skills/blob/33375500bcea98d610eb30ce10ac4e59b89c390d/skills/pdf/REFERENCE.md"
+  }
+}
