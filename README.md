@@ -5,11 +5,13 @@ This research prototype represents procedural skills as Ripple-Down Rule (RDR) t
 ## What is here
 
 - `src/rdr_engine/`: standalone RDR engine, skill compiler, and skill renderer.
+- `src/rdr_service/`: versioned HTTP skill-resolution service, isolating RDR internals.
+- `src/skill_agent/`: independent model/tool runner and three-arm PDF evaluation pipeline.
 - `skills/`: seed skills, source metadata, feature schemas, and compiled examples.
 - `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
 - `tests/`: automated tests for the engine and skill pipeline.
 
-The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. The ALFWorld demo can identify multiple task categories in one natural-language query; membership conditions select all matching guidance. The compiler still duplicates decision nodes on both branches and caps the tree at six conditional rules. Trace-driven updates, an oracle/verifier integration, and benchmark evaluation are not yet connected.
+The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. Multiple task categories are supported. The compiler still duplicates decision nodes and caps the tree at six conditional rules. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab; live model benchmark verification is pending. Trace-driven updates and oracle integration remain separate future work.
 
 ## Run commands
 
@@ -21,8 +23,11 @@ Use the [PowerShell 5.1 command guide](docs/commands.md) for copy-paste instruct
 
 The command guide assumes PowerShell is already open at this repository's root. It avoids inline JSON arguments, which PowerShell 5.1 can pass incorrectly to Python.
 
+For model-based evaluation, use the [agent evaluation commands](docs/agent-commands.md): create a venv, freeze a compiled skill, start the service, prepare VAREX, configure your provider, run, and score. Docker is not required.
+
 ## Further documentation
 
 - [RDR engine overview](docs/rdr-engine.md)
 - [Base-skill-to-RDR implementation plan](docs/base-skill-to-rdr-plan.md)
 - [Skills and benchmark inventory](benchmarks/README.md)
+- [Agent evaluation architecture, interfaces, and limits](docs/agent-evaluation.md)
