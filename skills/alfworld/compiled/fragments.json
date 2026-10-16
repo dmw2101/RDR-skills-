@@ -208,6 +208,6 @@
       "text": "- **Revisiting searched locations**: Keep track of which surfaces/containers have been checked; do not re-examine them.\n- **Ignoring visible objects**: If the target object appears in the observation, pick it up immediately.\n- **Skipping state changes**: Do not place an object at the destination without first cleaning/heating/cooling it when required.\n- **Premature termination**: Do not stop the episode until all goal conditions are verified as met.\n- **Action loops**: Repeatedly toggling or examining the same object wastes steps. Move on to new locations instead.\n"
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "source_sha256": "01bd29e825b81715e7b592e135a9a9d6d0f812a5e84dcd56b51cc1075247f941"
 }

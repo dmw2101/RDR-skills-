@@ -1,0 +1,4 @@
+# Compiled skill bundles store SHA-256 hashes of these exact bytes. Keep LF
+# endings on every platform so checkouts with core.autocrlf still load.
+skills/**/initial.md text eol=lf
+skills/**/compiled/*.json text eol=lf

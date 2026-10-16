@@ -5,15 +5,17 @@ Usage:
     python visualise_tree.py TREE [-o OUT.html] [--fragments FRAGMENTS.json]
                              [--schema SCHEMA.json] [--hide-unreachable]
 
-The input is the engine's schema-1 payload (``root_id`` plus a ``nodes`` table
-whose entries carry ``id``, ``conditions``, ``conclusion``, ``evidence``,
-``true_child`` and ``false_child``). Conditions and conclusions are drawn as
-generic JSON; the skill-compiler forms get extra treatment:
+The input is the engine's schema-2 MCRDR payload (``root_id`` plus a ``nodes``
+table whose entries carry ``id``, ``conditions``, ``conclusion``, ``stopping``,
+``evidence`` and ``children``). A child is evaluated only when its parent fires;
+every fired node without a fired child reports its conclusion, and a stopping
+child suppresses its parent's conclusion. Conditions and conclusions are drawn
+as generic JSON; the skill-compiler forms get extra treatment:
 
 * ``{"field", "op": "eq" | "in" | "contains", "value"}`` conditions are pretty-printed and
-  used for a conservative static reachability check. Branches whose path
+  used for a conservative static reachability check. Nodes whose path
   constraints contradict each other are greyed out (or hidden).
-* ``{"add": [...], "remove": [...]}`` conclusions are resolved against a
+* ``{"fragments": [...]}`` conclusions are resolved against a
   fragment catalogue (``fragments.json`` beside the tree, by default).
 
 Feature domains for the reachability check come from ``--schema`` or a
@@ -58,10 +60,9 @@ def load_tree(path: Path) -> tuple[dict[str, Any], dict[int, dict[str, Any]], li
             continue
         nodes[node_id] = raw
     for node_id, raw in nodes.items():
-        for key in ("true_child", "false_child"):
-            child = raw.get(key)
-            if child is not None and child not in nodes:
-                warnings.append(f"Node #{node_id} {key} points at missing node {child}.")
+        for child in raw.get("children") or []:
+            if child not in nodes:
+                warnings.append(f"Node #{node_id} lists missing child {child}.")
     root_id = payload.get("root_id", 0)
     if root_id not in nodes:
         raise ValueError(f"{path}: root_id {root_id!r} is not in the node table")
@@ -147,11 +148,11 @@ def format_condition(condition: Any) -> str:
     return compact(condition)
 
 
-def is_fragment_op(conclusion: Any) -> bool:
+def is_fragment_set(conclusion: Any) -> bool:
     return (
         isinstance(conclusion, dict)
-        and set(conclusion) <= {"add", "remove"}
-        and all(isinstance(conclusion.get(key, []), list) for key in ("add", "remove"))
+        and set(conclusion) == {"fragments"}
+        and isinstance(conclusion["fragments"], list)
     )
 
 
@@ -235,7 +236,7 @@ class Analysis:
     status: str = "unvisited"  # live | dead | unvisited
     dead_reason: str | None = None
     can_match: bool = True
-    can_fail: bool = True
+    can_fail: bool = True  # Only used to flag rules that always fire when reached.
     notes: list[str] = field(default_factory=list)
     depth: int = 0
     path: list[tuple[int, bool]] = field(default_factory=list)
@@ -245,7 +246,8 @@ def analyse(nodes: dict[int, dict[str, Any]], root_id: int, domains: dict[str, l
     result = {node_id: Analysis() for node_id in nodes}
     warnings: list[str] = []
     seen: set[int] = set()
-    # (node, constraints on arrival, dead reason inherited from ancestors, depth, path)
+    # (node, constraints on arrival, dead reason inherited from ancestors, depth, path).
+    # Every edge requires the parent to fire, so constraints only accumulate.
     stack: list[tuple[int, Constraints, str | None, int, list[tuple[int, bool]]]] = [
         (root_id, {}, None, 0, [])
     ]
@@ -270,13 +272,11 @@ def analyse(nodes: dict[int, dict[str, Any]], root_id: int, domains: dict[str, l
             on_true = apply(on_true, condition, node_id, negate=False)
         true_conflict = conflict(on_true, domains)
 
-        on_false = constraints
         false_conflict: str | None = None
         if not conditions:
             false_conflict = "an empty condition list is always true"
         elif len(known) == 1 and not opaque:
-            on_false = apply(constraints, known[0], node_id, negate=True)
-            false_conflict = conflict(on_false, domains)
+            false_conflict = conflict(apply(constraints, known[0], node_id, negate=True), domains)
         elif not opaque:
             # ¬(a ∧ b) is satisfiable if any single negation is.
             reasons = [conflict(apply(constraints, c, node_id, True), domains) for c in known]
@@ -291,18 +291,12 @@ def analyse(nodes: dict[int, dict[str, Any]], root_id: int, domains: dict[str, l
             elif not info.can_fail and conditions:
                 info.notes.append(f"Always true when reached: {false_conflict}.")
 
-        for key, matched, child_constraints, reason in (
-            ("false_child", False, on_false, false_conflict),
-            ("true_child", True, on_true, true_conflict),
-        ):
-            child = raw.get(key)
-            if child is None or child not in nodes:
-                continue
-            child_reason = inherited
-            if child_reason is None and reason is not None:
-                outcome = "true" if matched else "false"
-                child_reason = f"#{node_id} can never be {outcome} on this path: {reason}"
-            stack.append((child, child_constraints, child_reason, depth + 1, path + [(node_id, matched)]))
+        child_reason = inherited
+        if child_reason is None and true_conflict is not None:
+            child_reason = f"#{node_id} can never fire on this path: {true_conflict}"
+        for child in reversed(raw.get("children") or []):
+            if child in nodes:
+                stack.append((child, on_true, child_reason, depth + 1, path + [(node_id, True)]))
 
     orphans = sorted(set(nodes) - seen)
     if orphans:
@@ -331,24 +325,24 @@ def build_payload(
         info = analysis[node_id]
         conditions = raw.get("conditions") or []
         conclusion = raw.get("conclusion")
-        if is_fragment_op(conclusion):
+        stopping = raw.get("stopping") is True
+        if stopping:
+            conclusion_view = {"type": "stop", "summary": "STOP · suppresses the parent conclusion"}
+        elif is_fragment_set(conclusion):
             ops = []
-            for kind in ("add", "remove"):
-                for frag_id in conclusion.get(kind, []):
-                    frag = fragments.get(frag_id, {})
-                    text = frag.get("text", "")
-                    ops.append({
-                        "kind": kind, "id": frag_id, "text": text,
-                        "short": snippet(text) if text else frag_id,
-                        "role": frag.get("role"), "lines": [frag.get("start"), frag.get("end")],
-                        "missing": bool(fragments) and frag_id not in fragments,
-                    })
-            summary = " · ".join(
-                ("+ " if op["kind"] == "add" else "− ") + op["short"] for op in ops[:1]
-            )
+            for frag_id in conclusion["fragments"]:
+                frag = fragments.get(frag_id, {})
+                text = frag.get("text", "")
+                ops.append({
+                    "id": frag_id, "text": text,
+                    "short": snippet(text) if text else frag_id,
+                    "role": frag.get("role"), "lines": [frag.get("start"), frag.get("end")],
+                    "missing": bool(fragments) and frag_id not in fragments,
+                })
+            summary = " · ".join(op["short"] for op in ops[:1])
             if len(ops) > 1:
                 summary += f"  (+{len(ops) - 1} more)"
-            conclusion_view = {"type": "fragments", "ops": ops, "summary": summary or "no change"}
+            conclusion_view = {"type": "fragments", "ops": ops, "summary": summary or "no fragments"}
         else:
             text = compact(conclusion)
             conclusion_view = {"type": "json", "json": json.dumps(conclusion, indent=2, ensure_ascii=False),
@@ -359,8 +353,8 @@ def build_payload(
             "conditions_json": json.dumps(conditions, indent=2, ensure_ascii=False),
             "conclusion": conclusion_view,
             "evidence": raw.get("evidence") or [],
-            "true_child": raw.get("true_child") if raw.get("true_child") in nodes else None,
-            "false_child": raw.get("false_child") if raw.get("false_child") in nodes else None,
+            "children": [child for child in raw.get("children") or [] if child in nodes],
+            "stopping": stopping,
             "status": info.status,
             "dead_reason": info.dead_reason,
             "notes": info.notes,
@@ -371,17 +365,21 @@ def build_payload(
         })
 
     live = [n for n in out_nodes if n["status"] == "live"]
+    by_id = {n["id"]: n for n in out_nodes}
     stats = {
         "nodes": len(out_nodes),
         "live": len(live),
         "dead": sum(n["status"] == "dead" for n in out_nodes),
         "orphan": sum(n["status"] == "unvisited" for n in out_nodes),
         "depth": max((n["depth"] for n in out_nodes if n["status"] != "unvisited"), default=0),
-        "leaves": sum(n["true_child"] is None and n["false_child"] is None for n in out_nodes),
-        # Ways traversal can end: matching a node with no true child, or
-        # failing one with no false child. A leaf can end both ways.
-        "outcomes": sum(
-            (n["can_match"] and n["true_child"] is None) + (n["can_fail"] and n["false_child"] is None)
+        "leaves": sum(not n["children"] for n in out_nodes),
+        "stops": sum(n["stopping"] for n in out_nodes),
+        # Nodes that can report a conclusion: reachable, able to fire, not a
+        # stop, and without a child that always fires whenever it does.
+        "terminals": sum(
+            n["can_match"] and not n["stopping"] and not any(
+                not by_id[c]["can_fail"] and by_id[c]["status"] == "live" for c in n["children"]
+            )
             for n in live
         ),
     }
@@ -461,16 +459,16 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 svg { display: block; }
 .edge { fill: none; stroke-width: 1.6; }
-.edge.t { stroke: var(--true); } .edge.f { stroke: var(--false); }
+.edge.t { stroke: var(--true); } .edge.s { stroke: var(--false); }
 .edge.dead { stroke: var(--dead-ink); stroke-dasharray: 4 4; }
-.elabel { font-size: 11px; font-weight: 600; }
-.elabel.t { fill: var(--true); } .elabel.f { fill: var(--false); } .elabel.dead { fill: var(--dead-ink); }
 .node rect.box { fill: var(--node); stroke: var(--node-line); stroke-width: 1; }
 .node.root rect.box { fill: var(--root); stroke: var(--root); }
 .node.root text { fill: var(--root-ink); }
 .node.dead rect.box { fill: var(--dead-bg); stroke-dasharray: 3 3; }
 .node.dead text { fill: var(--dead-ink); }
 .node.flag rect.box { stroke: var(--warn-ink); stroke-width: 1.5; }
+.node.stop rect.box { stroke: var(--false); stroke-width: 1.5; }
+.node.stop .concl { fill: var(--false); }
 .node.selected rect.box { stroke: var(--accent); stroke-width: 2.5; }
 .node.onpath rect.box { stroke: var(--accent); stroke-width: 1.8; }
 .node { cursor: pointer; }
@@ -494,7 +492,6 @@ pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; 
   white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; }
 .frag { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
 .frag .head { display: flex; gap: 8px; align-items: baseline; font-size: 12px; }
-.frag .kind.add { color: var(--true); font-weight: 700; } .frag .kind.remove { color: var(--false); font-weight: 700; }
 .frag .fid { font-family: var(--mono); color: var(--muted); }
 .frag pre { margin-top: 6px; }
 .note { background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; padding: 6px 10px; font-size: 13px; margin: 6px 0; }
@@ -520,8 +517,8 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
     <button id="zoomIn" aria-label="Zoom in">+</button>
     <button id="fit">Fit</button>
     <div class="legend">
-      <span><i style="border-color:var(--true)"></i>true → exception</span>
-      <span><i style="border-color:var(--false)"></i>false → alternative</span>
+      <span><i style="border-color:var(--true)"></i>child: tested when the parent fires</span>
+      <span><i style="border-color:var(--false)"></i>stopping rule</span>
       <span><i style="border-color:var(--dead-ink);border-top-style:dashed"></i>unreachable</span>
     </div>
   </div>
@@ -557,7 +554,7 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
   $("source").textContent = DATA.source;
   const s = DATA.stats;
   const statItems = [["Nodes", s.nodes], ["Reachable", s.live], ["Unreachable", s.dead],
-    ["Distinct exits", s.outcomes], ["Leaves", s.leaves], ["Max depth", s.depth]];
+    ["Possible terminals", s.terminals], ["Stopping rules", s.stops], ["Leaves", s.leaves], ["Max depth", s.depth]];
   if (s.orphan) statItems.push(["Disconnected", s.orphan]);
   for (const [k, v] of statItems) {
     const sp = el("span"); sp.append(k + ": "); sp.append(el("b", {}, String(v))); $("stats").append(sp);
@@ -590,11 +587,11 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
   }
 
   // ---- layout -----------------------------------------------------------
-  // Children in display order: true (exception) above, false (alternative) below.
+  // Children in evaluation (insertion) order, top to bottom.
   function kids(n, all) {
     const out = [];
-    for (const c of [n.true_child, n.false_child]) {
-      if (c === null || !byId.has(c)) continue;
+    for (const c of n.children) {
+      if (!byId.has(c)) continue;
       if (!all && hideDead && byId.get(c).status === "dead") continue;
       out.push(c);
     }
@@ -634,18 +631,17 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
       const n = byId.get(id);
       for (const c of p.kids) {
         const q = pos.get(c); if (!q) continue;
-        const isT = c === n.true_child, dead = byId.get(c).status === "dead";
-        const cls = (isT ? "t" : "f") + (dead ? " dead" : "");
+        const child = byId.get(c), dead = child.status === "dead";
+        const cls = (child.stopping ? "s" : "t") + (dead ? " dead" : "");
         const x1 = p.x + NW, y1 = p.y, x2 = q.x, y2 = q.y, mx = (x1 + x2) / 2;
         edges.append(el("path", { class: "edge " + cls, d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}` }));
-        edges.append(el("text", { class: "elabel " + cls, x: x2 - 30, y: y2 - 5 }, isT ? "true" : "false"));
       }
     });
 
     pos.forEach((p, id) => {
       const n = byId.get(id);
       const flagged = n.status === "live" && n.notes.length;
-      const cls = ["node", id === rootId ? "root" : "", n.status === "dead" ? "dead" : "",
+      const cls = ["node", id === rootId ? "root" : "", n.status === "dead" ? "dead" : "", n.stopping ? "stop" : "",
         flagged ? "flag" : "", id === selected ? "selected" : "", onPath.has(id) ? "onpath" : ""].join(" ");
       const h = height(id), dead = n.status === "dead";
       const g = el("g", { class: cls, transform: `translate(${p.x},${p.y - h / 2})`, tabindex: 0 });
@@ -685,7 +681,7 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
   }
   function showDetail(id) {
     const n = byId.get(id), d = $("detail"); d.replaceChildren();
-    d.append(el("h2", {}, `Node #${id}` + (id === rootId ? " (root)" : "")));
+    d.append(el("h2", {}, `Node #${id}` + (id === rootId ? " (root default)" : n.stopping ? " (stopping rule)" : "")));
     const pills = el("div");
     pills.append(el("span", { class: "pill " + n.status }, n.status === "live" ? "reachable" : n.status === "dead" ? "unreachable" : "disconnected"));
     if (n.status === "live" && !n.can_match) pills.append(el("span", { class: "pill flag" }, "never true"));
@@ -699,11 +695,14 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
     else { const ul = el("ul"); n.conditions.forEach(c => { const li = el("li"); li.append(el("code", {}, c)); ul.append(li); }); d.append(ul); }
 
     d.append(el("h3", {}, "Conclusion"));
-    if (n.conclusion.type === "fragments") {
-      if (!n.conclusion.ops.length) d.append(el("div", { class: "empty" }, "No fragment changes."));
+    if (id === rootId) d.append(el("div", { class: "empty" }, "Reported only when no child of the root fires."));
+    if (n.conclusion.type === "stop") {
+      d.append(el("div", { class: "note" }, "Stopping rule: when it fires, its parent's conclusion is not reported and nothing replaces it."));
+    } else if (n.conclusion.type === "fragments") {
+      if (!n.conclusion.ops.length) d.append(el("div", { class: "empty" }, "No fragments."));
       for (const op of n.conclusion.ops) {
         const box = el("div", { class: "frag" }), head = el("div", { class: "head" });
-        head.append(el("span", { class: "kind " + op.kind }, op.kind === "add" ? "+ add" : "− remove"), el("span", { class: "fid" }, op.id));
+        head.append(el("span", { class: "fid" }, op.id));
         if (op.lines && op.lines[0] != null) head.append(el("span", { class: "fid" }, `lines ${op.lines[0]}–${op.lines[1]}`));
         box.append(head);
         if (op.text) box.append(el("pre", {}, op.text.replace(/\s+$/, "")));
@@ -722,20 +721,21 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
         a.onclick = () => select(step.id);
         const sn = byId.get(step.id);
         li.append(a, " ", el("code", {}, sn.conditions.join(" ∧ ") || "always"), " → ",
-          el("span", { class: "m " + (step.matched ? "t" : "f") }, step.matched ? "true" : "false"));
+          el("span", { class: "m t" }, "fires"));
         ol.append(li);
       }
       const last = el("li"); last.append(el("b", {}, "#" + id)); ol.append(last);
       d.append(ol);
     }
 
-    d.append(el("h3", {}, "Children"));
+    d.append(el("h3", {}, `Children (${n.children.length})`));
+    if (!n.children.length) d.append(el("div", { class: "empty" }, "None: when this node fires it reports its conclusion."));
     const ch = el("ul");
-    for (const [label, c] of [["true", n.true_child], ["false", n.false_child]]) {
-      const li = el("li"); li.append(label + ": ");
-      if (c === null) li.append(el("span", { class: "empty" }, "none"));
-      else { const a = el("a", { href: "#" }, "#" + c); a.onclick = e => { e.preventDefault(); select(c); }; li.append(a);
-             if (byId.get(c).status === "dead") li.append(el("span", { class: "empty" }, "  (unreachable)")); }
+    for (const c of n.children) {
+      const li = el("li"), a = el("a", { href: "#" }, "#" + c);
+      a.onclick = e => { e.preventDefault(); select(c); }; li.append(a);
+      if (byId.get(c).stopping) li.append(el("span", { class: "empty" }, "  (stopping rule)"));
+      if (byId.get(c).status === "dead") li.append(el("span", { class: "empty" }, "  (unreachable)"));
       ch.append(li);
     }
     d.append(ch);
@@ -776,12 +776,12 @@ def render_html(payload: dict[str, Any]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Visualise an RDR tree.json as an interactive HTML page.")
+    parser = argparse.ArgumentParser(description="Visualise an MCRDR tree.json as an interactive HTML page.")
     parser.add_argument("tree", type=Path, help="path to tree.json")
     parser.add_argument("-o", "--output", type=Path,
                         help="output HTML file (default: <tree stem>_visualisation.html beside the tree)")
     parser.add_argument("--fragments", type=Path,
-                        help="fragment catalogue used to resolve add/remove ids (default: fragments.json beside the tree)")
+                        help="fragment catalogue used to resolve fragment ids (default: fragments.json beside the tree)")
     parser.add_argument("--schema", type=Path,
                         help="feature schema or manifest giving field domains (default: manifest.json beside the tree)")
     parser.add_argument("--skill", help="key to pick from a multi-skill schema file (default: the tree's skill folder name)")
@@ -822,7 +822,7 @@ def main(argv: list[str] | None = None) -> int:
     stats = payload["stats"]
     print(f"Wrote {output}")
     print(f"  nodes={stats['nodes']} reachable={stats['live']} unreachable={stats['dead']} "
-          f"distinct_exits={stats['outcomes']} max_depth={stats['depth']}")
+          f"terminals={stats['terminals']} stops={stats['stops']} max_depth={stats['depth']}")
     print(f"  fragments: {'resolved from ' + str(fragments_path) if fragments else 'not loaded (ids only)'}")
     print(f"  domains: {', '.join(domains) if domains else 'none (contradiction check only)'}")
     for warning in payload["warnings"]:

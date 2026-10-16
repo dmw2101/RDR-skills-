@@ -6,7 +6,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Sequence
 
-from . import Accept, Correct, Feedback, JSONValue, Prediction, RDREngine
+from . import (
+    Accept, Add, Feedback, JSONValue, Prediction, RDREngine, Replace, Revise, RuleRequest, Stop,
+)
 
 
 class DeliveryEvaluator:
@@ -18,88 +20,109 @@ class DeliveryEvaluator:
 
 class DeliveryAuthor:
     def generate_candidates(
-        self, case: JSONValue, examples: Sequence[JSONValue]
+        self, case: JSONValue, cornerstones: Sequence[JSONValue]
     ) -> list[JSONValue]:
         return [
             {"field": field, "equals": case[field]}
-            for field in ("perishable", "fragile", "refrigerated")
+            for field in ("perishable", "fragile", "refrigerated", "packing")
         ]
 
     def select_condition(
         self,
         candidates: Sequence[JSONValue],
         case: JSONValue,
-        examples: Sequence[JSONValue],
-        conclusion: JSONValue,
+        cornerstones: Sequence[JSONValue],
+        request: RuleRequest,
         attempt: int,
     ) -> list[JSONValue]:
         return list(candidates[:1])
 
 
+def expected_labels(case: dict[str, JSONValue]) -> set[str]:
+    labels = set()
+    if case["perishable"]:
+        labels.add("cold-chain" if case["refrigerated"] else "express")
+    if case["fragile"] and case["packing"] != "crate":
+        labels.add("insured")
+    return labels or {"standard"}
+
+
 class DeliveryOracle:
+    """Compare label sets and correct each wrong or missing label explicitly."""
+
     def review(self, prediction: Prediction) -> Feedback:
-        case = prediction.case
-        if case["perishable"] and case["refrigerated"]:
-            expected = "cold-chain"
-        elif case["perishable"]:
-            expected = "express"
-        elif case["fragile"]:
-            expected = "insured"
-        else:
-            expected = "standard"
-        return Accept() if prediction.conclusion == expected else Correct(expected)
+        expected = expected_labels(prediction.case)
+        wrong = [item for item in prediction.conclusions if item.conclusion not in expected]
+        given = {item.conclusion for item in prediction.conclusions}
+        missing = sorted(expected - given)
+        if not wrong and not missing:
+            return Accept()
+        if len(wrong) == 1 and len(missing) == 1:
+            return Revise((Replace(wrong[0].node_id, missing[0]),))
+        return Revise(tuple(Stop(item.node_id) for item in wrong) + tuple(Add(label) for label in missing))
 
 
-def package(name: str, *, perishable=False, fragile=False, refrigerated=False) -> dict[str, JSONValue]:
+def package(
+    name: str, *, perishable=False, fragile=False, refrigerated=False, packing="box"
+) -> dict[str, JSONValue]:
     return {
         "name": name,
         "perishable": perishable,
         "fragile": fragile,
         "refrigerated": refrigerated,
+        "packing": packing,
     }
+
+
+def labels(prediction: Prediction) -> list[JSONValue]:
+    return list(prediction.distinct_conclusions)
 
 
 def main() -> None:
     evaluator, author, oracle = DeliveryEvaluator(), DeliveryAuthor(), DeliveryOracle()
     engine = RDREngine(evaluator, author, default_conclusion="standard")
     cases = [
-        (package("books"), "standard"),
-        (package("fruit", perishable=True), "express"),
-        (package("glass", fragile=True), "insured"),
-        (package("ice cream", perishable=True, refrigerated=True), "cold-chain"),
+        package("books"),
+        package("fruit", perishable=True),
+        package("glass", fragile=True),
+        package("ice cream", perishable=True, refrigerated=True),
+        package("eggs", perishable=True, fragile=True),
+        package("crated melons", perishable=True, fragile=True, packing="crate"),
     ]
     print("Learning from oracle feedback:")
-    for case, expected in cases:
+    for case in cases:
         result = engine.process(case, oracle)
-        print(f"  {case['name']}: predicted {result.prediction.conclusion}; {result.status}")
-        assert engine.predict(case).conclusion == expected
+        print(f"  {case['name']}: predicted {labels(result.prediction)}; {result.status}")
+        assert set(labels(engine.predict(case))) == expected_labels(case)
 
-    print("\nTree (true = right, false = left):")   
-    for node in engine.nodes:
-        print(
-            f"  {node.id}: {list(node.conditions) or 'true'} -> {node.conclusion}; "
-            f"right={node.true_child}, left={node.false_child}"
-        )
+    print("\nTree (children fire only when their parent fires):")
+    nodes = engine.nodes
+    pending = [(0, 0)]
+    while pending:
+        node_id, depth = pending.pop()
+        node = nodes[node_id]
+        outcome = "STOP" if node.stopping else node.conclusion
+        print(f"  {'  ' * depth}{node.id}: {list(node.conditions) or 'true'} -> {outcome}")
+        pending.extend((child, depth + 1) for child in reversed(node.children))
 
     print("\nNew cases using the learned rules:")
-    for case, expected in cases:
+    for case in cases:
         new_case = {**case, "name": f"another {case['name']} package"}
         prediction = engine.predict(new_case)
-        assert prediction.conclusion == expected
-        route = " -> ".join(f"{step.node_id}:{step.matched}" for step in prediction.path)
+        assert set(labels(prediction)) == expected_labels(new_case)
         result = engine.learn(prediction, oracle.review(prediction))
         assert result.status == "accepted"
-        print(f"  {new_case['name']}: {prediction.conclusion}; path {route}; accepted")
+        print(f"  {new_case['name']}: {labels(prediction)}; terminals "
+              f"{[item.node_id for item in prediction.conclusions]}; accepted")
 
     with TemporaryDirectory() as directory:
         path = Path(directory) / "delivery.json"
         engine.save(path)
         restored = RDREngine.load(path, evaluator=evaluator, author=author)
-        for case, expected in cases:
-            assert restored.predict(case).conclusion == expected
-            assert restored.predict(case).path == engine.predict(case).path
+        for case in cases:
+            assert restored.predict(case) == engine.predict(case)
         assert restored.to_dict() == engine.to_dict()
-    print("\nJSON round trip preserved the tree, evidence, predictions, and paths.")
+    print("\nJSON round trip preserved the tree, evidence, conclusions, and traces.")
 
 
 if __name__ == "__main__":

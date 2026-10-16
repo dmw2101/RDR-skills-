@@ -46,7 +46,9 @@ py -3.12 -m rdr_engine.skill_tool compile $skillDir --ir $irPath --features skil
 
 This writes/replaces the compiled files under `skills/alfworld/compiled/`. `--model-id` records a label in the manifest; it does not make an API call. Keep `$skillDir`, `$model`, and `$irPath` in the same PowerShell session for both steps. `--force` replaces the existing compiled bundle.
 
-The current compiler accepts up to six conditional rules. Review/consolidate a larger extracted rule list before compiling it.
+The compiler builds a flat MCRDR tree: node 0 is the empty root default, node 1 holds the general guidance, and each conditional rule is another child of the root. There is no limit on the number of rules.
+
+Compiled bundles from before the MCRDR change (artifact schema 1) no longer load; rerun the compile command with `--force` to rebuild them from their `ir.json`.
 
 ## 2. Query an existing tree with a task type
 
@@ -62,9 +64,16 @@ The case file contains the task type you are giving the tree:
 {"task_type": ["heat_place"]}
 ```
 
-This reads the existing compiled tree, traverses it using that `task_type`, and prints the selected Markdown skill. `--show-path` also prints the evaluated route and fragment IDs; remove it to print just the Markdown. Querying does not call Gemini and does not rebuild the tree.
+This reads the existing compiled tree, evaluates it using that `task_type`, and prints the selected Markdown skill. `--show-path` also prints, to the error stream:
 
-The renderer includes shared guidance plus the task-specific fragments. So most of the output can be the same across task types; look at the task-specific section and, if needed, the path/fragment IDs printed by `--show-path`.
+- `case=`: the feature values used;
+- `trace=`: every evaluated node as an indented outline of `id:true/false`;
+- `terminals=`: the nodes whose conclusions were reported;
+- `fragments=`: the selected fragment IDs.
+
+Remove `--show-path` to print just the Markdown. Querying does not call Gemini and does not rebuild the tree.
+
+The renderer includes shared guidance (node 1) plus the fragments of every matching task-specific rule. So most of the output can be the same across task types; look at the task-specific section and, if needed, the terminals and fragment IDs printed by `--show-path`.
 
 To use another ALFWorld type, open the case file:
 
@@ -100,4 +109,4 @@ Open the generated page in your default browser:
 Start-Process skills/alfworld/compiled/tree_visualisation.html
 ```
 
-The script automatically loads the matching `fragments.json` and `manifest.json`. Click a node to inspect its condition, fragment text, route, and children. True branches are shown above false branches; use **Hide unreachable** to collapse branches that cannot match the feature schema. For another skill, replace `skills/pdf` with its folder, for example `skills/alfworld`.
+The script automatically loads the matching `fragments.json` and `manifest.json`. Click a node to inspect its condition, fragment text, route, and children. Children are drawn in evaluation order; each is tested only when its parent fires, and stopping rules are outlined in red. Use **Hide unreachable** to collapse nodes that cannot match the feature schema. For another skill, replace `skills/alfworld` with its folder, for example `skills/pdf`.

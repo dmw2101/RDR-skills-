@@ -2,23 +2,41 @@
   "max_selection_attempts": 3,
   "nodes": [
     {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
       "conclusion": {
-        "add": [
-          "frag_0c38f714982297ef",
-          "frag_859a2db8c971a7ff",
-          "frag_6ced6c877b83ce17"
-        ],
-        "remove": []
+        "fragments": []
       },
       "conditions": [],
       "evidence": [],
-      "false_child": null,
       "id": 0,
-      "true_child": 1
+      "stopping": false
     },
     {
+      "children": [],
       "conclusion": {
-        "add": [
+        "fragments": [
+          "frag_0c38f714982297ef",
+          "frag_859a2db8c971a7ff",
+          "frag_6ced6c877b83ce17"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
           "frag_f528999368cfb7c2",
           "frag_e613dd09483cc8b4",
           "frag_b6c674a3bc7adc54",
@@ -26,8 +44,7 @@
           "frag_ad5514f244a03a22",
           "frag_0aead52aa1fe9527",
           "frag_48b53b698a42dfbe"
-        ],
-        "remove": []
+        ]
       },
       "conditions": [
         {
@@ -37,635 +54,18 @@
         }
       ],
       "evidence": [],
-      "false_child": 33,
-      "id": 1,
-      "true_child": 2
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_aafefff9d058bcab",
-          "frag_24fb21da409c8132",
-          "frag_550792c34640fbb3",
-          "frag_148cbe8ddbb834ac"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "combine_or_split"
-        }
-      ],
-      "evidence": [],
-      "false_child": 18,
       "id": 2,
-      "true_child": 3
+      "stopping": false
     },
     {
+      "children": [],
       "conclusion": {
-        "add": [
-          "frag_4826df7d1384fd97",
-          "frag_550792c34640fbb3",
-          "frag_148cbe8ddbb834ac"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "rotate_pages"
-        }
-      ],
-      "evidence": [],
-      "false_child": 11,
-      "id": 3,
-      "true_child": 4
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_d4f1b17297ea0312",
-          "frag_1d18e2b16915a8b5",
-          "frag_583fe61174ca393c",
-          "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "create_or_watermark"
-        }
-      ],
-      "evidence": [],
-      "false_child": 8,
-      "id": 4,
-      "true_child": 5
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 7,
-      "id": 5,
-      "true_child": 6
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 6,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 7,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 10,
-      "id": 8,
-      "true_child": 9
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 9,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 10,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_d4f1b17297ea0312",
-          "frag_1d18e2b16915a8b5",
-          "frag_583fe61174ca393c",
-          "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "create_or_watermark"
-        }
-      ],
-      "evidence": [],
-      "false_child": 15,
-      "id": 11,
-      "true_child": 12
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 14,
-      "id": 12,
-      "true_child": 13
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 13,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 14,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 17,
-      "id": 15,
-      "true_child": 16
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 16,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 17,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_4826df7d1384fd97",
-          "frag_550792c34640fbb3",
-          "frag_148cbe8ddbb834ac"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "rotate_pages"
-        }
-      ],
-      "evidence": [],
-      "false_child": 26,
-      "id": 18,
-      "true_child": 19
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_d4f1b17297ea0312",
-          "frag_1d18e2b16915a8b5",
-          "frag_583fe61174ca393c",
-          "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "create_or_watermark"
-        }
-      ],
-      "evidence": [],
-      "false_child": 23,
-      "id": 19,
-      "true_child": 20
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 22,
-      "id": 20,
-      "true_child": 21
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 21,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 22,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 25,
-      "id": 23,
-      "true_child": 24
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 24,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 25,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_d4f1b17297ea0312",
-          "frag_1d18e2b16915a8b5",
-          "frag_583fe61174ca393c",
-          "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "create_or_watermark"
-        }
-      ],
-      "evidence": [],
-      "false_child": 30,
-      "id": 26,
-      "true_child": 27
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 29,
-      "id": 27,
-      "true_child": 28
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 28,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 29,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 32,
-      "id": 30,
-      "true_child": 31
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 31,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 32,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
+        "fragments": [
           "frag_aafefff9d058bcab",
           "frag_24fb21da409c8132",
           "frag_550792c34640fbb3",
           "frag_148cbe8ddbb834ac"
-        ],
-        "remove": []
+        ]
       },
       "conditions": [
         {
@@ -675,18 +75,17 @@
         }
       ],
       "evidence": [],
-      "false_child": 49,
-      "id": 33,
-      "true_child": 34
+      "id": 3,
+      "stopping": false
     },
     {
+      "children": [],
       "conclusion": {
-        "add": [
+        "fragments": [
           "frag_4826df7d1384fd97",
           "frag_550792c34640fbb3",
           "frag_148cbe8ddbb834ac"
-        ],
-        "remove": []
+        ]
       },
       "conditions": [
         {
@@ -696,19 +95,18 @@
         }
       ],
       "evidence": [],
-      "false_child": 42,
-      "id": 34,
-      "true_child": 35
+      "id": 4,
+      "stopping": false
     },
     {
+      "children": [],
       "conclusion": {
-        "add": [
+        "fragments": [
           "frag_d4f1b17297ea0312",
           "frag_1d18e2b16915a8b5",
           "frag_583fe61174ca393c",
           "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
+        ]
       },
       "conditions": [
         {
@@ -718,17 +116,16 @@
         }
       ],
       "evidence": [],
-      "false_child": 39,
-      "id": 35,
-      "true_child": 36
+      "id": 5,
+      "stopping": false
     },
     {
+      "children": [],
       "conclusion": {
-        "add": [
+        "fragments": [
           "frag_550792c34640fbb3",
           "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
+        ]
       },
       "conditions": [
         {
@@ -738,16 +135,15 @@
         }
       ],
       "evidence": [],
-      "false_child": 38,
-      "id": 36,
-      "true_child": 37
+      "id": 6,
+      "stopping": false
     },
     {
+      "children": [],
       "conclusion": {
-        "add": [
+        "fragments": [
           "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
+        ]
       },
       "conditions": [
         {
@@ -757,524 +153,11 @@
         }
       ],
       "evidence": [],
-      "false_child": null,
-      "id": 37,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 38,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 41,
-      "id": 39,
-      "true_child": 40
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 40,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 41,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_d4f1b17297ea0312",
-          "frag_1d18e2b16915a8b5",
-          "frag_583fe61174ca393c",
-          "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "create_or_watermark"
-        }
-      ],
-      "evidence": [],
-      "false_child": 46,
-      "id": 42,
-      "true_child": 43
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 45,
-      "id": 43,
-      "true_child": 44
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 44,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 45,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 48,
-      "id": 46,
-      "true_child": 47
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 47,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 48,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_4826df7d1384fd97",
-          "frag_550792c34640fbb3",
-          "frag_148cbe8ddbb834ac"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "rotate_pages"
-        }
-      ],
-      "evidence": [],
-      "false_child": 57,
-      "id": 49,
-      "true_child": 50
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_d4f1b17297ea0312",
-          "frag_1d18e2b16915a8b5",
-          "frag_583fe61174ca393c",
-          "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "create_or_watermark"
-        }
-      ],
-      "evidence": [],
-      "false_child": 54,
-      "id": 50,
-      "true_child": 51
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 53,
-      "id": 51,
-      "true_child": 52
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 52,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 53,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 56,
-      "id": 54,
-      "true_child": 55
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 55,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 56,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_d4f1b17297ea0312",
-          "frag_1d18e2b16915a8b5",
-          "frag_583fe61174ca393c",
-          "frag_a3870ed4d31127cc"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "create_or_watermark"
-        }
-      ],
-      "evidence": [],
-      "false_child": 61,
-      "id": 57,
-      "true_child": 58
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 60,
-      "id": 58,
-      "true_child": 59
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 59,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 60,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_550792c34640fbb3",
-          "frag_033ad3ca0fe0c310"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "operation",
-          "op": "contains",
-          "value": "password_security"
-        }
-      ],
-      "evidence": [],
-      "false_child": 63,
-      "id": 61,
-      "true_child": 62
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 62,
-      "true_child": null
-    },
-    {
-      "conclusion": {
-        "add": [
-          "frag_fe9dfdd34bd1bb64"
-        ],
-        "remove": []
-      },
-      "conditions": [
-        {
-          "field": "source_kind",
-          "op": "eq",
-          "value": "scanned_image"
-        }
-      ],
-      "evidence": [],
-      "false_child": null,
-      "id": 63,
-      "true_child": null
+      "id": 7,
+      "stopping": false
     }
   ],
   "revision": 0,
   "root_id": 0,
-  "schema_version": 1
+  "schema_version": 2
 }

@@ -22,7 +22,7 @@ from .types import ConditionEvaluator
 GEMINI_API_KEY = "REPLACE_WITH_YOUR_GEMINI_API_KEY"
 DEFAULT_MODEL = "gemini-3.8-flash"
 PROMPT_VERSION = "2"
-ARTIFACT_VERSION = 1
+ARTIFACT_VERSION = 2
 
 
 class StrictModel(BaseModel):
@@ -505,40 +505,35 @@ class FragmentCatalog:
 
 
 class SkillTreeCompiler:
-    """Compile ordered rule predicates into a proper binary RDR tree."""
+    """Compile rule predicates into a flat MCRDR tree.
 
-    MAX_RULES = 6
+    Node 0 is the root default, reported only when no child fires, so it holds
+    no fragments. Node 1 is an unconditional child carrying general guidance.
+    Each conditional rule is another child of the root, in source order.
+    """
 
     def compile(
         self, ir: SkillIR, catalog: FragmentCatalog, evaluator: ConditionEvaluator
     ) -> RDREngine:
-        if len(ir.rules) > self.MAX_RULES:
-            raise ValueError(f"at most {self.MAX_RULES} conditional rules are supported")
         if ir != catalog.ir:
             raise ValueError("rule list and fragment catalog differ")
         catalog.validate_coverage()
-        nodes: list[dict[str, Any]] = [{
-            "id": 0, "conditions": [],
-            "conclusion": {"add": catalog.ids_for(ir.root), "remove": []},
-            "evidence": [], "true_child": None, "false_child": None,
-        }]
 
-        def add_decision(index: int) -> int | None:
-            if index == len(ir.rules):
-                return None
-            rule = ir.rules[index]
-            node_id = len(nodes)
-            nodes.append({
-                "id": node_id,
-                "conditions": [predicate.model_dump() for predicate in rule.when],
-                "conclusion": {"add": catalog.ids_for(rule.source), "remove": []},
-                "evidence": [], "true_child": None, "false_child": None,
-            })
-            nodes[node_id]["true_child"] = add_decision(index + 1)
-            nodes[node_id]["false_child"] = add_decision(index + 1)
-            return node_id
+        def rule_node(node_id: int, conditions: list[Any], fragments: list[str]) -> dict[str, Any]:
+            return {
+                "id": node_id, "conditions": conditions,
+                "conclusion": {"fragments": fragments},
+                "stopping": False, "evidence": [], "children": [],
+            }
 
-        nodes[0]["true_child"] = add_decision(0)
+        nodes = [rule_node(0, [], []), rule_node(1, [], catalog.ids_for(ir.root))]
+        for rule in ir.rules:
+            nodes.append(rule_node(
+                len(nodes),
+                [predicate.model_dump() for predicate in rule.when],
+                catalog.ids_for(rule.source),
+            ))
+        nodes[0]["children"] = list(range(1, len(nodes)))
         return RDREngine.from_dict({
             "schema_version": RDREngine.SCHEMA_VERSION,
             "revision": 0,
@@ -597,6 +592,7 @@ class SkillBundle:
                 destination.write_bytes(data)
         manifest = {
             "schema_version": ARTIFACT_VERSION,
+            "engine_schema_version": RDREngine.SCHEMA_VERSION,
             "prompt_version": PROMPT_VERSION,
             "model_id": model_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -620,7 +616,10 @@ class SkillBundle:
         compiled = directory / "compiled"
         manifest = json.loads((compiled / "manifest.json").read_text(encoding="utf-8"))
         if manifest.get("schema_version") != ARTIFACT_VERSION:
-            raise ValueError("unsupported skill bundle version")
+            raise ValueError(
+                f"skill bundle version {manifest.get('schema_version')!r} is not {ARTIFACT_VERSION}; "
+                "recompile with `skill_tool compile --force`"
+            )
         source = SkillInput.from_markdown(directory / "initial.md")
         if source.sha256 != manifest.get("source_sha256"):
             raise ValueError("skill source changed since compilation")
@@ -641,14 +640,15 @@ class SkillBundle:
         tree = RDREngine.load(compiled / "tree.json", evaluator=evaluator or SkillConditionEvaluator(schema))
         known = {fragment.id for fragment in catalog.fragments}
         for node in tree.nodes:
+            if node.stopping:
+                continue  # The engine already requires a null conclusion.
             operation = node.conclusion
-            if not isinstance(operation, dict) or set(operation) != {"add", "remove"}:
-                raise ValueError(f"node {node.id} has invalid fragment operation")
-            for key in ("add", "remove"):
-                if not isinstance(operation[key], list) or any(
-                    not isinstance(item, str) or item not in known for item in operation[key]
-                ):
-                    raise ValueError(f"node {node.id} refers to an unknown fragment")
+            if not isinstance(operation, dict) or set(operation) != {"fragments"}:
+                raise ValueError(f"node {node.id} has an invalid fragment conclusion")
+            if not isinstance(operation["fragments"], list) or any(
+                not isinstance(item, str) or item not in known for item in operation["fragments"]
+            ):
+                raise ValueError(f"node {node.id} refers to an unknown fragment")
         return tree, catalog
 
 

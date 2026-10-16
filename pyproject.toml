@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rdr-engine"
 version = "0.1.0"
-description = "A domain-independent, single-conclusion ripple-down rule engine"
+description = "A domain-independent, multiple-classification ripple-down rule (MCRDR) engine"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []

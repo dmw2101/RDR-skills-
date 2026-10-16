@@ -30,7 +30,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     context.add_argument("--case-file", type=Path, help="UTF-8 JSON file containing the feature object")
     context.add_argument("--task", help="Visible natural-language task; uses conservative heuristics")
     render_parser.add_argument("--visible", help="JSON object of inspected pre-execution feature values")
-    render_parser.add_argument("--show-path", action="store_true")
+    render_parser.add_argument(
+        "--show-path", action="store_true",
+        help="Print the case, evaluation trace, terminal nodes, and fragment IDs to stderr",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -71,12 +74,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         prediction = tree.predict(case)
         rendered = SkillRenderer().render(prediction, tree, catalog)
         if args.show_path:
-            route = " -> ".join(
-                f"{step.node_id}:{'true' if step.matched else 'false'}"
-                for step in rendered.path
-            )
             print(f"case={json.dumps(case, sort_keys=True)}", file=sys.stderr)
-            print(f"path={route}", file=sys.stderr)
+            print("trace=", file=sys.stderr)
+            for step in rendered.trace:
+                outcome = "true" if step.matched else "false"
+                print(f"  {'  ' * step.depth}{step.node_id}:{outcome}", file=sys.stderr)
+            print(f"terminals={list(rendered.terminal_ids)}", file=sys.stderr)
             print(f"fragments={list(rendered.selected_ids)}", file=sys.stderr)
         print(rendered.markdown, end="")
         return 0

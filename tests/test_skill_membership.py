@@ -76,24 +76,41 @@ class MembershipTests(unittest.TestCase):
     def test_viewer_distinguishes_compatible_labels_and_real_conflicts(self) -> None:
         viewer = runpy.run_path(str(ROOT / "skills" / "visualise_tree.py"))
 
-        def node(node_id: int, value: str | None, true: int | None = None, false: int | None = None) -> dict:
-            return {"id": node_id, "conditions": [] if value is None else [
-                {"field": "operation", "op": "contains", "value": value},
-            ], "true_child": true, "false_child": false}
+        def node(node_id: int, condition: tuple | None, *children: int, stopping: bool = False) -> dict:
+            conditions = [] if condition is None else [
+                {"field": condition[0], "op": condition[1], "value": condition[2]},
+            ]
+            return {"id": node_id, "conditions": conditions, "conclusion": None if stopping else {"fragments": []},
+                    "stopping": stopping, "evidence": [], "children": list(children)}
 
         nodes = {
-            0: node(0, None, 1), 1: node(1, "a", 2, 3),
-            2: node(2, "b", 4, 5), 3: node(3, "b", 6, 7),
-            4: node(4, "a", None, 8), 5: node(5, None),
-            6: node(6, "a"), 7: node(7, None), 8: node(8, None),
+            0: node(0, None, 1, 4, 5),
+            1: node(1, ("operation", "contains", "a"), 2, 3),
+            2: node(2, ("operation", "contains", "b")),          # a and b can coexist.
+            3: node(3, ("operation", "contains", "a"), stopping=True),  # a already required.
+            4: node(4, ("operation", "contains", "c")),          # not in the domain.
+            5: node(5, ("source_kind", "eq", "text"), 6),
+            6: node(6, ("source_kind", "eq", "scan"), 7),        # contradicts its parent.
+            7: node(7, None),
         }
-        analysis, warnings = viewer["analyse"](nodes, 0, {"operation": ["a", "b"]})
+        analysis, warnings = viewer["analyse"](
+            nodes, 0, {"operation": ["a", "b"], "source_kind": ["text", "scan"]}
+        )
         self.assertEqual(warnings, [])
-        self.assertTrue(analysis[2].can_match)  # a and b can coexist.
-        self.assertFalse(analysis[4].can_fail)  # a was already required above.
-        self.assertFalse(analysis[6].can_match)  # a was already excluded above.
-        self.assertEqual(analysis[7].status, "live")  # Neither label: [] is valid.
-        self.assertEqual(analysis[8].status, "dead")
+        self.assertTrue(analysis[2].can_match)
+        self.assertEqual(analysis[2].path, [(0, True), (1, True)])
+        self.assertFalse(analysis[3].can_fail)
+        self.assertIn("Always true when reached", analysis[3].notes[0])
+        self.assertFalse(analysis[4].can_match)
+        self.assertEqual(analysis[6].status, "live")
+        self.assertFalse(analysis[6].can_match)
+        self.assertEqual(analysis[7].status, "dead")
+        payload = viewer["build_payload"](
+            Path("tree.json"), {"root_id": 0}, nodes, analysis, {}, {}, [], False, "t"
+        )
+        self.assertEqual(payload["stats"]["stops"], 1)
+        # Node 1 always has a firing child when it fires, so it cannot report.
+        self.assertEqual(payload["stats"]["terminals"], 3)
 
 
 if __name__ == "__main__":

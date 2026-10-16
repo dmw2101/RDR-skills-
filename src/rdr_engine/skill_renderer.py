@@ -1,4 +1,4 @@
-"""Compose the fragments selected by a classical RDR prediction path."""
+"""Compose the fragments of every terminal conclusion of an MCRDR prediction."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ from .types import EvaluationStep, Prediction
 class RenderedSkill:
     markdown: str
     selected_ids: tuple[str, ...]
-    path: tuple[EvaluationStep, ...]
+    terminal_ids: tuple[int, ...]
+    trace: tuple[EvaluationStep, ...]
 
 
 class SkillRenderer:
@@ -21,26 +22,21 @@ class SkillRenderer:
         self, prediction: Prediction, engine: RDREngine, catalog: FragmentCatalog
     ) -> RenderedSkill:
         engine._check_prediction(prediction)
-        nodes = engine.nodes
         by_id = {fragment.id: fragment for fragment in catalog.fragments}
         active: set[str] = set()
-        for step in prediction.path:
-            if not step.matched:
-                continue
-            operation = nodes[step.node_id].conclusion
-            if not isinstance(operation, dict) or set(operation) != {"add", "remove"}:
-                raise ValueError(f"node {step.node_id} has invalid fragment operation")
-            for key in ("remove", "add"):
-                values = operation[key]
-                if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
-                    raise ValueError(f"node {step.node_id} has invalid {key} list")
-                for fragment_id in values:
-                    if fragment_id not in by_id:
-                        raise ValueError(f"node {step.node_id} refers to missing fragment {fragment_id}")
-                    if key == "remove":
-                        active.discard(fragment_id)
-                    else:
-                        active.add(fragment_id)
+        # Only terminal, non-stopping nodes report conclusions; refinements and
+        # stopping rules have already replaced or suppressed their parents.
+        for item in prediction.conclusions:
+            operation = item.conclusion
+            if not isinstance(operation, dict) or set(operation) != {"fragments"}:
+                raise ValueError(f"node {item.node_id} has an invalid fragment conclusion")
+            values = operation["fragments"]
+            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                raise ValueError(f"node {item.node_id} has an invalid fragments list")
+            for fragment_id in values:
+                if fragment_id not in by_id:
+                    raise ValueError(f"node {item.node_id} refers to missing fragment {fragment_id}")
+                active.add(fragment_id)
 
         pending = list(active)
         while pending:
@@ -82,4 +78,9 @@ class SkillRenderer:
         markdown = "".join(pieces)
         if markdown:
             markdown += "\n"
-        return RenderedSkill(markdown, tuple(fragment.id for fragment in selected), prediction.path)
+        return RenderedSkill(
+            markdown,
+            tuple(fragment.id for fragment in selected),
+            tuple(item.node_id for item in prediction.conclusions),
+            prediction.trace,
+        )

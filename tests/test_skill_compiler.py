@@ -32,14 +32,21 @@ class SkillCompilerTests(unittest.TestCase):
         self.assertIn("| Type | Goal | Key Steps |\n|------|------|-----------|\n", [f.text for f in required])
         self.assertTrue(all(fragment.role == "non_instruction" for fragment in required))
 
-    def test_compile_six_rules_as_tree_and_predict(self) -> None:
+    def test_compile_rules_as_flat_mcrdr_tree_and_predict(self) -> None:
         catalog = FragmentCatalog.from_ir(self.source, self.ir)
         tree = SkillTreeCompiler().compile(self.ir, catalog, SkillConditionEvaluator(self.schema))
-        self.assertEqual(len(tree.nodes), 64)
-        self.assertEqual(tree.nodes[0].conclusion["add"], catalog.ids_for(self.ir.root))
+        nodes = tree.nodes
+        self.assertEqual(len(nodes), 2 + len(self.ir.rules))
+        self.assertEqual(nodes[0].children, tuple(range(1, len(nodes))))
+        self.assertEqual(nodes[0].conclusion, {"fragments": []})
+        self.assertEqual(nodes[1].conditions, ())
+        self.assertEqual(nodes[1].conclusion, {"fragments": catalog.ids_for(self.ir.root)})
+        self.assertTrue(all(not node.children and not node.stopping for node in nodes[1:]))
         heat = tree.predict({"task_type": ["heat_place"]})
-        self.assertEqual(sum(step.matched for step in heat.path), 2)
-        self.assertEqual(heat.conclusion["add"], catalog.ids_for(self.ir.rules[4].source))
+        self.assertEqual(heat.fired, (0, 1, 6))
+        self.assertEqual([item.node_id for item in heat.conclusions], [1, 6])
+        self.assertEqual(heat.conclusions[1].conclusion,
+                         {"fragments": catalog.ids_for(self.ir.rules[4].source)})
 
     def test_bundle_round_trip_and_hash_check(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -51,18 +58,28 @@ class SkillCompilerTests(unittest.TestCase):
             built, _ = SkillBundle.build(directory, ir_path=ir_path, feature_schema=self.schema)
             loaded, _ = SkillBundle.load(directory)
             case = {"task_type": ["heat_place"]}
-            self.assertEqual(built.predict(case).path, loaded.predict(case).path)
+            self.assertEqual(built.predict(case).trace, loaded.predict(case).trace)
             with (directory / "compiled" / "fragments.json").open("a") as stream:
                 stream.write(" ")
             with self.assertRaisesRegex(ValueError, "fragments.json changed"):
                 SkillBundle.load(directory)
 
-    def test_rule_limit_is_explicit(self) -> None:
+    def test_many_rules_compile_without_duplication(self) -> None:
+        extra = [
+            self.ir.rules[0].model_copy(update={"id": f"extra_rule_{index}"}) for index in range(7)
+        ]
+        many = self.ir.model_copy(update={"rules": self.ir.rules + extra})
+        catalog = FragmentCatalog.from_ir(self.source, many)
+        tree = SkillTreeCompiler().compile(many, catalog, SkillConditionEvaluator(self.schema))
+        self.assertEqual(len(tree.nodes), 2 + 13)
+        prediction = tree.predict({"task_type": ["pick_place"]})
+        self.assertEqual([item.node_id for item in prediction.conclusions], [1, 2, *range(8, 15)])
+
+    def test_catalog_must_match_the_compiled_rules(self) -> None:
         catalog = FragmentCatalog.from_ir(self.source, self.ir)
-        extra = self.ir.rules[0].model_copy(update={"id": "extra_rule"})
-        too_many = self.ir.model_copy(update={"rules": self.ir.rules + [extra]})
-        with self.assertRaisesRegex(ValueError, "at most 6"):
-            SkillTreeCompiler().compile(too_many, catalog, SkillConditionEvaluator(self.schema))
+        fewer = self.ir.model_copy(update={"rules": self.ir.rules[:-1]})
+        with self.assertRaisesRegex(ValueError, "differ"):
+            SkillTreeCompiler().compile(fewer, catalog, SkillConditionEvaluator(self.schema))
 
     def test_all_membership_combinations_follow_the_expected_path(self) -> None:
         catalog = FragmentCatalog.from_ir(self.source, self.ir)
@@ -71,7 +88,11 @@ class SkillCompilerTests(unittest.TestCase):
             labels = [rule.when[0].value for rule, matched in zip(self.ir.rules, matches) if matched]
             with self.subTest(labels=labels):
                 prediction = tree.predict({"task_type": labels})
-                self.assertEqual([step.matched for step in prediction.path], [True, *matches])
+                self.assertEqual([step.matched for step in prediction.trace], [True, True, *matches])
+                self.assertEqual(
+                    [item.node_id for item in prediction.conclusions],
+                    [1, *(index + 2 for index, matched in enumerate(matches) if matched)],
+                )
 
     def test_searchqa_placeholder_is_metadata(self) -> None:
         source = SkillInput.from_markdown(ROOT / "skills" / "searchqa" / "initial.md")
@@ -85,7 +106,7 @@ class SkillCompilerTests(unittest.TestCase):
         catalog = FragmentCatalog.from_ir(source, ir)
         self.assertTrue(all(fragment.role == "non_instruction" for fragment in catalog.fragments))
         tree = SkillTreeCompiler().compile(ir, catalog, SkillConditionEvaluator(FeatureSchema(features={})))
-        self.assertEqual(tree.predict({}).conclusion, {"add": [], "remove": []})
+        self.assertEqual(tree.predict({}).distinct_conclusions, ({"fragments": []},))
 
 
 if __name__ == "__main__":

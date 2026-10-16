@@ -43,6 +43,8 @@ class SkillToolTests(unittest.TestCase):
                 self.assertIn("| Heat & Place |", output.getvalue())
                 self.assertNotIn("| Cool & Place |", output.getvalue())
                 self.assertIn('case={"task_type": ["heat_place"]}', diagnostics.getvalue())
+                self.assertIn("terminals=[1, 6]", diagnostics.getvalue())
+                self.assertIn("    6:true", diagnostics.getvalue())
 
     def test_case_file_rejects_invalid_json_and_invalid_features(self) -> None:
         for contents, message in (
@@ -77,6 +79,17 @@ class SkillToolTests(unittest.TestCase):
                         "render", str(self.skill), "--case-file", str(self.case_path), *alternative,
                     ])
                 self.assertEqual(failure.exception.code, 2)
+
+    def test_single_classification_bundle_asks_for_recompilation(self) -> None:
+        manifest_path = self.skill / "compiled" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["schema_version"] = 1
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        diagnostics = io.StringIO()
+        with redirect_stderr(diagnostics), self.assertRaises(SystemExit) as failure:
+            main(["render", str(self.skill), "--task", "Heat an apple"])
+        self.assertEqual(failure.exception.code, 1)
+        self.assertIn("recompile", diagnostics.getvalue())
 
     def test_alfworld_combined_goals_include_both_workflows(self) -> None:
         output, diagnostics = io.StringIO(), io.StringIO()

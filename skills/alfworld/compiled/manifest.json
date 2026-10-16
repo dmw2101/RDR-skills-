@@ -1,4 +1,5 @@
 {
+  "engine_schema_version": 2,
   "feature_schema": {
     "features": {
       "task_type": {
@@ -17,12 +18,12 @@
     }
   },
   "feature_schema_sha256": "100aa34ce38cb70987fcc03baba30bd75214ce9acb077e2848bf4368a7ca56e6",
-  "fragments_sha256": "e8a5e9f9727dfea4a3858d0b9557ea5947d5e6de7b1dcaa2e81bcc3bf746897a",
-  "generated_at": "2026-10-02T19:50:02.479655+00:00",
+  "fragments_sha256": "060f523fda1fe3cb215accc8adbce8e19829a630bc65821a141bd5260101de8f",
+  "generated_at": "2026-10-16T11:29:56.993753+00:00",
   "ir_sha256": "814fe6a29d98a13c442a79136574a3642fa2871d86cfc49043137ab048f8afaf",
   "model_id": "gemini-3.8-flash",
   "prompt_version": "2",
-  "schema_version": 1,
+  "schema_version": 2,
   "source_sha256": "01bd29e825b81715e7b592e135a9a9d6d0f812a5e84dcd56b51cc1075247f941",
-  "tree_sha256": "8e4024842fc0326261b943d419d3b99962ca4eaa1043981d5b54cee94bc2502d"
+  "tree_sha256": "2cf119cdf691bd963bb83941a4c680278e45d4c2650501e71e00e059ad3fe56d"
 }

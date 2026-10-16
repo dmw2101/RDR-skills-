@@ -381,6 +381,6 @@
       "text": "- For advanced pypdfium2 usage, see REFERENCE.md\n- For JavaScript libraries (pdf-lib), see REFERENCE.md\n- If you need to fill out a PDF form, follow the instructions in FORMS.md\n- For troubleshooting guides, see REFERENCE.md\n"
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "source_sha256": "9f78b8359fbd4943ad260a7a1e436e5a96503406d6c34e99f69223d647d85b9c"
 }

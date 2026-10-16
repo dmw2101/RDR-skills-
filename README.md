@@ -1,15 +1,15 @@
 # RDR Skills
 
-This research prototype represents procedural skills as Ripple-Down Rule (RDR) trees. A tree selects relevant parts of a Markdown skill for a task, while the underlying RDR engine also supports adding localized exceptions from feedback.
+This research prototype represents procedural skills as Multiple Classification Ripple-Down Rule (MCRDR) trees. A tree selects every relevant part of a Markdown skill for a task, while the underlying engine also supports per-conclusion corrections from feedback: refinements, stopping rules, and new rules, each checked against cornerstone cases.
 
 ## What is here
 
-- `src/rdr_engine/`: standalone RDR engine, skill compiler, and skill renderer.
+- `src/rdr_engine/`: standalone MCRDR engine, skill compiler, and skill renderer.
 - `skills/`: seed skills, source metadata, feature schemas, and compiled examples.
 - `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
 - `tests/`: automated tests for the engine and skill pipeline.
 
-The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. The ALFWorld demo can identify multiple task categories in one natural-language query; membership conditions select all matching guidance. The compiler still duplicates decision nodes on both branches and caps the tree at six conditional rules. Trace-driven updates, an oracle/verifier integration, and benchmark evaluation are not yet connected.
+The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and a flat MCRDR tree (one unconditional general-guidance rule plus one rule per condition, with no rule limit), then renders the fragments of every terminal conclusion for a task. The ALFWorld and PDF demos can identify multiple task categories in one natural-language query; membership conditions select all matching guidance. Trace-driven updates, an oracle/verifier integration, and benchmark evaluation are not yet connected.
 
 ## Run commands
 
