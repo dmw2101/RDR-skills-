@@ -53,9 +53,10 @@ class LocalTransformersClient(OpenAICompatibleClient):
                     raise ValueError("local tool arguments must be a JSON object")
                 function["arguments"] = arguments
         options = {"tools": tools} if tools else {}
+        # Transformers 5.20 defaults to a mapping; len() must count token IDs.
         tokens = _tokenizer(self.model).apply_chat_template(
             template_messages, tokenize=True, add_generation_prompt=True,
-            enable_thinking=False, **options,
+            return_dict=False, truncation=False, enable_thinking=False, **options,
         )
         return len(tokens)
 
