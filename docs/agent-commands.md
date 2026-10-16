@@ -69,9 +69,13 @@ Checks model configuration/key presence, the PDF venv and libraries, available s
 
 Runs 5 dev documents under all three conditions. **This command makes paid/limited model calls using your configured provider.**
 
+All conditions expose `request_skill` so the model can request guidance during an attempt. Each refresh replaces active guidance using only its current request/context; it does not append the original task. No configuration flag is needed. Refreshes do not start new attempts or reset the 20-call budget. Summaries include `skill_requests` and `skill_refresh_calls`, alongside the existing token/call/timing metrics.
+
 ```powershell
 .\.venv\Scripts\python.exe -m skill_agent run --config examples/agent/varex.pilot.json
 ```
+
+After upgrading from initial-only selection, rerun snapshot preparation and restart the skill service, then use a new run output directory. The Colab setup script already performs preparation/restart; rerun it with a new `--run-name` (no script re-upload needed).
 
 Resume an interrupted run with the same configuration and unchanged artifacts. Completed episodes, including failures, are not rerun:
 

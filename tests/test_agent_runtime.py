@@ -6,16 +6,18 @@ import unittest
 from skill_agent.contracts import ResolvedSkill, source_fingerprint
 from skill_agent.models import ModelResponse
 from skill_agent.resolvers import StaticSkillResolver
-from skill_agent.runtime import SessionContext, run_episode
+from skill_agent.runtime import SKILL_REQUEST_INSTRUCTIONS, SessionContext, run_episode
 
 
 class FakeModel:
     def __init__(self, replies=None):
         self.replies = replies or [{"role": "assistant", "content": "finished"}]
         self.requests = []
+        self.definitions = []
 
     async def complete(self, messages, tools):
         self.requests.append(copy.deepcopy(messages))
+        self.definitions.append(copy.deepcopy(tools))
         message = self.replies[min(len(self.requests) - 1, len(self.replies) - 1)]
         return ModelResponse(message, {"input_tokens": 10, "output_tokens": 2,
                                       "cached_input_tokens": 0, "cost_usd": None}, {"model": "fake"})
@@ -54,10 +56,11 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             result = await run_episode(model=model, session=session, skill_context=context(resolver), system_prompt="base")
             self.assertEqual(result.status, "completed")
             self.assertTrue(session.closed)
+            self.assertIn("request_skill", [t["function"]["name"] for t in model.definitions[0]])
             requests.append(model.requests[0])
         self.assertEqual(requests[0][1:], requests[1][1:])
         self.assertEqual(requests[1][1:], requests[2][1:])
-        self.assertEqual(requests[0][0]["content"], "base")
+        self.assertEqual(requests[0][0]["content"], "base\n\n" + SKILL_REQUEST_INSTRUCTIONS)
         self.assertIn("whole skill", requests[1][0]["content"])
         self.assertIn("selected text", requests[2][0]["content"])
 
@@ -88,20 +91,35 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len([e for e in state.events if e["type"] == "skill"]), 2)
 
     async def test_model_initiated_request_can_use_same_load_operation(self):
-        state = context()
-        class GetSkill:
-            definition = {"type": "function", "function": {"name": "get_skill", "parameters": {"type": "object"}}}
-            async def execute(self, args):
-                return await state.load_skill(args)
+        resolved = []
+        class Changing:
+            async def resolve(self, request):
+                resolved.append(request)
+                return ResolvedSkill("guidance: " + request.task, "snapshot",
+                                     source_fingerprint("whole skill"), "v1")
+        state = context(Changing())
         model = FakeModel([{"role": "assistant", "tool_calls": [
-            {"id": "refresh", "type": "function", "function": {"name": "get_skill", "arguments": "{}"}}]},
+            {"id": "ocr", "type": "function", "function": {"name": "request_skill", "arguments": json.dumps({
+                "request": "OCR this PDF", "context": {"source_kind": "scanned_image"}})}}]},
+            {"role": "assistant", "tool_calls": [
+                {"id": "merge", "type": "function", "function": {"name": "request_skill",
+                 "arguments": json.dumps({"request": "Merge PDFs"})}}]},
             {"role": "assistant", "content": "done"}])
         session = FakeSession()
-        session.tools["get_skill"] = GetSkill()
         result = await run_episode(model=model, session=session, skill_context=state, system_prompt="base")
         self.assertEqual(result.status, "completed")
-        self.assertEqual(sum(e["type"] == "skill" for e in state.events), 2)
-        self.assertNotIn("whole skill", model.requests[1][-1]["content"])
+        self.assertEqual([r.task for r in resolved], ["Read the PDF", "OCR this PDF", "Merge PDFs"])
+        self.assertEqual([r.context for r in resolved], [{}, {"source_kind": "scanned_image"}, {}])
+        self.assertEqual(state.task, "Read the PDF")
+        self.assertEqual(state.observed, {})
+        self.assertIn("guidance: OCR this PDF", model.requests[1][0]["content"])
+        self.assertNotIn("guidance: Read the PDF", model.requests[1][0]["content"])
+        self.assertIn("guidance: Merge PDFs", model.requests[2][0]["content"])
+        self.assertNotIn("guidance: OCR this PDF", model.requests[2][0]["content"])
+        self.assertEqual(sum(e["type"] == "skill" for e in state.events), 3)
+        self.assertNotIn("guidance:", model.requests[1][-1]["content"])
+        self.assertTrue(json.loads(model.requests[1][-1]["content"])["guidance_available"])
+        self.assertNotIn("request_skill", session.tools)
 
     async def test_budgets_close_session(self):
         model = FakeModel([{"role": "assistant", "tool_calls": [

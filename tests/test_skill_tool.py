@@ -127,21 +127,23 @@ class PDFSkillToolTests(unittest.TestCase):
                 self.assertNotIn(excluded, output.getvalue())
 
     def test_scanned_query_adds_ocr_guidance(self) -> None:
-        for task, source_kind, includes_ocr in (
-            ("Extract text from a scanned PDF", "scanned_image", True),
-            ("OCR this PDF", "scanned_image", True),
-            ("Make this scanned PDF searchable", "scanned_image", True),
-            ("Extract text from a text-based PDF", "text_based", False),
-            ("Extract text from a mixed PDF", "mixed", False),
-            ("Extract text from a PDF", "unknown", False),
+        for task, operation, source_kind, includes_ocr in (
+            ("Extract text from a scanned PDF", ["extract_content"], "scanned_image", True),
+            ("OCR this PDF", [], "scanned_image", True),
+            ("Make this scanned PDF searchable", ["extract_content"], "scanned_image", True),
+            ("Extract text from a text-based PDF", ["extract_content"], "text_based", False),
+            ("Extract text from a mixed PDF", ["extract_content"], "mixed", False),
+            ("Extract text from a PDF", ["extract_content"], "unknown", False),
         ):
             with self.subTest(task=task):
                 output, diagnostics = io.StringIO(), io.StringIO()
                 with redirect_stdout(output), redirect_stderr(diagnostics):
                     main(["render", str(self.skill), "--task", task, "--show-path"])
                 case = json.loads(diagnostics.getvalue().splitlines()[0].removeprefix("case="))
-                self.assertEqual(case, {"operation": ["extract_content"], "source_kind": source_kind})
+                self.assertEqual(case, {"operation": operation, "source_kind": source_kind})
                 self.assertEqual("### Extract Text from Scanned PDFs" in output.getvalue(), includes_ocr)
+                if not operation:
+                    self.assertNotIn("#### Extract Text with Layout", output.getvalue())
 
     def test_multiple_unknown_and_explicit_context(self) -> None:
         for task, operation in (

@@ -203,6 +203,9 @@ def usage_summary(records):
             "episodes": len(episodes), "completed": sum(r["status"] == "completed" for r in episodes),
             "failures": {s: sum(r["status"] == s for r in episodes) for s in sorted({r["status"] for r in episodes})},
             "agent_model_calls": model_requests,
+            "skill_requests": skill_requests,
+            "skill_refresh_calls": sum(e["type"] == "tool" and e.get("name") == "request_skill"
+                                       for e in events),
             "resolver_model_calls": (sum(e["response"]["usage"]["model_calls"] for e in skill_events)
                                      if skill_requests == len(skill_events) and all(e["response"]["usage"].get("model_calls") is not None for e in skill_events) else None),
             "input_tokens": total("input_tokens"), "output_tokens": total("output_tokens"),

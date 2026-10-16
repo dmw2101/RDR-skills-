@@ -11,7 +11,7 @@ This research prototype represents procedural skills as Ripple-Down Rule (RDR) t
 - `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
 - `tests/`: automated tests for the engine and skill pipeline.
 
-The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. Multiple task categories are supported. The compiler still duplicates decision nodes and caps the tree at six conditional rules. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab; live model benchmark verification is pending. Trace-driven updates and oracle integration remain separate future work.
+The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. Multiple task categories are supported. The compiler still duplicates decision nodes and caps the tree at six conditional rules. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab; hosted API experiments have run on Colab, while live verification of model-initiated skill refresh is pending. Trace-driven updates and oracle integration remain separate future work.
 
 ## Run commands
 
@@ -23,7 +23,7 @@ Use the [PowerShell 5.1 command guide](docs/commands.md) for copy-paste instruct
 
 The command guide assumes PowerShell is already open at this repository's root. It avoids inline JSON arguments, which PowerShell 5.1 can pass incorrectly to Python.
 
-For model-based evaluation, use the [agent evaluation commands](docs/agent-commands.md): create a venv, freeze a compiled skill, start the service, prepare VAREX, configure your provider, run, and score. Docker is not required.
+For model-based evaluation, use the [agent evaluation commands](docs/agent-commands.md): create a venv, freeze a compiled skill, start the service, prepare VAREX, configure your provider, run, and score. Docker is not required. The model can call `request_skill` during execution to replace active guidance using its current request and observed context; the original task is not appended to refresh requests.
 
 For a Colab T4 without provider rate limits, use the optional [local Qwen3.5-4B backend](docs/local-qwen.md). Hosted API mode remains available. Real T4 inference/benchmark verification is pending.
 

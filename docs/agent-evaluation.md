@@ -14,9 +14,9 @@ Snapshots freeze source + compiled bundle + implementation revision. The agent o
 
 Each document/replicate has fresh attempts with **none**, **full**, and **reduced** skill views. Only the active skill prompt section changes. Full and reduced must share the same source fingerprint. No fallback to full guidance is allowed if resolution fails.
 
-`run_episode` performs policy → skill section → model → tools → observations until completion/budget. `SessionContext.load_skill` is the shared refresh operation. A refresh replaces the managed prompt section on the next call, not the audit record. Prior model-generated text and observations remain in history; this does not erase knowledge already seen.
+`run_episode` performs policy → skill section → model → tools → observations until completion/budget. `SessionContext.load_skill(context, task=...)` is the shared refresh operation. A focused task uses only that request and its supplied context: the original task is not appended and prior feature values are not inherited. A refresh replaces the managed prompt section on the next call, not the audit record. The original objective, prior model-generated text and tool observations remain in history; this does not erase knowledge already seen.
 
-V1 loads the skill once. A custom `SkillRequestPolicy.before_model` or a `get_skill` tool can call the same `load_skill` method without changing the loop. These extension paths are tested; automatic discovery, refresh policy design, and training/updating trees are not enabled by the v1 CLI.
+The initial policy loads guidance once before the first call. Every condition then exposes the same built-in `request_skill` tool: `{"request":"OCR this PDF","context":{"source_kind":"scanned_image"}}`. `request` is required; `context` is optional and contains only relevant observed facts for this request. The tool resolves the already-assigned skill and returns a short receipt, not another copy of the Markdown in tool history. Full returns the full source, none returns no guidance, and reduced resolves a fresh view. No extra model call is made by the tool itself; refreshes remain inside the existing episode/model-call budget. Backend failures abort the attempt without falling back to old guidance. Automatic skill discovery and tree updates remain separate work.
 
 ## PDF benchmark protocol
 
@@ -38,7 +38,7 @@ Default pilot: 5 dev PDFs × 1 replicate × 3 conditions. Main run: all held-out
 | `skill_agent/resolvers.py` | `HttpSkillResolver`, `StaticSkillResolver` (full/empty) |
 | `skill_agent/models.py` | `ModelClient.complete`, `OpenAICompatibleClient` |
 | `skill_agent/local_models.py` | Optional `LocalTransformersClient`, FP16 Qwen server startup, two-turn tool smoke check |
-| `skill_agent/runtime.py` | `Tool`, `SkillRequestPolicy`, `InitialSkillPolicy`, `SessionContext`, `run_episode` |
+| `skill_agent/runtime.py` | `Tool`, `SkillRequestPolicy`, `InitialSkillPolicy`, `SessionContext`, `SkillRequestTool`, `run_episode` |
 | `skill_agent/benchmarks/` | `BenchmarkAdapter`, `VarexAdapter`, pinned preparation and scoring |
 | `skill_agent/pdf_session.py` | `VenvPDFSession`, bounded local shell execution and venv provenance |
 | `skill_agent/experiments.py` | factories, paired runs, atomic episode records, resume, reports |
@@ -52,6 +52,6 @@ Run manifests record resolved configuration, task IDs, package/code/Git revision
 
 The current PDF source is an existing supplied local snapshot with restrictive upstream provenance; this work does not clear those terms or fetch missing supporting guides. `FORMS.md`, `REFERENCE.md`, and upstream scripts are absent. Treat it as an incomplete skill snapshot, not the full upstream package. The filename is normalized to `initial.md` for Linux compatibility, without content changes.
 
-Current PDF selection still uses deterministic heuristics and the existing six-rule compiler. Extraction tasks often yield the same reduced view; source type remains unknown unless observed facts provide it. The harness does not fix selection quality, remove the exponential-tree limit, or claim performance gains before experiments.
+Current PDF selection still uses deterministic heuristics and the existing six-rule compiler. Identical initial extraction tasks yield the same initial view; model-initiated requests can select different guidance later. An OCR-only request selects the OCR branch without forcing general extraction fragments; explicitly asking to extract text and use OCR selects both. Root instructions and structural dependencies still apply. The harness does not fix selection quality or remove the exponential-tree limit.
 
-Implemented: service boundary/snapshots, generic loop, OpenAI-compatible model adapter, three arms, local venv PDF/data/scorer adapters, accounting, resume, reports, and extension tests. Existing checks pass on Windows and Ubuntu/Python 3.12, including real PDF extraction through the venv shell. Pending live verification: full dataset preparation, a configured tool-calling model pilot, Google Colab execution, and held-out experiments. No trace-based update integration is included.
+Implemented: service boundary/snapshots, generic loop, model-initiated focused refresh, OpenAI-compatible model adapter, three arms, local venv PDF/data/scorer adapters, accounting, resume, and reports. Hosted initial-only experiments have run on Colab, including 30 dev PDFs with Qwen3.7 Flash. Focused refresh is verified offline through the actual HTTP service and compiled PDF tree; live model verification of refresh and held-out experiments remain pending. No trace-based update integration is included.
