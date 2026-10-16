@@ -29,11 +29,19 @@ Leave this running. It returns selected Markdown when the agent sends a task. Bo
 
 ## 4. Prepare the benchmark
 
-Downloads the pinned VAREX dataset/PDFs and official scorer into the ignored local-data folder. This may be a substantial download; it does not call a model.
+Downloads the pinned VAREX dataset/PDFs and official scorer into the ignored local-data folder. This may be a substantial download; it does not call a model. Metadata reads exclude image/text payloads; document IDs containing parentheses are supported.
 
 ```powershell
 .\.venv\Scripts\python.exe -m skill_agent prepare
 ```
+
+For a smaller first setup, download only the first five deterministic dev PDFs into a separate folder:
+
+```powershell
+.\.venv\Scripts\python.exe -m skill_agent prepare --output benchmarks/local-data/varex-dev-5 --dev-limit 5
+```
+
+Set `benchmark.options.data_dir` in your config to `benchmarks/local-data/varex-dev-5`. This preserves the same dev ordering as full preparation but includes no held-out PDFs. For a full evaluation, use the original command and full dataset directory.
 
 Python text extraction works with the installed libraries. For command-line PDF tools and OCR, install Poppler (`pdftotext`, `pdfinfo`, `pdftoppm`), Tesseract, and qpdf on the host and add their executable folders to `PATH`. `doctor` reports which tools are available; missing tools do not prevent Python-only tasks. Windows installations of Tesseract also need `TESSDATA_PREFIX` configured when required by that installation.
 

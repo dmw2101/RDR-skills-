@@ -44,11 +44,13 @@ def download_scorer(scoring):
         (scoring / name).write_bytes(base64.b64decode(item["content"]))
 
 
-def prepare_varex(destination):
+def prepare_varex(destination, *, dev_limit=None):
     """Explicit opt-in download; all data and executable scorer remain local/ignored."""
     from datasets import load_dataset
     from huggingface_hub import hf_hub_download
 
+    if dev_limit is not None and (type(dev_limit) is not int or not 1 <= dev_limit <= 30):
+        raise ValueError("dev_limit must be between 1 and 30, or omitted for the full dataset")
     destination = Path(destination).resolve()
     if destination.exists():
         raise ValueError("dataset directory already exists; use a new destination")
@@ -56,24 +58,45 @@ def prepare_varex(destination):
     with tempfile.TemporaryDirectory(dir=destination.parent) as temporary:
         staging = Path(temporary) / "data"
         staging.mkdir()
-        ds = load_dataset("ibm-research/VAREX", revision=DATA_REVISION, split="benchmark")
-        # Do not decode images: this protocol intentionally uses the original PDFs.
-        ds = ds.select_columns(["doc_id", "split", "schema", "ground_truth"])
+        print("Reading pinned VAREX metadata (excluding image/text payloads)...", flush=True)
+        # Address the pinned Parquet shards directly: avoid loading the image
+        # dataset's repository-wide metadata or downloading full image columns.
+        data_files = [f"https://huggingface.co/datasets/ibm-research/VAREX/resolve/{DATA_REVISION}/"
+                      f"data/benchmark-{i:05d}-of-00004.parquet" for i in range(4)]
+        ds = load_dataset("parquet", data_files={"benchmark": data_files}, split="benchmark",
+                          streaming=True, columns=["doc_id", "split", "schema", "ground_truth"],
+                          filters=[("split", "==", "Flat")])
         rows = {}
         for row in ds:
             if row["split"].lower() != "flat":
                 continue
             doc_id = str(row["doc_id"])
-            if not re.fullmatch(r"[a-zA-Z0-9_.-]+", doc_id) or doc_id in (".", ".."):
-                raise ValueError("unsafe dataset document ID")
+            # IDs are filenames, not identifiers: upstream includes parentheses.
+            # Still reject paths, control characters and Windows-invalid names.
+            if (not doc_id or doc_id in (".", "..") or doc_id.endswith((".", " "))
+                    or re.search(r'[<>:"/\\|?*\x00-\x1f]', doc_id)
+                    or doc_id.split(".")[0].upper() in {
+                        "CON", "PRN", "AUX", "NUL", *[f"COM{i}" for i in range(1, 10)],
+                        *[f"LPT{i}" for i in range(1, 10)]}):
+                raise ValueError(f"unsafe dataset document ID: {doc_id!r}")
+            if doc_id in rows:
+                raise ValueError(f"duplicate dataset document ID: {doc_id!r}")
             rows[doc_id] = row
+            if len(rows) % 50 == 0:
+                print(f"Read metadata for {len(rows)} Flat documents...", flush=True)
         ids = sorted(rows)
         if len(ids) <= 30:
             raise ValueError("expected more than 30 Flat documents")
         random.Random(42).shuffle(ids)
+        dev_ids, heldout_ids = ids[:30], ids[30:]
+        if dev_limit is not None:
+            dev_ids, heldout_ids = dev_ids[:dev_limit], []
+        selected = dev_ids + heldout_ids
+        print(f"Found {len(ids)} Flat documents; downloading {len(selected)} PDFs.", flush=True)
         tasks = []
-        for doc_id in ids:
+        for index, doc_id in enumerate(selected, 1):
             row = rows[doc_id]
+            print(f"PDF {index}/{len(selected)}: {doc_id}", flush=True)
             original = hf_hub_download("ibm-research/VAREX", f"pdfs/{doc_id}.pdf",
                                        repo_type="dataset", revision=DATA_REVISION)
             public = staging / "public" / doc_id
@@ -83,16 +106,19 @@ def prepare_varex(destination):
             write_json(staging / "private" / f"{doc_id}.json", _object(row["ground_truth"]))
             tasks.append({"id": doc_id, "task": TASK, "category": "Flat"})
         scoring = staging / "scorer"
+        print("Downloading pinned official scorer...", flush=True)
         download_scorer(scoring)
         write_json(staging / "tasks.json", tasks)
-        write_json(staging / "splits.json", {"seed": 42, "dev": ids[:30], "heldout": ids[30:]})
+        write_json(staging / "splits.json", {"seed": 42, "dev": dev_ids, "heldout": heldout_ids})
         files = {str(p.relative_to(staging)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest()
                  for p in staging.rglob("*") if p.is_file()}
         write_json(staging / "provenance.json", {"dataset": "ibm-research/VAREX",
             "data_revision": DATA_REVISION, "scorer_revision": SCORER_REVISION, "files": files,
+            "selection": {"dev_limit": dev_limit, "flat_population": len(ids),
+                          "population_sha256": fingerprint(sorted(ids))},
             "protocol": "project-raw-pdf-agent-v1", "split_note": "Project split, not official train/test"})
         staging.rename(destination)
-    return {"path": str(destination), "dev": 30, "heldout": len(ids) - 30}
+    return {"path": str(destination), "dev": len(dev_ids), "heldout": len(heldout_ids)}
 
 
 class VarexAdapter:

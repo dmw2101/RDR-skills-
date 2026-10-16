@@ -45,6 +45,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     prepare = commands.add_parser("prepare", help="Download pinned Flat VAREX PDFs and scorer")
     prepare.add_argument("--output", default="benchmarks/local-data/varex")
+    prepare.add_argument("--dev-limit", type=int, help="Prepare only the first N deterministic dev PDFs (1-30)")
     for command in ("doctor", "run"):
         sub = commands.add_parser(command)
         sub.add_argument("--config", required=True)
@@ -55,7 +56,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
-            result = prepare_varex(args.output)
+            result = prepare_varex(args.output, dev_limit=args.dev_limit)
         elif args.command == "summarize":
             result = summarize(args.run_dir)
         else:

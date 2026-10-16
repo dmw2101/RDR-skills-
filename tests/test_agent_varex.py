@@ -20,6 +20,7 @@ class VarexPreparationTests(unittest.TestCase):
             pdf.write_bytes(b"%PDF-FAKE")
             rows = [{"doc_id": str(i), "split": "Flat", "schema": '{"type":"object"}',
                      "ground_truth": '{"secret":"gold"}'} for i in range(33)]
+            rows[-1]["doc_id"] = "DIC-23_(9-01)"  # Actual upstream filename rejected by the old check.
             class Dataset:
                 def select_columns(self, columns):
                     self.columns = columns
@@ -40,7 +41,7 @@ class VarexPreparationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "already exists"):
                     prepare_varex(target)
             self.assertEqual(receipt["heldout"], 3)
-            ids = sorted(str(i) for i in range(33))
+            ids = sorted(row["doc_id"] for row in rows)
             random.Random(42).shuffle(ids)
             self.assertEqual(read_json(target / "splits.json")["dev"], ids[:30])
             self.assertEqual(sorted(p.name for p in (target / "public/0").iterdir()), ["document.pdf", "schema.json"])
