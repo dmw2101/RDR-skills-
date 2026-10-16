@@ -25,6 +25,8 @@ The command guide assumes PowerShell is already open at this repository's root. 
 
 For model-based evaluation, use the [agent evaluation commands](docs/agent-commands.md): create a venv, freeze a compiled skill, start the service, prepare VAREX, configure your provider, run, and score. Docker is not required.
 
+For a Colab T4 without provider rate limits, use the optional [local Qwen3.5-4B backend](docs/local-qwen.md). Hosted API mode remains available. Real T4 inference/benchmark verification is pending.
+
 ## Further documentation
 
 - [RDR engine overview](docs/rdr-engine.md)

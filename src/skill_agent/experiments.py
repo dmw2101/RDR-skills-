@@ -64,7 +64,8 @@ def git_revision():
 
 def dependency_versions():
     versions = {}
-    for name in ("datasets", "huggingface-hub", "numpy", "scipy", "rapidfuzz"):
+    for name in ("datasets", "huggingface-hub", "numpy", "scipy", "rapidfuzz",
+                 "transformers", "torch", "torchvision", "tokenizers"):
         try:
             versions[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:

@@ -93,6 +93,8 @@ For the final run, copy the pilot configuration to a new file, change `split` to
 
 ## Linux / Colab venv
 
+Local Qwen3.5-4B is also supported without a provider account; see [local Qwen setup](local-qwen.md). The API commands above remain supported.
+
 From the repository root, install host tools and create the venv (in Colab, run this in a `%%bash` cell):
 
 ```bash

@@ -37,6 +37,7 @@ Default pilot: 5 dev PDFs × 1 replicate × 3 conditions. Main run: all held-out
 | `skill_agent/contracts.py` | `ResolveSkillRequest`, `ResolvedSkill`, `SkillResolver` |
 | `skill_agent/resolvers.py` | `HttpSkillResolver`, `StaticSkillResolver` (full/empty) |
 | `skill_agent/models.py` | `ModelClient.complete`, `OpenAICompatibleClient` |
+| `skill_agent/local_models.py` | Optional `LocalTransformersClient`, FP16 Qwen server startup, two-turn tool smoke check |
 | `skill_agent/runtime.py` | `Tool`, `SkillRequestPolicy`, `InitialSkillPolicy`, `SessionContext`, `run_episode` |
 | `skill_agent/benchmarks/` | `BenchmarkAdapter`, `VarexAdapter`, pinned preparation and scoring |
 | `skill_agent/pdf_session.py` | `VenvPDFSession`, bounded local shell execution and venv provenance |

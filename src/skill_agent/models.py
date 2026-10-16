@@ -26,12 +26,16 @@ class OpenAICompatibleClient:
         if unknown:
             raise ValueError(f"unknown model settings: {sorted(unknown)}")
         parsed = urlparse(base_url)
-        if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1", "::1")):
+        local = parsed.hostname in ("localhost", "127.0.0.1", "::1")
+        if parsed.scheme != "https" and not (parsed.scheme == "http" and local):
             raise ValueError("model endpoint must use HTTPS (or localhost HTTP)")
-        if not model or not os.environ.get(api_key_env):
+        if api_key_env is None and not local:
+            raise ValueError("keyless model endpoints must be localhost")
+        key = os.environ.get(api_key_env) if api_key_env else None
+        if not model or (api_key_env is not None and not key):
             raise ValueError(f"set model and environment variable {api_key_env}")
         self.url = base_url.rstrip("/") + "/chat/completions"
-        self.model, self.key = model, os.environ[api_key_env]
+        self.model, self.key = model, key
         self.temperature, self.max_tokens = temperature, max_tokens
         self.seed, self.timeout = seed, timeout
 
@@ -44,7 +48,7 @@ class OpenAICompatibleClient:
             payload["seed"] = self.seed
         data = await asyncio.to_thread(
             json_request, self.url, payload,
-            headers={"Authorization": f"Bearer {self.key}"}, timeout=self.timeout,
+            headers={"Authorization": f"Bearer {self.key}"} if self.key else {}, timeout=self.timeout,
         )
         choice = data["choices"][0]
         original = choice["message"]
