@@ -12,6 +12,7 @@ import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
+from urllib.parse import quote
 
 from . import __version__
 from .storage import read_json, write_json
@@ -20,6 +21,46 @@ from .resolvers import StaticSkillResolver
 from .runtime import SessionContext, run_episode
 
 CONDITIONS = ("none", "full", "reduced")
+
+
+def episode_filename(task_id, condition, replicate=0):
+    """Readable, portable names with the original identity hash for uniqueness."""
+    if not isinstance(task_id, str) or not task_id or condition not in CONDITIONS:
+        raise ValueError("expected a document ID and none/full/reduced condition")
+    if type(replicate) is not int or replicate < 0:
+        raise ValueError("replicate must be a nonnegative integer")
+    key = fingerprint([task_id, replicate, condition])
+    return f"{quote(task_id, safe='-_.()')}_{condition}_{key}.json"
+
+
+def rename_episode_files(root):
+    """Rename saved episodes without changing records, hashes, or scores."""
+    root = Path(root)
+    if (root / ".running").exists():
+        raise ValueError("stop the run before renaming episode files")
+    manifest = read_json(root / "manifest.json")
+    directory = root / "episodes"
+    if not directory.is_dir():
+        raise ValueError("episode directory does not exist")
+    planned, names = [], set()
+    for path in sorted(directory.glob("*.json")):
+        record = read_json(path)
+        if record["run_id"] != manifest["run_id"]:
+            raise ValueError("episode does not belong to run")
+        if record.get("record_sha256") != fingerprint({k: v for k, v in record.items() if k != "record_sha256"}):
+            raise ValueError("episode record changed")
+        name = episode_filename(record["task_id"], record["condition"], record["replicate"])
+        if name.casefold() in names:
+            raise ValueError("episode filenames collide; no files renamed")
+        names.add(name.casefold())
+        target = directory / name
+        if target != path:
+            if target.exists():
+                raise ValueError(f"episode destination already exists: {name}; no files renamed")
+            planned.append((path, target))
+    for path, target in planned:
+        path.rename(target)
+    return {"output_dir": str(root), "episodes": len(names), "renamed": len(planned)}
 
 
 def factory(spec, **overrides):
@@ -96,6 +137,10 @@ async def run_experiment(config, *, resume=False):
     tasks = adapter.tasks(run["split"], run["limit"])
     if not tasks:
         raise ValueError("no tasks selected")
+    names = [episode_filename(task["id"], condition, replicate).casefold()
+             for task in tasks for replicate in range(run["replicates"]) for condition in CONDITIONS]
+    if len(names) != len(set(names)):
+        raise ValueError("task IDs produce colliding episode filenames")
     runtime_provenance = await adapter.prepare_runtime()
     # Fail before spending inference tokens if service provenance is inconsistent.
     probe = SessionContext(config["skill"]["id"], receipt["artifact_id"], tasks[0]["task"],
@@ -126,10 +171,13 @@ async def run_experiment(config, *, resume=False):
         semaphore = asyncio.Semaphore(run["concurrency"])
 
         async def attempt(task, replicate, condition):
-            key = fingerprint([task["id"], replicate, condition])
-            path = root / "episodes" / f"{key}.json"
-            if path.exists():
-                record = read_json(path)
+            directory = root / "episodes"
+            path = directory / episode_filename(task["id"], condition, replicate)
+            # Read old hash-based filenames too; configuration/revision checks still apply.
+            legacy = directory / (fingerprint([task["id"], replicate, condition]) + ".json")
+            saved_episode = path if path.exists() else legacy
+            if saved_episode.exists():
+                record = read_json(saved_episode)
                 if record["run_id"] != run_id or (record["task_id"], record["replicate"], record["condition"]) != (task["id"], replicate, condition):
                     raise ValueError("episode does not belong to run")
                 if record.get("record_sha256") != fingerprint({k: v for k, v in record.items() if k != "record_sha256"}):

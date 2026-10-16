@@ -6,8 +6,9 @@ import unittest
 from pathlib import Path
 
 from rdr_service.server import make_server
-from skill_agent.contracts import ResolvedSkill, source_fingerprint
-from skill_agent.experiments import load_config, paired_bootstrap, run_experiment, summarize, usage_summary
+from skill_agent.contracts import ResolvedSkill, fingerprint, source_fingerprint
+from skill_agent.experiments import (episode_filename, load_config, paired_bootstrap, rename_episode_files,
+                                     run_experiment, summarize, usage_summary)
 from skill_agent.models import ModelResponse
 from skill_agent.storage import read_json, write_json
 
@@ -97,8 +98,22 @@ class ExperimentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(TinySession.closed, 6)
         self.assertEqual(TinySession.active, 0)
         self.assertLessEqual(TinySession.peak, 2)
+        directory = self.root / "run/episodes"
+        self.assertEqual({p.name for p in directory.glob("*.json")}, {
+            f"{doc}_{condition}_{fingerprint([doc, 0, condition])}.json"
+            for doc in ("a", "b") for condition in ("none", "full", "reduced")})
+        self.assertEqual(episode_filename("a", "full", 1), f"a_full_{fingerprint(['a', 1, 'full'])}.json")
+        self.assertEqual(episode_filename("folder/a", "none"),
+                         f"folder%2Fa_none_{fingerprint(['folder/a', 0, 'none'])}.json")
+        readable = directory / episode_filename("a", "none")
+        original = readable.read_bytes()
+        legacy = directory / (fingerprint(["a", 0, "none"]) + ".json")
+        readable.rename(legacy)
         await run_experiment(self.config, resume=True)
         self.assertEqual(TinyModel.calls, 6)
+        self.assertEqual(rename_episode_files(self.root / "run")["renamed"], 1)
+        self.assertEqual(readable.read_bytes(), original)
+        self.assertEqual(rename_episode_files(self.root / "run")["renamed"], 0)
         report = summarize(self.root / "run")
         self.assertEqual(report["benchmark_summaries"], [{"benchmark": "tiny"}])
         self.assertEqual(report["usage"]["reduced"]["input_tokens"], 22)

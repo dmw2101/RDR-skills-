@@ -93,6 +93,12 @@ Runs official VAREX scoring, records failures, and produces paired comparisons. 
 
 Read `experiments/varex-pilot/summary.json`. Exact prompts, tool traces, selected skill text and usage are in `episodes/`; `manifest.json` pins the run. Official per-field CSVs and exported predictions are in `scores/`. These files contain document content/labels after scoring: keep them private as appropriate. Data, snapshots, test dependencies and results are ignored by Git.
 
+Episode filenames use `<document>_<condition>_<hash>.json`, e.g. `fha2226_reduced_<hash>.json`. The full original hash of document ID, condition and repetition prevents filename collisions and distinguishes repetitions. Filename-unsafe characters in IDs are percent-encoded. Existing hash-named episodes remain readable. To rename an existing stopped run without changing its contents or scores:
+
+```powershell
+.\.venv\Scripts\python.exe -m skill_agent rename-episodes experiments/varex-pilot
+```
+
 For the final run, copy the pilot configuration to a new file, change `split` to `heldout`, `limit` to `null`, `replicates` to `3`, and choose a **new** `output_dir`. Pass that file to `run` and its output directory to `summarize`. Freeze the configuration and non-inferiority margin before inspecting held-out results.
 
 ## Linux / Colab venv

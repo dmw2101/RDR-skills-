@@ -6,7 +6,7 @@ import json
 import sys
 
 from .benchmarks.varex import prepare_varex
-from .experiments import factory, load_config, make_resolvers, run_experiment, summarize
+from .experiments import factory, load_config, make_resolvers, rename_episode_files, run_experiment, summarize
 from .contracts import ResolveSkillRequest
 
 
@@ -53,12 +53,16 @@ def main(argv=None):
             sub.add_argument("--resume", action="store_true")
     summary = commands.add_parser("summarize", help="Run official scoring and paired analysis")
     summary.add_argument("run_dir")
+    rename = commands.add_parser("rename-episodes", help="Give existing episode files document/condition names")
+    rename.add_argument("run_dir")
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
             result = prepare_varex(args.output, dev_limit=args.dev_limit)
         elif args.command == "summarize":
             result = summarize(args.run_dir)
+        elif args.command == "rename-episodes":
+            result = rename_episode_files(args.run_dir)
         else:
             config = load_config(args.config)
             if args.command == "doctor":
