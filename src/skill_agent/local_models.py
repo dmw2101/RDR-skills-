@@ -7,6 +7,7 @@ neither generated answers nor rendered skills are cached between episodes.
 import argparse
 import asyncio
 import json
+from copy import deepcopy
 from functools import lru_cache
 from urllib.parse import urlparse
 
@@ -39,9 +40,21 @@ class LocalTransformersClient(OpenAICompatibleClient):
         self.context_window = context_window
 
     def _input_tokens(self, messages, tools):
+        # API history uses JSON strings; Qwen's template iterates argument mappings.
+        # Normalize only this copy, like the Transformers server does internally.
+        template_messages = deepcopy(messages)
+        for message in template_messages:
+            for call in message.get("tool_calls") or []:
+                function = call["function"]
+                arguments = function.get("arguments", {})
+                if isinstance(arguments, str):
+                    arguments = json.loads(arguments)
+                if not isinstance(arguments, dict):
+                    raise ValueError("local tool arguments must be a JSON object")
+                function["arguments"] = arguments
         options = {"tools": tools} if tools else {}
         tokens = _tokenizer(self.model).apply_chat_template(
-            messages, tokenize=True, add_generation_prompt=True,
+            template_messages, tokenize=True, add_generation_prompt=True,
             enable_thinking=False, **options,
         )
         return len(tokens)
