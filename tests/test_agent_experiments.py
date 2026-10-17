@@ -7,7 +7,7 @@ from pathlib import Path
 
 from rdr_service.server import make_server
 from skill_agent.contracts import ResolvedSkill, fingerprint, source_fingerprint
-from skill_agent.experiments import (episode_filename, load_config, paired_bootstrap, rename_episode_files,
+from skill_agent.experiments import (episode_filename, inspect_skill_requests, load_config, paired_bootstrap, rename_episode_files,
                                      run_experiment, summarize, usage_summary)
 from skill_agent.models import ModelResponse
 from skill_agent.storage import read_json, write_json
@@ -115,6 +115,11 @@ class ExperimentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(readable.read_bytes(), original)
         self.assertEqual(rename_episode_files(self.root / "run")["renamed"], 0)
         report = summarize(self.root / "run")
+        inspection = inspect_skill_requests(self.root / "run")
+        self.assertEqual(inspection["saved_episodes"], 6)
+        self.assertEqual(inspection["model_skill_calls"], 0)
+        self.assertTrue(all(not episode["requests"] for episode in inspection["episodes"]))
+        self.assertEqual(report["usage"]["reduced"]["skill_requests"], 0)
         self.assertEqual(report["benchmark_summaries"], [{"benchmark": "tiny"}])
         self.assertEqual(report["usage"]["reduced"]["input_tokens"], 22)
         self.assertIsNone(report["usage"]["reduced"]["cost_usd"])

@@ -6,7 +6,8 @@ import json
 import sys
 
 from .benchmarks.varex import prepare_varex
-from .experiments import factory, load_config, make_resolvers, rename_episode_files, run_experiment, summarize
+from .experiments import (factory, inspect_skill_requests, load_config, make_resolvers,
+                          rename_episode_files, run_experiment, select_tasks, summarize)
 from .contracts import ResolveSkillRequest
 
 
@@ -20,7 +21,7 @@ async def doctor(config):
     tasks = []
     try:
         adapter = factory(config["benchmark"])
-        tasks = adapter.tasks(config["run"]["split"], config["run"]["limit"])
+        tasks = select_tasks(adapter, config["run"])
         results["benchmark"] = f"ok ({len(tasks)} selected documents)"
         try:
             results["benchmark_runtime"] = await adapter.prepare_runtime()
@@ -35,6 +36,8 @@ async def doctor(config):
         if resolved.source_fingerprint != receipt["source_fingerprint"] or resolved.resolver_revision != receipt["resolver_revision"]:
             raise ValueError("service provenance differs from receipt")
         results["skill_service"] = "ok"
+        results["skill_capabilities"] = resolved.capabilities
+        results["skill_loading"] = "model-initiated only; no skill is injected before the first model call"
     except Exception as exc:
         results["skill_service"] = f"ERROR: {exc}"
     return results
@@ -45,7 +48,9 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     prepare = commands.add_parser("prepare", help="Download pinned Flat VAREX PDFs and scorer")
     prepare.add_argument("--output", default="benchmarks/local-data/varex")
-    prepare.add_argument("--dev-limit", type=int, help="Prepare only the first N deterministic dev PDFs (1-30)")
+    selection = prepare.add_mutually_exclusive_group()
+    selection.add_argument("--dev-limit", type=int, help="Prepare only the first N deterministic dev PDFs (1-30)")
+    selection.add_argument("--task-ids", nargs="+", help="Download only these exact document IDs from the dev split")
     for command in ("doctor", "run"):
         sub = commands.add_parser(command)
         sub.add_argument("--config", required=True)
@@ -53,16 +58,20 @@ def main(argv=None):
             sub.add_argument("--resume", action="store_true")
     summary = commands.add_parser("summarize", help="Run official scoring and paired analysis")
     summary.add_argument("run_dir")
+    inspect = commands.add_parser("inspect-skills", help="Show actual model skill calls and selected views, even during a run")
+    inspect.add_argument("run_dir")
     rename = commands.add_parser("rename-episodes", help="Give existing episode files document/condition names")
     rename.add_argument("run_dir")
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
-            result = prepare_varex(args.output, dev_limit=args.dev_limit)
+            result = prepare_varex(args.output, dev_limit=args.dev_limit, task_ids=args.task_ids)
         elif args.command == "summarize":
             result = summarize(args.run_dir)
         elif args.command == "rename-episodes":
             result = rename_episode_files(args.run_dir)
+        elif args.command == "inspect-skills":
+            result = inspect_skill_requests(args.run_dir)
         else:
             config = load_config(args.config)
             if args.command == "doctor":

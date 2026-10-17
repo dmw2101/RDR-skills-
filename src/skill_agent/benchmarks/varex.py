@@ -44,13 +44,18 @@ def download_scorer(scoring):
         (scoring / name).write_bytes(base64.b64decode(item["content"]))
 
 
-def prepare_varex(destination, *, dev_limit=None):
+def prepare_varex(destination, *, dev_limit=None, task_ids=None):
     """Explicit opt-in download; all data and executable scorer remain local/ignored."""
     from datasets import load_dataset
     from huggingface_hub import hf_hub_download
 
     if dev_limit is not None and (type(dev_limit) is not int or not 1 <= dev_limit <= 30):
         raise ValueError("dev_limit must be between 1 and 30, or omitted for the full dataset")
+    if task_ids is not None:
+        if (dev_limit is not None or not isinstance(task_ids, list) or not task_ids
+                or any(not isinstance(value, str) or not value.strip() for value in task_ids)
+                or len(task_ids) != len(set(task_ids))):
+            raise ValueError("task_ids must be unique document IDs and cannot be combined with dev_limit")
     destination = Path(destination).resolve()
     if destination.exists():
         raise ValueError("dataset directory already exists; use a new destination")
@@ -89,7 +94,12 @@ def prepare_varex(destination, *, dev_limit=None):
             raise ValueError("expected more than 30 Flat documents")
         random.Random(42).shuffle(ids)
         dev_ids, heldout_ids = ids[:30], ids[30:]
-        if dev_limit is not None:
+        if task_ids is not None:
+            missing = [name for name in task_ids if name not in dev_ids]
+            if missing:
+                raise ValueError(f"document IDs are not in the deterministic dev split: {missing}")
+            dev_ids, heldout_ids = list(task_ids), []
+        elif dev_limit is not None:
             dev_ids, heldout_ids = dev_ids[:dev_limit], []
         selected = dev_ids + heldout_ids
         print(f"Found {len(ids)} Flat documents; downloading {len(selected)} PDFs.", flush=True)
@@ -115,6 +125,7 @@ def prepare_varex(destination, *, dev_limit=None):
         write_json(staging / "provenance.json", {"dataset": "ibm-research/VAREX",
             "data_revision": DATA_REVISION, "scorer_revision": SCORER_REVISION, "files": files,
             "selection": {"dev_limit": dev_limit, "flat_population": len(ids),
+                          "task_ids": task_ids,
                           "population_sha256": fingerprint(sorted(ids))},
             "protocol": "project-raw-pdf-agent-v1", "split_note": "Project split, not official train/test"})
         staging.rename(destination)

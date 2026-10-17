@@ -10,12 +10,24 @@ from .contracts import ResolveSkillRequest, fingerprint, source_fingerprint
 
 
 SKILL_REQUEST_INSTRUCTIONS = (
-    "Use request_skill when the active guidance does not cover the operation you need next. "
-    "Describe that operation briefly; do not repeat the whole task unless all of it is needed. "
-    "Include only relevant observed facts in context. Each request replaces the active skill "
-    "section for subsequent model calls; previous feature values are not carried over. "
-    "The tool returns a receipt; read the updated <active_skill> section on your next turn. "
-    "If no guidance is available, continue with the other tools."
+    "Use the available procedural skill library to help complete this task. "
+    "<skill_catalog> lists available topics, not their instructions. No skill is loaded initially.\n"
+    "Workflow:\n"
+    "1. Inspect the inputs when needed to identify the operation you are about to perform.\n"
+    "2. Consult request_skill for the matching catalog topic before implementing a covered "
+    "operation. Choose the topic and timing yourself; inspection can come first. If active "
+    "guidance already covers this operation, use it without requesting it again.\n"
+    "3. Read the resulting <active_skill> instructions on your next turn and execute the "
+    "procedure with the other tools.\n"
+    "4. When observations require another method or a different operation, consult request_skill "
+    "again for that specific need. After an unsuccessful attempt, check relevant library "
+    "guidance before trying several more techniques.\n"
+    "All topics belong to the same assigned skill. Describe only the operation you need now "
+    "and include relevant observed facts in context; do not repeat the original task unless "
+    "needed. Each request replaces active guidance; previous feature values are not inherited. "
+    "The tool returns a receipt, while the guidance appears in the next prompt. "
+    "If no guidance is returned or no topic is relevant, continue using the other tools. "
+    "Do not repeat an identical unavailable request."
 )
 
 
@@ -34,6 +46,13 @@ class InitialSkillPolicy:
             await session.load_skill()
 
 
+class ModelInitiatedSkillPolicy:
+    """Leave selection to the model; no automatic or mandatory initial request."""
+
+    async def before_model(self, session, turn):
+        pass
+
+
 @dataclass
 class SessionContext:
     skill_id: str
@@ -45,6 +64,14 @@ class SessionContext:
     observed: dict = field(default_factory=dict)
     active_skills: dict = field(default_factory=dict)
     events: list = field(default_factory=list)
+    capabilities: list[dict[str, str]] = field(default_factory=list)
+
+    def catalog_text(self):
+        lines = [f"Available skill: {self.skill_id}"]
+        lines.extend(f"- {topic['name']}: {topic['description']}" for topic in self.capabilities)
+        if not self.capabilities:
+            lines.append("Request procedural guidance for your current operation when useful.")
+        return "<skill_catalog>\n" + "\n".join(lines) + "\n</skill_catalog>"
 
     async def load_skill(self, context=None, *, task=None):
         """Resolve a focused task independently, or reuse the initial task for a policy load."""
@@ -69,6 +96,8 @@ class SessionContext:
         if result.source_fingerprint != self.expected_source:
             raise ValueError("full and reduced skills are not from the same source")
         self.observed = observed
+        if result.capabilities:
+            self.capabilities = result.capabilities
         self.active_skills[self.skill_id] = result.markdown
         self.events.append({"type": "skill", "request": request.to_dict(), "response": result.to_dict(),
                             "markdown_sha256": source_fingerprint(result.markdown),
@@ -83,9 +112,16 @@ class SkillRequestTool:
 
     definition = {"type": "function", "function": {
         "name": "request_skill",
-        "description": "Replace active guidance for the assigned skill with guidance for your next operation.",
+        "description": (
+            "Look up procedural guidance from any topic in skill_catalog for your current need. "
+            "You may call this after inspecting inputs and again for a different operation or "
+            "when current guidance is insufficient. Each call replaces the active skill view."
+        ),
         "parameters": {"type": "object", "properties": {
-            "request": {"type": "string", "description": "The specific operation you need guidance for now."},
+            "request": {"type": "string", "description": (
+                "Describe the specific operation or troubleshooting help you need now, using "
+                "the catalog topic where relevant. Request only the guidance needed at this point."
+            )},
             "context": {"type": "object", "additionalProperties": True,
                         "description": "Optional observed facts relevant now; previous context is not inherited."},
         }, "required": ["request"], "additionalProperties": False},
@@ -120,7 +156,7 @@ class EpisodeResult:
 async def run_episode(*, model, session, skill_context, system_prompt, policy=None,
                       max_calls=20, timeout_seconds=600):
     """Session exposes prompt, tools, collect(), close(); inputs exclude gold labels."""
-    policy = policy or InitialSkillPolicy()
+    policy = policy or ModelInitiatedSkillPolicy()
     started = time.monotonic()
     history = [{"role": "user", "content": session.prompt}]
     events = skill_context.events
@@ -128,11 +164,10 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
 
     async def loop():
         nonlocal status, prediction
-        tools = dict(session.tools)
-        if "request_skill" in tools:
+        if "request_skill" in session.tools:
             raise ValueError("request_skill is reserved for the agent's skill resolver")
-        tools["request_skill"] = SkillRequestTool(skill_context)
-        instructions = system_prompt + "\n\n" + SKILL_REQUEST_INSTRUCTIONS
+        tools = {"request_skill": SkillRequestTool(skill_context), **session.tools}
+        instructions = system_prompt + "\n\n" + SKILL_REQUEST_INSTRUCTIONS + "\n\n" + skill_context.catalog_text()
         for turn in range(max_calls):
             await policy.before_model(skill_context, turn)
             skill_text = "\n\n".join(text for text in skill_context.active_skills.values() if text)

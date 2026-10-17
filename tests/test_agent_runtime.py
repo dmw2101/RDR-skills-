@@ -50,17 +50,28 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 return ResolvedSkill("selected text", "snapshot", source_fingerprint("whole skill"), "backend")
         resolvers = [StaticSkillResolver("pdf", "snapshot", "whole skill", empty=True),
                      StaticSkillResolver("pdf", "snapshot", "whole skill"), Reduced()]
-        requests = []
+        requests, initial_requests = [], []
         for resolver in resolvers:
-            model, session = FakeModel(), FakeSession()
-            result = await run_episode(model=model, session=session, skill_context=context(resolver), system_prompt="base")
+            model = FakeModel([{"role": "assistant", "tool_calls": [{
+                "id": "help", "type": "function", "function": {
+                    "name": "request_skill", "arguments": '{"request":"Read the PDF"}'}}]},
+                {"role": "assistant", "content": "finished"}])
+            session, state = FakeSession(), context(resolver)
+            state.capabilities = [{"name": "extraction", "description": "Text and table extraction"}]
+            result = await run_episode(model=model, session=session, skill_context=state, system_prompt="base")
             self.assertEqual(result.status, "completed")
             self.assertTrue(session.closed)
             self.assertIn("request_skill", [t["function"]["name"] for t in model.definitions[0]])
-            requests.append(model.requests[0])
-        self.assertEqual(requests[0][1:], requests[1][1:])
-        self.assertEqual(requests[1][1:], requests[2][1:])
-        self.assertEqual(requests[0][0]["content"], "base\n\n" + SKILL_REQUEST_INSTRUCTIONS)
+            initial_requests.append(model.requests[0])
+            requests.append(model.requests[1])
+        self.assertEqual(initial_requests[0], initial_requests[1])
+        self.assertEqual(initial_requests[1], initial_requests[2])
+        self.assertNotIn("\n<active_skill>\n", initial_requests[0][0]["content"])
+        self.assertIn("Text and table extraction", initial_requests[0][0]["content"])
+        self.assertEqual(requests[0][1:-1], requests[1][1:-1])
+        # Tool receipts differ by condition; task and model request remain shared.
+        self.assertEqual(requests[1][1:-1], requests[2][1:-1])
+        self.assertTrue(requests[0][0]["content"].startswith("base\n\n" + SKILL_REQUEST_INSTRUCTIONS))
         self.assertIn("whole skill", requests[1][0]["content"])
         self.assertIn("selected text", requests[2][0]["content"])
 
@@ -108,15 +119,16 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         session = FakeSession()
         result = await run_episode(model=model, session=session, skill_context=state, system_prompt="base")
         self.assertEqual(result.status, "completed")
-        self.assertEqual([r.task for r in resolved], ["Read the PDF", "OCR this PDF", "Merge PDFs"])
-        self.assertEqual([r.context for r in resolved], [{}, {"source_kind": "scanned_image"}, {}])
+        self.assertEqual([r.task for r in resolved], ["OCR this PDF", "Merge PDFs"])
+        self.assertEqual([r.context for r in resolved], [{"source_kind": "scanned_image"}, {}])
+        self.assertNotIn("\n<active_skill>\n", model.requests[0][0]["content"])
         self.assertEqual(state.task, "Read the PDF")
         self.assertEqual(state.observed, {})
         self.assertIn("guidance: OCR this PDF", model.requests[1][0]["content"])
         self.assertNotIn("guidance: Read the PDF", model.requests[1][0]["content"])
         self.assertIn("guidance: Merge PDFs", model.requests[2][0]["content"])
         self.assertNotIn("guidance: OCR this PDF", model.requests[2][0]["content"])
-        self.assertEqual(sum(e["type"] == "skill" for e in state.events), 3)
+        self.assertEqual(sum(e["type"] == "skill" for e in state.events), 2)
         self.assertNotIn("guidance:", model.requests[1][-1]["content"])
         self.assertTrue(json.loads(model.requests[1][-1]["content"])["guidance_available"])
         self.assertNotIn("request_skill", session.tools)
@@ -141,11 +153,15 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session.closed)
 
     async def test_provenance_failure_never_falls_back(self):
-        session, model = FakeSession(), FakeModel()
+        session = FakeSession()
+        model = FakeModel([{"role": "assistant", "tool_calls": [{
+            "id": "help", "type": "function", "function": {
+                "name": "request_skill", "arguments": '{"request":"Read the PDF"}'}}]}])
         state = context(StaticSkillResolver("pdf", "snapshot", "different source"))
         result = await run_episode(model=model, session=session, skill_context=state, system_prompt="base")
         self.assertEqual(result.status, "failed")
-        self.assertEqual(model.requests, [])
+        self.assertEqual(len(model.requests), 1)
+        self.assertNotIn("\n<active_skill>\n", model.requests[0][0]["content"])
         self.assertTrue(session.closed)
 
     async def test_malformed_tool_arguments_are_observations(self):

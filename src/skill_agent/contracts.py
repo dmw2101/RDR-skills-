@@ -45,6 +45,8 @@ class ResolvedSkill:
     usage: dict[str, Any] = field(default_factory=lambda: {
         "model_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0,
     })
+    # Public discovery metadata, separate from backend-specific diagnostics.
+    capabilities: list[dict[str, str]] = field(default_factory=list)
 
     def __post_init__(self):
         if not isinstance(self.markdown, str):
@@ -54,6 +56,12 @@ class ResolvedSkill:
                 raise ValueError(f"{name} must be nonempty text")
         if not isinstance(self.metadata, dict) or not isinstance(self.usage, dict):
             raise ValueError("metadata and usage must be objects")
+        if not isinstance(self.capabilities, list) or any(
+            not isinstance(topic, dict) or set(topic) != {"name", "description"}
+            or any(not isinstance(value, str) or not value.strip() for value in topic.values())
+            for topic in self.capabilities
+        ):
+            raise ValueError("capabilities must contain nonempty name/description objects")
         for name in ("model_calls", "input_tokens", "output_tokens", "cost_usd"):
             value = self.usage.get(name)
             if value is not None and (type(value) not in (int, float) or value < 0 or not math.isfinite(value)):

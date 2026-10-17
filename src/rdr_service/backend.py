@@ -17,6 +17,36 @@ def implementation_revision():
                             for p in sorted(Path(__file__).parent.glob("*.py"))})
 
 
+def skill_capabilities(directory):
+    """Describe actual compiled rule coverage using source headings, without procedures."""
+    lines = (directory / "initial.md").read_text(encoding="utf-8").splitlines()
+    ir = json.loads((directory / "compiled/ir.json").read_text(encoding="utf-8"))
+    headings, fence = [], None
+    for number, line in enumerate(lines, 1):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence):
+                fence = None
+            continue
+        heading = re.match(r"^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
+        if fence is None and heading:
+            headings.append((number, heading.group(1)))
+    capabilities = []
+    for rule in ir["rules"]:
+        sections = []
+        for span in rule["source"]:
+            preceding = [title for number, title in headings if number <= span["start"]]
+            selected = preceding[-1:] + [title for number, title in headings
+                                        if span["start"] < number <= span["end"]]
+            sections.extend(title for title in selected if title not in sections)
+        capabilities.append({"name": rule["id"].replace("_", " "),
+                             "description": "; ".join(sections) or "Conditional procedural guidance"})
+    return capabilities
+
+
 class RDRBackend:
     def __init__(self, root):
         self.root = Path(root).resolve()
@@ -80,4 +110,5 @@ class RDRBackend:
         rendered = SkillRenderer().render(engine.predict(case), engine, catalog)
         return ResolvedSkill(rendered.markdown, request.artifact_id, info["source_fingerprint"],
                              self.revision, {"case": case, "fragment_ids": list(rendered.selected_ids),
-                                 "path": [{"node_id": p.node_id, "matched": p.matched} for p in rendered.path]})
+                                 "path": [{"node_id": p.node_id, "matched": p.matched} for p in rendered.path]},
+                             capabilities=skill_capabilities(directory))

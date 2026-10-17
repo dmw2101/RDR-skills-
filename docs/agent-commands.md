@@ -69,13 +69,42 @@ Checks model configuration/key presence, the PDF venv and libraries, available s
 
 Runs 5 dev documents under all three conditions. **This command makes paid/limited model calls using your configured provider.**
 
-All conditions expose `request_skill` so the model can request guidance during an attempt. Each refresh replaces active guidance using only its current request/context; it does not append the original task. No configuration flag is needed. Refreshes do not start new attempts or reset the 20-call budget. Summaries include `skill_requests` and `skill_refresh_calls`, alongside the existing token/call/timing metrics.
+All conditions start with the same capability catalog and **no skill text**. The model chooses whether/when to call `request_skill`; no initial call is forced. Each request replaces active guidance using only its current request/context. Full returns all guidance, reduced returns a selected view, and none returns empty guidance. Requests share the existing 20-model-call budget.
 
 ```powershell
 .\.venv\Scripts\python.exe -m skill_agent run --config examples/agent/varex.pilot.json
 ```
 
-After upgrading from initial-only selection, rerun snapshot preparation and restart the skill service, then use a new run output directory. The Colab setup script already performs preparation/restart; rerun it with a new `--run-name` (no script re-upload needed).
+After upgrading, rerun snapshot preparation and restart the service, then use a new run output directory. For the Colab pilot, upload the updated external `setup_rdr_colab.py` and run it with `--skill-pilot`; it prepares/restarts the service automatically.
+
+### Two-document skill-request check
+
+Prepare only FS5441-3E and LS-275si, chosen because their earlier traces needed substantial PDF inspection. No document guarantees skill use; this pilot checks actual behavior. It runs **2 documents × 3 conditions × 1 repetition = 6 episodes**.
+
+```powershell
+.\.venv\Scripts\python.exe -m skill_agent prepare --output benchmarks/local-data/varex-skill-requests --task-ids FS5441-3E LS-275si
+```
+
+Configure your provider in `examples/agent/varex.skill-requests.json`, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -m skill_agent doctor --config examples/agent/varex.skill-requests.json
+.\.venv\Scripts\python.exe -m skill_agent run --config examples/agent/varex.skill-requests.json
+.\.venv\Scripts\python.exe -m skill_agent inspect-skills experiments/skill-requests-pilot
+.\.venv\Scripts\python.exe -m skill_agent summarize experiments/skill-requests-pilot
+```
+
+`inspect-skills` makes no model/scorer calls and also works while a run is ongoing. Check `model_skill_calls`, `model_followup_skill_calls`, each focused request, and its Markdown hash/length. Tool definitions alone are not invocations. Two extraction requests can legitimately return the same view. Summaries also report `episodes_with_model_skill_calls`; the older `skill_refresh_calls` field counts completed tool executions including the first model request.
+
+If the full 30-document dataset is already prepared, point the pilot config's `benchmark.options.data_dir` at it and skip the download. `run.task_ids` selects exactly the named IDs and overrides `limit`. To check only one document, leave just its ID in that list. Keep changed pilot settings in a new output directory.
+
+In Colab, upload the updated setup script and run:
+
+```python
+%run /content/setup_rdr_colab.py --skill-pilot --base-url https://openrouter.ai/api/v1 --model qwen/qwen3.7-flash
+```
+
+Then run the three printed commands: run, inspect-skills, summarize. Existing prepared data containing both IDs is reused; otherwise only these two PDFs are downloaded. Use `--run-name another-request-pilot` for a fresh attempt. The selected `testing` checkout must contain this update before setup clones it.
 
 Resume an interrupted run with the same configuration and unchanged artifacts. Completed episodes, including failures, are not rerun:
 

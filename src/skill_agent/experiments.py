@@ -75,7 +75,7 @@ def load_config(path):
     if set(config) != required or config["version"] != 1:
         raise ValueError("expected v1 config with model, benchmark, skill, run")
     run = config["run"]
-    if set(run) - {"output_dir", "split", "limit", "replicates", "concurrency", "max_calls", "timeout_seconds"}:
+    if set(run) - {"output_dir", "split", "limit", "task_ids", "replicates", "concurrency", "max_calls", "timeout_seconds"}:
         raise ValueError("unknown run option")
     defaults = {"split": "dev", "limit": 5, "replicates": 1, "concurrency": 1,
                 "max_calls": 20, "timeout_seconds": 600}
@@ -87,7 +87,24 @@ def load_config(path):
         raise ValueError("limit must be positive or null")
     if run["split"] not in ("dev", "heldout"):
         raise ValueError("split must be dev or heldout")
+    if run.get("task_ids") is not None:
+        ids = run["task_ids"]
+        if (not isinstance(ids, list) or not ids
+                or any(not isinstance(value, str) or not value.strip() for value in ids)
+                or len(ids) != len(set(ids))):
+            raise ValueError("task_ids must be a nonempty list of unique document IDs")
     return config
+
+
+def select_tasks(adapter, run):
+    """Explicit IDs select an exact subset of the requested split, overriding limit."""
+    if run.get("task_ids") is None:
+        return adapter.tasks(run["split"], run["limit"])
+    available = {task["id"]: task for task in adapter.tasks(run["split"], None)}
+    missing = [name for name in run["task_ids"] if name not in available]
+    if missing:
+        raise ValueError(f"document IDs are not in the prepared {run['split']} split: {missing}")
+    return [available[name] for name in run["task_ids"]]
 
 
 def code_revision():
@@ -134,7 +151,7 @@ async def run_experiment(config, *, resume=False):
     adapter = factory(config["benchmark"])
     receipt, resolvers = make_resolvers(config)
     run = config["run"]
-    tasks = adapter.tasks(run["split"], run["limit"])
+    tasks = select_tasks(adapter, run)
     if not tasks:
         raise ValueError("no tasks selected")
     names = [episode_filename(task["id"], condition, replicate).casefold()
@@ -151,7 +168,8 @@ async def run_experiment(config, *, resume=False):
                 "python": sys.version, "platform": platform.platform(), "git_revision": git_revision(),
                 "dependency_versions": dependency_versions(),
                 "benchmark_fingerprint": adapter.snapshot_fingerprint, "runtime_provenance": runtime_provenance,
-                "skill_receipt": receipt, "tasks": tasks, "system_prompt": adapter.system_prompt}
+                "skill_receipt": receipt, "skill_capabilities": probe.capabilities,
+                "skill_loading": "model-initiated", "tasks": tasks, "system_prompt": adapter.system_prompt}
     run_id = fingerprint(manifest)
     root = Path(run["output_dir"])
     root.mkdir(parents=True, exist_ok=True)
@@ -187,7 +205,8 @@ async def run_experiment(config, *, resume=False):
                 # New model and environment instances prevent state shared across arms.
                 context = SessionContext(config["skill"]["id"], receipt["artifact_id"], task["task"],
                                          resolvers[condition], receipt["source_fingerprint"],
-                                         expected_revision=receipt["resolver_revision"] if condition == "reduced" else None)
+                                         expected_revision=receipt["resolver_revision"] if condition == "reduced" else None,
+                                         capabilities=probe.capabilities)
                 started = time.monotonic()
                 try:
                     model = factory(config["model"])
@@ -210,7 +229,9 @@ async def run_experiment(config, *, resume=False):
                 temporary = path.with_suffix(".tmp")
                 write_json(temporary, record)
                 temporary.replace(path)
-                print(f"{task['id']} rep={replicate} {condition}: {record['status']}", flush=True)
+                calls = model_skill_calls(record["events"])
+                print(f"{task['id']} rep={replicate} {condition}: {record['status']} "
+                      f"(skill calls={calls}, follow-ups={max(0, calls - 1)})", flush=True)
                 return record
 
         jobs = []
@@ -230,6 +251,13 @@ async def run_experiment(config, *, resume=False):
         return {"output_dir": str(root), "episodes": len(records), "run_id": run_id}
     finally:
         lock.unlink(missing_ok=True)
+
+
+def model_skill_calls(events):
+    """Count issued function calls even if execution fails before a tool result is logged."""
+    return sum(call.get("function", {}).get("name") == "request_skill"
+               for event in events if event["type"] == "model_response"
+               for call in (event["message"].get("tool_calls") or []))
 
 
 def usage_summary(records):
@@ -254,6 +282,9 @@ def usage_summary(records):
             "skill_requests": skill_requests,
             "skill_refresh_calls": sum(e["type"] == "tool" and e.get("name") == "request_skill"
                                        for e in events),
+            "model_skill_calls": model_skill_calls(events),
+            "episodes_with_model_skill_calls": sum(model_skill_calls(r["events"]) > 0 for r in episodes),
+            "model_followup_skill_calls": sum(max(0, model_skill_calls(r["events"]) - 1) for r in episodes),
             "resolver_model_calls": (sum(e["response"]["usage"]["model_calls"] for e in skill_events)
                                      if skill_requests == len(skill_events) and all(e["response"]["usage"].get("model_calls") is not None for e in skill_events) else None),
             "input_tokens": total("input_tokens"), "output_tokens": total("output_tokens"),
@@ -265,6 +296,35 @@ def usage_summary(records):
             "selected_markdown_characters": sum(len(e["response"]["markdown"]) for e in skill_events),
         }
     return result
+
+
+def inspect_skill_requests(root):
+    """Inspect real model tool invocations, including an ongoing run; no scoring or inference."""
+    root = Path(root)
+    manifest = read_json(root / "manifest.json")
+    if manifest["run_id"] != fingerprint({k: v for k, v in manifest.items() if k not in ("run_id", "preflight_skill")}):
+        raise ValueError("run manifest changed")
+    episodes = []
+    for path in sorted((root / "episodes").glob("*.json")):
+        record = read_json(path)
+        if (record["run_id"] != manifest["run_id"] or record.get("record_sha256")
+                != fingerprint({k: v for k, v in record.items() if k != "record_sha256"})):
+            raise ValueError("episode record changed")
+        events = record["events"]
+        calls = model_skill_calls(events)
+        requests = [{"request": e["request"]["task"], "context": e["request"]["context"],
+                     "guidance_characters": len(e["response"]["markdown"]),
+                     "markdown_sha256": e["markdown_sha256"]}
+                    for e in events if e["type"] == "skill"]
+        episodes.append({"task_id": record["task_id"], "condition": record["condition"],
+                         "replicate": record["replicate"], "status": record["status"],
+                         "error": record.get("error"),
+                         "model_skill_calls": calls, "model_followup_skill_calls": max(0, calls - 1),
+                         "distinct_guidance_views": len({r["markdown_sha256"] for r in requests}),
+                         "requests": requests})
+    expected = len(manifest["tasks"]) * manifest["config"]["run"]["replicates"] * len(CONDITIONS)
+    return {"output_dir": str(root), "saved_episodes": len(episodes), "expected_episodes": expected,
+            "model_skill_calls": sum(e["model_skill_calls"] for e in episodes), "episodes": episodes}
 
 
 def paired_bootstrap(document_metrics, *, samples=2000, seed=42):
