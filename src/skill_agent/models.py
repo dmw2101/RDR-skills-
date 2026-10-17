@@ -22,9 +22,11 @@ class ModelClient(Protocol):
 
 class OpenAICompatibleClient:
     def __init__(self, *, base_url, model, api_key_env="MODEL_API_KEY", temperature=0,
-                 max_tokens=2048, seed=None, timeout=90, **unknown):
+                 max_tokens=2048, seed=None, timeout=90, provider=None, **unknown):
         if unknown:
             raise ValueError(f"unknown model settings: {sorted(unknown)}")
+        if provider is not None and not isinstance(provider, dict):
+            raise ValueError("provider settings must be an object")
         parsed = urlparse(base_url)
         local = parsed.hostname in ("localhost", "127.0.0.1", "::1")
         if parsed.scheme != "https" and not (parsed.scheme == "http" and local):
@@ -38,6 +40,7 @@ class OpenAICompatibleClient:
         self.model, self.key = model, key
         self.temperature, self.max_tokens = temperature, max_tokens
         self.seed, self.timeout = seed, timeout
+        self.provider = dict(provider) if provider is not None else None
 
     async def complete(self, messages, tools):
         payload = {"model": self.model, "messages": messages,
@@ -46,6 +49,8 @@ class OpenAICompatibleClient:
             payload.update(tools=tools, tool_choice="auto")
         if self.seed is not None:
             payload["seed"] = self.seed
+        if self.provider is not None:
+            payload["provider"] = self.provider
         data = await asyncio.to_thread(
             json_request, self.url, payload,
             headers={"Authorization": f"Bearer {self.key}"} if self.key else {}, timeout=self.timeout,
@@ -61,7 +66,7 @@ class OpenAICompatibleClient:
             "input_tokens": usage.get("prompt_tokens"),
             "output_tokens": usage.get("completion_tokens"),
             "cached_input_tokens": details.get("cached_tokens"),
-            "cost_usd": None,
-        }, {"id": data.get("id"), "model": data.get("model"),
+            "cost_usd": usage.get("cost"),
+        }, {"id": data.get("id"), "model": data.get("model"), "provider": data.get("provider"),
             "system_fingerprint": data.get("system_fingerprint"),
             "finish_reason": choice.get("finish_reason"), "provider_usage": usage})
