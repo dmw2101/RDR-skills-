@@ -71,6 +71,15 @@ class ModelInitiatedSkillPolicy:
         pass
 
 
+class NoSkillPolicy:
+    """Run with task instructions and execution tools only."""
+
+    skill_enabled = False
+
+    async def before_model(self, session, turn):
+        pass
+
+
 def planning_text(message):
     """Read provider-exposed planning only; never infer or generate hidden reasoning."""
     reasoning = message.get("reasoning") or message.get("reasoning_content")
@@ -220,23 +229,31 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                       max_calls=20, timeout_seconds=600):
     """Session exposes prompt, tools, collect(), close(); inputs exclude gold labels."""
     policy = policy or ModelInitiatedSkillPolicy()
+    skill_enabled = getattr(policy, "skill_enabled", True)
     started = time.monotonic()
     history = [{"role": "user", "content": session.prompt}]
-    events = skill_context.events
+    events = skill_context.events if skill_context is not None else []
     prediction, status, error = None, "failed", None
 
     async def loop():
         nonlocal status, prediction
         if "request_skill" in session.tools:
             raise ValueError("request_skill is reserved for the agent's skill resolver")
-        tools = {"request_skill": SkillRequestTool(
-            skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False)), **session.tools}
-        instructions = (system_prompt + "\n\n" + getattr(policy, "instructions", SKILL_REQUEST_INSTRUCTIONS)
-                        + "\n\n" + skill_context.catalog_text())
+        tools = dict(session.tools)
+        instructions = system_prompt
+        if skill_enabled:
+            if skill_context is None:
+                raise ValueError("skill-enabled episodes require a skill context")
+            tools = {"request_skill": SkillRequestTool(
+                skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False)), **tools}
+            instructions += ("\n\n" + getattr(policy, "instructions", SKILL_REQUEST_INSTRUCTIONS)
+                             + "\n\n" + skill_context.catalog_text())
         for turn in range(max_calls):
-            await policy.before_model(skill_context, turn)
-            skill_text = "\n\n".join(text for text in skill_context.active_skills.values() if text)
-            # This is the only part of the model input that differs across arms.
+            skill_text = ""
+            if skill_enabled:
+                await policy.before_model(skill_context, turn)
+                skill_text = "\n\n".join(text for text in skill_context.active_skills.values() if text)
+            # Full/reduced compose the active view; no-skill omits the entire skill interface.
             active = "\n\n<active_skill>\n" + skill_text + "\n</active_skill>" if skill_text else ""
             messages = [{"role": "system", "content": instructions + active}, *history]
             definitions = [tool.definition for tool in tools.values()]

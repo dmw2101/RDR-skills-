@@ -23,7 +23,7 @@ Use the [PowerShell 5.1 command guide](docs/commands.md) for copy-paste instruct
 
 The command guide assumes PowerShell is already open at this repository's root. It avoids inline JSON arguments, which PowerShell 5.1 can pass incorrectly to Python.
 
-For model-based evaluation, use the [agent evaluation commands](docs/agent-commands.md): create a venv, freeze a compiled skill, start the service, prepare VAREX, configure your provider, run, and score. Docker is not required. Episodes start with a capability catalog and no skill text; the model chooses when to call `request_skill`. Each request replaces active guidance using only its current request/context. Start with the [two-document request pilot](docs/agent-commands.md#two-document-skill-request-check) before another 30-document run; `inspect-skills` shows actual calls and selected-view hashes.
+For model-based evaluation, use the [agent evaluation commands](docs/agent-commands.md): create a venv, prepare VAREX, configure your provider, run, and score. Full/reduced also use a frozen skill snapshot and local service. The current rolling mode supplies guidance automatically each turn; optional model-initiated mode exposes a catalog and `request_skill`. The [skill-blind baseline](docs/agent-commands.md#skill-blind-baseline-only) uses `run.conditions=["none"]` and receives only neutral task instructions and execution tools, with no skill catalog, tool, guidance, or refreshes. Its setup needs no skill service. Docker is not required; `inspect-skills` shows actual calls and selected-view hashes.
 
 For a Colab T4 without provider rate limits, use the optional [local Qwen3.5-4B backend](docs/local-qwen.md). Hosted API mode remains available. Real T4 inference/benchmark verification is pending.
 

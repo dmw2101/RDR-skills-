@@ -18,7 +18,7 @@ from . import __version__
 from .storage import read_json, write_json
 from .contracts import fingerprint, source_fingerprint
 from .resolvers import StaticSkillResolver
-from .runtime import ModelInitiatedSkillPolicy, RollingSkillPolicy, SessionContext, run_episode
+from .runtime import ModelInitiatedSkillPolicy, NoSkillPolicy, RollingSkillPolicy, SessionContext, run_episode
 
 CONDITIONS = ("none", "full", "reduced")
 
@@ -151,8 +151,7 @@ def make_resolvers(config):
     if source_fingerprint(markdown) != receipt["source_fingerprint"]:
         raise ValueError("full Markdown does not match the service snapshot receipt")
     artifact = receipt["artifact_id"]
-    resolvers = {"none": StaticSkillResolver(skill["id"], artifact, markdown, empty=True),
-                 "full": StaticSkillResolver(skill["id"], artifact, markdown),
+    resolvers = {"full": StaticSkillResolver(skill["id"], artifact, markdown),
                  "reduced": factory(skill.get("resolver", {
                      "factory": "skill_agent.resolvers:HttpSkillResolver",
                      "options": {"base_url": "http://127.0.0.1:8765"},
@@ -162,7 +161,6 @@ def make_resolvers(config):
 
 async def run_experiment(config, *, resume=False):
     adapter = factory(config["benchmark"])
-    receipt, resolvers = make_resolvers(config)
     run = config["run"]
     conditions = selected_conditions(run)
     tasks = select_tasks(adapter, run)
@@ -173,17 +171,23 @@ async def run_experiment(config, *, resume=False):
     if len(names) != len(set(names)):
         raise ValueError("task IDs produce colliding episode filenames")
     runtime_provenance = await adapter.prepare_runtime()
-    # Fail before spending inference tokens if service provenance is inconsistent.
-    probe = SessionContext(config["skill"]["id"], receipt["artifact_id"], tasks[0]["task"],
-                           resolvers["reduced"], receipt["source_fingerprint"],
-                           expected_revision=receipt["resolver_revision"])
-    await probe.load_skill()
+    receipt, resolvers, probe = None, {}, None
+    if any(condition != "none" for condition in conditions):
+        receipt, resolvers = make_resolvers(config)
+        # Fail before spending inference tokens if service provenance is inconsistent.
+        probe = SessionContext(config["skill"]["id"], receipt["artifact_id"], tasks[0]["task"],
+                               resolvers["reduced"], receipt["source_fingerprint"],
+                               expected_revision=receipt["resolver_revision"])
+        await probe.load_skill()
     manifest = {"config": config, "code_revision": code_revision(), "package_version": __version__,
                 "python": sys.version, "platform": platform.platform(), "git_revision": git_revision(),
                 "dependency_versions": dependency_versions(),
                 "benchmark_fingerprint": adapter.snapshot_fingerprint, "runtime_provenance": runtime_provenance,
-                "skill_receipt": receipt, "skill_capabilities": probe.capabilities,
+                "skill_receipt": receipt, "skill_capabilities": probe.capabilities if probe else [],
                 "skill_loading": run.get("skill_loading", "model_initiated").replace("_", "-"),
+                "condition_protocols": {c: "skill-blind-v1" if c == "none" else
+                                        run.get("skill_loading", "model_initiated").replace("_", "-")
+                                        for c in conditions},
                 "tasks": tasks, "system_prompt": adapter.system_prompt}
     run_id = fingerprint(manifest)
     root = Path(run["output_dir"])
@@ -200,7 +204,7 @@ async def run_experiment(config, *, resume=False):
         else:
             if resume:
                 raise ValueError("no run exists to resume")
-            write_json(saved, {"run_id": run_id, **manifest, "preflight_skill": probe.events})
+            write_json(saved, {"run_id": run_id, **manifest, "preflight_skill": probe.events if probe else []})
         semaphore = asyncio.Semaphore(run["concurrency"])
 
         async def attempt(task, replicate, condition):
@@ -218,17 +222,20 @@ async def run_experiment(config, *, resume=False):
                 return record
             async with semaphore:
                 # New model and environment instances prevent state shared across arms.
-                context = SessionContext(config["skill"]["id"], receipt["artifact_id"], task["task"],
-                                         resolvers[condition], receipt["source_fingerprint"],
-                                         expected_revision=receipt["resolver_revision"] if condition == "reduced" else None,
-                                         capabilities=probe.capabilities)
+                context = None
+                if condition != "none":
+                    context = SessionContext(config["skill"]["id"], receipt["artifact_id"], task["task"],
+                                             resolvers[condition], receipt["source_fingerprint"],
+                                             expected_revision=receipt["resolver_revision"] if condition == "reduced" else None,
+                                             capabilities=probe.capabilities)
                 started = time.monotonic()
                 try:
                     model = factory(config["model"])
                     session = await adapter.open_session(task)
                     setup_seconds = time.monotonic() - started
-                    policy = (RollingSkillPolicy() if run.get("skill_loading") == "rolling"
-                              else ModelInitiatedSkillPolicy())
+                    policy = (NoSkillPolicy() if condition == "none" else
+                              RollingSkillPolicy() if run.get("skill_loading") == "rolling" else
+                              ModelInitiatedSkillPolicy())
                     result = await run_episode(model=model, session=session, skill_context=context,
                                                system_prompt=adapter.system_prompt, policy=policy,
                                                max_calls=run["max_calls"],
@@ -238,7 +245,7 @@ async def run_experiment(config, *, resume=False):
                     outcome["seconds"] = time.monotonic() - started
                 except Exception as exc:
                     outcome = {"status": "setup_failed", "prediction": None,
-                               "error": f"{type(exc).__name__}: {exc}", "events": context.events,
+                               "error": f"{type(exc).__name__}: {exc}", "events": context.events if context else [],
                                "seconds": time.monotonic() - started}
                 record = {"run_id": run_id, "task_id": task["id"], "replicate": replicate,
                           "condition": condition, **outcome}
@@ -409,6 +416,7 @@ def summarize(root):
         raise ValueError("benchmark changed since inference")
     scores = adapter.score(records, root / "scores")
     report = {"run_id": manifest["run_id"], "usage": usage_summary(records),
+              "condition_protocols": manifest.get("condition_protocols", {}),
               "benchmark_summaries": scores["summaries"],
               "paired_comparisons": paired_bootstrap(scores["document_metrics"]),
               "preflight_skill": manifest["preflight_skill"],

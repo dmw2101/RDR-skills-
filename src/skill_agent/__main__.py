@@ -7,7 +7,7 @@ import sys
 
 from .benchmarks.varex import prepare_varex
 from .experiments import (factory, inspect_skill_requests, load_config, make_resolvers,
-                          rename_episode_files, run_experiment, select_tasks, summarize)
+                          rename_episode_files, run_experiment, selected_conditions, select_tasks, summarize)
 from .contracts import ResolveSkillRequest
 
 
@@ -29,6 +29,10 @@ async def doctor(config):
             results["benchmark_runtime"] = f"ERROR: {exc}"
     except Exception as exc:
         results["benchmark"] = f"ERROR: {exc}"
+    if selected_conditions(config["run"]) == ("none",):
+        results["skill_loading"] = "skill-blind-v1: task and execution tools only"
+        results["skill_service"] = "not required for a no-skill-only run"
+        return results
     try:
         receipt, resolvers = make_resolvers(config)
         resolved = await resolvers["reduced"].resolve(ResolveSkillRequest(

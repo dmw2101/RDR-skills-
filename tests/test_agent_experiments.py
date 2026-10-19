@@ -152,6 +152,34 @@ class ExperimentTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await run_experiment(self.config)
 
+    async def test_no_skill_only_needs_no_skill_files_or_service(self):
+        from skill_agent.__main__ import doctor
+        self.config["skill"] = {}
+        self.config["run"].update(conditions=["none"], skill_loading="rolling", replicates=3)
+        checks = await doctor(self.config)
+        self.assertFalse(any(str(value).startswith("ERROR:") for value in checks.values()))
+        self.assertIn("skill-blind-v1", checks["skill_loading"])
+        result = await run_experiment(self.config)
+        self.assertEqual(result["episodes"], 6)
+        manifest = read_json(self.root / "run/manifest.json")
+        self.assertEqual(manifest["condition_protocols"], {"none": "skill-blind-v1"})
+        self.assertEqual(manifest["preflight_skill"], [])
+        self.assertIsNone(manifest["skill_receipt"])
+        for path in (self.root / "run/episodes").glob("*.json"):
+            record = read_json(path)
+            self.assertEqual(record["condition"], "none")
+            self.assertFalse(any(e["type"].startswith("skill") for e in record["events"]))
+            for event in record["events"]:
+                if event["type"] == "model_request":
+                    self.assertEqual(event["messages"][0]["content"], TinyAdapter.system_prompt)
+                    self.assertEqual(event["tools"], [])
+        report = summarize(self.root / "run")
+        self.assertEqual(report["condition_protocols"], {"none": "skill-blind-v1"})
+        self.assertEqual(report["usage"]["none"]["automatic_skill_refreshes"], 0)
+        self.assertEqual(report["usage"]["none"]["skill_requests"], 0)
+        self.assertEqual(report["paired_comparisons"], {})
+        self.assertEqual(inspect_skill_requests(self.root / "run")["expected_episodes"], 6)
+
 
 class AccountingTests(unittest.TestCase):
     def test_missing_usage_is_null_not_zero(self):

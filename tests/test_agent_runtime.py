@@ -6,7 +6,7 @@ import unittest
 from skill_agent.contracts import ResolvedSkill, source_fingerprint
 from skill_agent.models import ModelResponse
 from skill_agent.resolvers import StaticSkillResolver
-from skill_agent.runtime import SKILL_REQUEST_INSTRUCTIONS, SessionContext, run_episode
+from skill_agent.runtime import NoSkillPolicy, SKILL_REQUEST_INSTRUCTIONS, SessionContext, run_episode
 
 
 class FakeModel:
@@ -44,12 +44,38 @@ def context(resolver=None):
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_all_arms_change_only_skill_section(self):
+    async def test_no_skill_omits_catalog_guidance_and_tool_on_every_turn(self):
+        class ForbiddenResolver:
+            async def resolve(self, request):
+                raise AssertionError("no-skill must never resolve guidance")
+        class Ping:
+            definition = {"type": "function", "function": {"name": "ping", "parameters": {"type": "object"}}}
+            async def execute(self, args):
+                return {"ok": True}
+        state = context(ForbiddenResolver())
+        state.capabilities = [{"name": "SECRET_TOPIC", "description": "SECRET_PROCEDURE"}]
+        state.active_skills = {"pdf": "SECRET_GUIDANCE"}
+        model = FakeModel([{"role": "assistant", "tool_calls": [
+            {"id": "one", "type": "function", "function": {"name": "ping", "arguments": "{}"}}]},
+            {"role": "assistant", "content": "done"}])
+        session = FakeSession()
+        session.tools["ping"] = Ping()
+        result = await run_episode(model=model, session=session, skill_context=state,
+                                   system_prompt="base", policy=NoSkillPolicy())
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(len(model.requests), 2)
+        for messages, tools in zip(model.requests, model.definitions):
+            self.assertEqual(messages[0], {"role": "system", "content": "base"})
+            self.assertEqual(messages[1], {"role": "user", "content": session.prompt})
+            self.assertEqual(tools, [session.tools["ping"].definition])
+            self.assertNotIn("SECRET_", json.dumps(messages))
+        self.assertFalse(any(e["type"].startswith("skill") for e in result.events))
+
+    async def test_full_and_reduced_share_the_skill_interface(self):
         class Reduced:
             async def resolve(self, request):
                 return ResolvedSkill("selected text", "snapshot", source_fingerprint("whole skill"), "backend")
-        resolvers = [StaticSkillResolver("pdf", "snapshot", "whole skill", empty=True),
-                     StaticSkillResolver("pdf", "snapshot", "whole skill"), Reduced()]
+        resolvers = [StaticSkillResolver("pdf", "snapshot", "whole skill"), Reduced()]
         requests, initial_requests = [], []
         for resolver in resolvers:
             model = FakeModel([{"role": "assistant", "tool_calls": [{
@@ -65,15 +91,13 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             initial_requests.append(model.requests[0])
             requests.append(model.requests[1])
         self.assertEqual(initial_requests[0], initial_requests[1])
-        self.assertEqual(initial_requests[1], initial_requests[2])
         self.assertNotIn("\n<active_skill>\n", initial_requests[0][0]["content"])
         self.assertIn("Text and table extraction", initial_requests[0][0]["content"])
         self.assertEqual(requests[0][1:-1], requests[1][1:-1])
         # Tool receipts differ by condition; task and model request remain shared.
-        self.assertEqual(requests[1][1:-1], requests[2][1:-1])
         self.assertTrue(requests[0][0]["content"].startswith("base\n\n" + SKILL_REQUEST_INSTRUCTIONS))
-        self.assertIn("whole skill", requests[1][0]["content"])
-        self.assertIn("selected text", requests[2][0]["content"])
+        self.assertIn("whole skill", requests[0][0]["content"])
+        self.assertIn("selected text", requests[1][0]["content"])
 
     async def test_refresh_replaces_managed_text_and_keeps_audit(self):
         class Changing:

@@ -69,7 +69,7 @@ Checks model configuration/key presence, the PDF venv and libraries, available s
 
 Runs 5 dev documents under all three conditions. **This command makes paid/limited model calls using your configured provider.**
 
-The current pilot uses `run.skill_loading="rolling"`: guidance is supplied before every model call, using the task initially and the last three assistant turns thereafter. Full always has the whole skill, reduced gets a freshly selected view, and none stays empty. `request_skill` is available but only acknowledges requests in this mode. `automatic_skill_refreshes` counts actual refreshes. Set `skill_loading` to `model_initiated` to restore the previous optional tool-driven behaviour.
+The current pilot uses `run.skill_loading="rolling"`: full/reduced receive guidance before every model call, using the task initially and the last three assistant turns thereafter. Full always has the whole skill and reduced gets a freshly selected view. `request_skill` is available in those arms but only acknowledges requests in this mode. None uses `skill-blind-v1`: no catalog, skill instructions, skill tool, or refreshes. `automatic_skill_refreshes` counts actual refreshes. Set `skill_loading` to `model_initiated` to restore optional tool-driven behaviour for full/reduced.
 
 ```powershell
 .\.venv\Scripts\python.exe -m skill_agent run --config examples/agent/varex.pilot.json
@@ -108,7 +108,7 @@ Then run the three printed commands: run, inspect-skills, summarize. Existing pr
 
 ### Qwen API: 30 documents with automatic guidance
 
-Upload the updated external setup script (v9). This uses the earlier **Qwen3.7 Flash API**, not local Qwen3.5-4B. All 90 episodes use the same model/settings: 30 documents × none/full/reduced, one attempt each.
+Upload the updated external setup script (v10). This uses the earlier **Qwen3.7 Flash API**, not local Qwen3.5-4B. All 90 episodes use the same model/settings: 30 documents × none/full/reduced, one attempt each.
 
 ```python
 %run /content/setup_rdr_colab.py --model qwen/qwen3.7-flash --provider alibaba --max-input-price 0.23 --max-output-price 0.92 --max-tokens 8192 --limit 30 --replicates 1 --concurrency 1 --run-name qwen-rolling-dev30
@@ -136,7 +136,23 @@ With setup v9, select only these two conditions and a fresh results directory. T
 !/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent summarize /content/rdr-skills-evaluation/results/qwen-rolling-dev30-full-reduced-run3
 ```
 
-Custom JSON configs can set `run.conditions` to `["full", "reduced"]`. Omitted means all three arms, preserving older configs/manifests. Reporting/scoring expect only selected arms. The existing no-skill baseline is unchanged, including its shared capability catalog; a truly skill-blind baseline is not implemented by this change.
+Custom JSON configs can set `run.conditions` to `["full", "reduced"]`. Omitted means all three arms. Reporting/scoring expect only selected arms. Full/reduced retain the same prompts and tool interface as earlier runs; new none attempts use the skill-blind protocol below.
+
+### Skill-blind baseline only
+
+Upload setup v10, then prepare 30 dev documents with one no-skill attempt each. Setup skips the skill snapshot and service. The model receives only the neutral benchmark instructions, task/schema, and ordinary execution tools. Model settings and budgets match the Qwen full/reduced comparison.
+
+```python
+%run /content/setup_rdr_colab.py --model qwen/qwen3.7-flash --provider alibaba --max-input-price 0.23 --max-output-price 0.92 --max-tokens 8192 --limit 30 --replicates 1 --concurrency 1 --conditions none --run-name qwen-skill-blind-dev30-run1
+```
+
+```python
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent run --config /content/rdr-skills-evaluation/qwen-skill-blind-dev30-run1.json
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent inspect-skills /content/rdr-skills-evaluation/results/qwen-skill-blind-dev30-run1
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent summarize /content/rdr-skills-evaluation/results/qwen-skill-blind-dev30-run1
+```
+
+For three separate runs, repeat with fresh names ending in `run2` and `run3`. Manifests/summaries mark `condition_protocols.none` as `skill-blind-v1`; skill requests, automatic refreshes, and supplied skill characters must all be zero. Historical none runs included a catalog/tool and remain a different protocol. Custom none-only configs can use `"skill": {}`.
 
 Resume an interrupted run with the same configuration and unchanged artifacts. Completed episodes, including failures, are not rerun:
 
