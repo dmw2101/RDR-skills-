@@ -108,7 +108,7 @@ Then run the three printed commands: run, inspect-skills, summarize. Existing pr
 
 ### Qwen API: 30 documents with automatic guidance
 
-Upload the updated external setup script (v7). This uses the earlier **Qwen3.7 Flash API**, not local Qwen3.5-4B. All 90 episodes use the same model/settings: 30 documents × none/full/reduced, one attempt each.
+Upload the updated external setup script (v9). This uses the earlier **Qwen3.7 Flash API**, not local Qwen3.5-4B. All 90 episodes use the same model/settings: 30 documents × none/full/reduced, one attempt each.
 
 ```python
 %run /content/setup_rdr_colab.py --model qwen/qwen3.7-flash --provider alibaba --max-input-price 0.23 --max-output-price 0.92 --max-tokens 8192 --limit 30 --replicates 1 --concurrency 1 --run-name qwen-rolling-dev30
@@ -121,6 +121,22 @@ Upload the updated external setup script (v7). This uses the earlier **Qwen3.7 F
 ```
 
 OpenRouter is the setup's default API endpoint; other APIs remain selectable with `--base-url` and `--model`. Price ceilings are USD per million tokens, not whole-run caps. Use a fresh run name; do not resume earlier optional-loading results. For local PowerShell runs, the matching template is `examples/agent/varex.qwen-dev30.json` (prepare its data directory first).
+
+### Third run: full vs reduced only
+
+With setup v9, select only these two conditions and a fresh results directory. This runs **60 episodes**, retaining the existing full/reduced prompts, model settings, tools, budgets, rolling guidance, and relative execution order.
+
+```python
+%run /content/setup_rdr_colab.py --model qwen/qwen3.7-flash --provider alibaba --max-input-price 0.23 --max-output-price 0.92 --max-tokens 8192 --skill-loading rolling --limit 30 --replicates 1 --concurrency 1 --conditions full reduced --run-name qwen-rolling-dev30-full-reduced-run3
+```
+
+```python
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent run --config /content/rdr-skills-evaluation/qwen-rolling-dev30-full-reduced-run3.json
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent inspect-skills /content/rdr-skills-evaluation/results/qwen-rolling-dev30-full-reduced-run3
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent summarize /content/rdr-skills-evaluation/results/qwen-rolling-dev30-full-reduced-run3
+```
+
+Custom JSON configs can set `run.conditions` to `["full", "reduced"]`. Omitted means all three arms, preserving older configs/manifests. Reporting/scoring expect only selected arms. The existing no-skill baseline is unchanged, including its shared capability catalog; a truly skill-blind baseline is not implemented by this change.
 
 Resume an interrupted run with the same configuration and unchanged artifacts. Completed episodes, including failures, are not rerun:
 

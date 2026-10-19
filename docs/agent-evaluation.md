@@ -37,6 +37,8 @@ All arms use the same rolling policy, catalog, tools, and automatic-mode instruc
 
 Default pilot: 5 dev PDFs × 1 replicate × 3 conditions. Main run: all held-out PDFs × 3 replicates. Defaults: temperature 0, concurrency 1, 20 model calls/10 minutes per attempt; each shell command has 60 seconds and 128 KB output. Commands are terminated on timeout/output overflow, including their active descendants. The venv adds no CPU/RAM/disk quotas. The `pdf-runtime` extra pins PDF packages; manifests capture the venv's installed package versions, Python/platform, shell, and available PDF tool paths/versions. Missing optional system tools are recorded as null. Keep the same host tools and venv for all three conditions.
 
+Optional `run.conditions` selects a nonempty subset of `none`, `full`, `reduced` (default: all three). For the third rolling comparison, `["full", "reduced"]` gives 60 episodes on 30 dev documents with one attempt each. Selection only filters the existing schedule; inference behavior is unchanged. Inspection, scoring, usage summaries, and paired comparisons include only selected conditions. Use a fresh output directory. Existing no-skill behavior is unchanged, not a newly skill-blind baseline.
+
 ## Main interfaces
 
 | File | Interface / responsibility |

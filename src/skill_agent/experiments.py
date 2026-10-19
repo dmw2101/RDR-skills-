@@ -1,4 +1,4 @@
-"""Reproducible three-arm experiments with task-boundary resume."""
+"""Reproducible experiments with selectable conditions and task-boundary resume."""
 
 import asyncio
 import hashlib
@@ -21,6 +21,16 @@ from .resolvers import StaticSkillResolver
 from .runtime import ModelInitiatedSkillPolicy, RollingSkillPolicy, SessionContext, run_episode
 
 CONDITIONS = ("none", "full", "reduced")
+
+
+def selected_conditions(run):
+    """Older configs/manifests retain all three conditions when omitted."""
+    conditions = run.get("conditions", list(CONDITIONS))
+    if (not isinstance(conditions, list) or not conditions
+            or any(not isinstance(c, str) or c not in CONDITIONS for c in conditions)
+            or len(conditions) != len(set(conditions))):
+        raise ValueError("conditions must be a nonempty list of unique none/full/reduced values")
+    return tuple(conditions)
 
 
 def episode_filename(task_id, condition, replicate=0):
@@ -75,11 +85,12 @@ def load_config(path):
     if set(config) != required or config["version"] != 1:
         raise ValueError("expected v1 config with model, benchmark, skill, run")
     run = config["run"]
-    if set(run) - {"output_dir", "split", "limit", "task_ids", "replicates", "concurrency", "max_calls", "timeout_seconds", "skill_loading"}:
+    if set(run) - {"output_dir", "split", "limit", "task_ids", "replicates", "concurrency", "max_calls", "timeout_seconds", "skill_loading", "conditions"}:
         raise ValueError("unknown run option")
     defaults = {"split": "dev", "limit": 5, "replicates": 1, "concurrency": 1,
                 "max_calls": 20, "timeout_seconds": 600, "skill_loading": "model_initiated"}
     config["run"] = run = {**defaults, **run}
+    selected_conditions(run)
     for name in ("replicates", "concurrency", "max_calls", "timeout_seconds"):
         if type(run[name]) is not int or run[name] < 1:
             raise ValueError(f"{name} must be a positive integer")
@@ -153,11 +164,12 @@ async def run_experiment(config, *, resume=False):
     adapter = factory(config["benchmark"])
     receipt, resolvers = make_resolvers(config)
     run = config["run"]
+    conditions = selected_conditions(run)
     tasks = select_tasks(adapter, run)
     if not tasks:
         raise ValueError("no tasks selected")
     names = [episode_filename(task["id"], condition, replicate).casefold()
-             for task in tasks for replicate in range(run["replicates"]) for condition in CONDITIONS]
+             for task in tasks for replicate in range(run["replicates"]) for condition in conditions]
     if len(names) != len(set(names)):
         raise ValueError("task IDs produce colliding episode filenames")
     runtime_provenance = await adapter.prepare_runtime()
@@ -246,7 +258,8 @@ async def run_experiment(config, *, resume=False):
             for replicate in range(run["replicates"]):
                 shift = (index + replicate) % len(CONDITIONS)
                 order = CONDITIONS[shift:] + CONDITIONS[:shift]
-                jobs.extend(attempt(task, replicate, condition) for condition in order)
+                # Filter the existing rotation; preserve the retained arms' relative order.
+                jobs.extend(attempt(task, replicate, condition) for condition in order if condition in conditions)
         pending = [asyncio.create_task(job) for job in jobs]
         try:
             records = await asyncio.gather(*pending)
@@ -276,6 +289,8 @@ def usage_summary(records):
     result = {}
     for condition in CONDITIONS:
         episodes = [r for r in records if r["condition"] == condition]
+        if not episodes:
+            continue
         events = [e for r in episodes for e in r["events"]]
         model_events = [e for e in events if e["type"] == "model_response"]
         skill_events = [e for e in events if e["type"] == "skill"]
@@ -337,7 +352,8 @@ def inspect_skill_requests(root):
                          "automatic_skill_refreshes": automatic_skill_refreshes(events),
                          "distinct_guidance_views": len({r["markdown_sha256"] for r in requests}),
                          "requests": requests})
-    expected = len(manifest["tasks"]) * manifest["config"]["run"]["replicates"] * len(CONDITIONS)
+    run = manifest["config"]["run"]
+    expected = len(manifest["tasks"]) * run["replicates"] * len(selected_conditions(run))
     return {"output_dir": str(root), "saved_episodes": len(episodes), "expected_episodes": expected,
             "model_skill_calls": sum(e["model_skill_calls"] for e in episodes), "episodes": episodes}
 
@@ -361,6 +377,9 @@ def paired_bootstrap(document_metrics, *, samples=2000, seed=42):
                 return sum(grouped[(d, condition)][0] for d in ids) / sum(grouped[(d, condition)][1] for d in ids)
             return score("reduced") - score(baseline)
         for baseline in ("full", "none"):
+            available = {condition for _, condition in grouped}
+            if "reduced" not in available or baseline not in available:
+                continue
             deltas = sorted(difference(randomizer.choices(docs, k=len(docs)), baseline) for _ in range(samples))
             result[f"{metric}:reduced_minus_{baseline}"] = {
                 "delta": difference(docs, baseline),
@@ -377,7 +396,8 @@ def summarize(root):
         raise ValueError("run manifest changed")
     records = [read_json(path) for path in (root / "episodes").glob("*.json")]
     expected = {(t["id"], r, c) for t in manifest["tasks"]
-                for r in range(manifest["config"]["run"]["replicates"]) for c in CONDITIONS}
+                for r in range(manifest["config"]["run"]["replicates"])
+                for c in selected_conditions(manifest["config"]["run"])}
     actual = [(r["task_id"], r["replicate"], r["condition"]) for r in records]
     if len(actual) != len(set(actual)) or set(actual) != expected:
         raise ValueError("run is incomplete; resume before summarizing")
