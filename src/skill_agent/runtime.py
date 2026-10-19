@@ -37,6 +37,18 @@ SKILL_REQUEST_INSTRUCTIONS = (
 )
 
 
+AUTOMATIC_SKILL_INSTRUCTIONS = (
+    "Procedural guidance is supplied automatically in <active_skill> when available. "
+    "The initial view uses the task; subsequent views use the last three assistant turns' "
+    "available reasoning/planning text, with tool arguments as fallback. Each refresh replaces "
+    "the active view, rather than appending another skill document. Use the supplied guidance "
+    "to complete the task; if no guidance is available, continue with the other tools.\n"
+    "<skill_catalog> lists the available topics. request_skill remains callable for compatibility, "
+    "but in this automatic mode it only acknowledges your request: it does not resolve guidance "
+    "or override the automatically managed view. You do not need to call it to receive guidance."
+)
+
+
 class Tool(Protocol):
     definition: dict
     async def execute(self, arguments: dict) -> dict: ...
@@ -59,6 +71,44 @@ class ModelInitiatedSkillPolicy:
         pass
 
 
+def planning_text(message):
+    """Read provider-exposed planning only; never infer or generate hidden reasoning."""
+    reasoning = message.get("reasoning") or message.get("reasoning_content")
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        reasoning = "\n".join(
+            detail["text"] for detail in (message.get("reasoning_details") or [])
+            if isinstance(detail, dict) and isinstance(detail.get("text"), str)
+        )
+    content = message.get("content")
+    parts = [text.strip() for text in (reasoning, content)
+             if isinstance(text, str) and text.strip()]
+    if parts:
+        return "\n".join(dict.fromkeys(parts))
+    return "\n".join(
+        f"{call.get('function', {}).get('name', '')}: "
+        f"{call.get('function', {}).get('arguments', '')}"
+        for call in (message.get("tool_calls") or [])
+        if call.get("function", {}).get("name") != "request_skill"
+    )
+
+
+class RollingSkillPolicy:
+    """Refresh automatically from a fixed three-response window, without an LLM selector."""
+
+    automatic_guidance = True
+    instructions = AUTOMATIC_SKILL_INSTRUCTIONS
+
+    async def before_model(self, session, turn):
+        recent = [event for event in session.events if event["type"] == "model_response"][-3:]
+        texts = [planning_text(event["message"]) for event in recent]
+        query = "\n\n".join(text for text in texts if text)
+        selection = {"policy": "rolling", "turn": turn,
+                     "source_turns": [event["turn"] for event in recent],
+                     "input_source": "recent_model_turns" if query else "task"}
+        # A focused task avoids inheriting old feature values or appending the original task.
+        await session.load_skill(task=query or session.task, selection=selection)
+
+
 @dataclass
 class SessionContext:
     skill_id: str
@@ -79,7 +129,7 @@ class SessionContext:
             lines.append("Request procedural guidance for your current operation when useful.")
         return "<skill_catalog>\n" + "\n".join(lines) + "\n</skill_catalog>"
 
-    async def load_skill(self, context=None, *, task=None):
+    async def load_skill(self, context=None, *, task=None, selection=None):
         """Resolve a focused task independently, or reuse the initial task for a policy load."""
         if context is not None and not isinstance(context, dict):
             raise ValueError("skill context must be an object")
@@ -88,7 +138,8 @@ class SessionContext:
         request = ResolveSkillRequest(
             self.skill_id, self.task if task is None else task, observed, self.artifact_id)
         started = time.monotonic()
-        self.events.append({"type": "skill_request", "request": request.to_dict()})
+        audit = {"selection": selection} if selection is not None else {}
+        self.events.append({"type": "skill_request", "request": request.to_dict(), **audit})
         try:
             result = await self.resolver.resolve(request)
         except Exception as exc:
@@ -107,7 +158,7 @@ class SessionContext:
         self.active_skills[self.skill_id] = result.markdown
         self.events.append({"type": "skill", "request": request.to_dict(), "response": result.to_dict(),
                             "markdown_sha256": source_fingerprint(result.markdown),
-                            "seconds": time.monotonic() - started})
+                            "seconds": time.monotonic() - started, **audit})
         # A receipt rather than duplicated guidance in tool history.
         return {"skill_id": self.skill_id, "markdown_sha256": source_fingerprint(result.markdown),
                 "guidance_available": bool(result.markdown)}
@@ -133,8 +184,9 @@ class SkillRequestTool:
         }, "required": ["request"], "additionalProperties": False},
     }}
 
-    def __init__(self, session: SessionContext):
+    def __init__(self, session: SessionContext, *, acknowledge_only=False):
         self.session = session
+        self.acknowledge_only = acknowledge_only
 
     async def execute(self, arguments):
         request = arguments.get("request")
@@ -143,6 +195,11 @@ class SkillRequestTool:
                 or not request.strip() or not isinstance(context, dict)):
             raise ValueError("request_skill expects nonempty request text and optional context object")
         fingerprint(context)
+        if self.acknowledge_only:
+            text = self.session.active_skills.get(self.session.skill_id, "")
+            return {"skill_id": self.session.skill_id, "selection_mode": "rolling",
+                    "request_applied": False, "guidance_available": bool(text),
+                    "markdown_sha256": source_fingerprint(text)}
         try:
             return await self.session.load_skill(context, task=request.strip())
         except Exception as exc:
@@ -172,8 +229,10 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
         nonlocal status, prediction
         if "request_skill" in session.tools:
             raise ValueError("request_skill is reserved for the agent's skill resolver")
-        tools = {"request_skill": SkillRequestTool(skill_context), **session.tools}
-        instructions = system_prompt + "\n\n" + SKILL_REQUEST_INSTRUCTIONS + "\n\n" + skill_context.catalog_text()
+        tools = {"request_skill": SkillRequestTool(
+            skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False)), **session.tools}
+        instructions = (system_prompt + "\n\n" + getattr(policy, "instructions", SKILL_REQUEST_INSTRUCTIONS)
+                        + "\n\n" + skill_context.catalog_text())
         for turn in range(max_calls):
             await policy.before_model(skill_context, turn)
             skill_text = "\n\n".join(text for text in skill_context.active_skills.values() if text)

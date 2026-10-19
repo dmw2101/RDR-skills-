@@ -69,7 +69,7 @@ Checks model configuration/key presence, the PDF venv and libraries, available s
 
 Runs 5 dev documents under all three conditions. **This command makes paid/limited model calls using your configured provider.**
 
-All conditions start with the same capability catalog and **no skill text**. The model chooses whether/when to call `request_skill`; no initial call is forced. Each request replaces active guidance using only its current request/context. Full returns all guidance, reduced returns a selected view, and none returns empty guidance. Requests share the existing 20-model-call budget.
+The current pilot uses `run.skill_loading="rolling"`: guidance is supplied before every model call, using the task initially and the last three assistant turns thereafter. Full always has the whole skill, reduced gets a freshly selected view, and none stays empty. `request_skill` is available but only acknowledges requests in this mode. `automatic_skill_refreshes` counts actual refreshes. Set `skill_loading` to `model_initiated` to restore the previous optional tool-driven behaviour.
 
 ```powershell
 .\.venv\Scripts\python.exe -m skill_agent run --config examples/agent/varex.pilot.json
@@ -105,6 +105,22 @@ In Colab, upload the updated setup script and run:
 ```
 
 Then run the three printed commands: run, inspect-skills, summarize. Existing prepared data containing both IDs is reused; otherwise only these two PDFs are downloaded. Use `--run-name another-request-pilot` for a fresh attempt. The selected `testing` checkout must contain this update before setup clones it.
+
+### Qwen API: 30 documents with automatic guidance
+
+Upload the updated external setup script (v7). This uses the earlier **Qwen3.7 Flash API**, not local Qwen3.5-4B. All 90 episodes use the same model/settings: 30 documents × none/full/reduced, one attempt each.
+
+```python
+%run /content/setup_rdr_colab.py --model qwen/qwen3.7-flash --provider alibaba --max-input-price 0.23 --max-output-price 0.92 --max-tokens 8192 --limit 30 --replicates 1 --concurrency 1 --run-name qwen-rolling-dev30
+```
+
+```python
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent run --config /content/rdr-skills-evaluation/qwen-rolling-dev30.json
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent inspect-skills /content/rdr-skills-evaluation/results/qwen-rolling-dev30
+!/content/rdr-skills-evaluation/.venv/bin/python -m skill_agent summarize /content/rdr-skills-evaluation/results/qwen-rolling-dev30
+```
+
+OpenRouter is the setup's default API endpoint; other APIs remain selectable with `--base-url` and `--model`. Price ceilings are USD per million tokens, not whole-run caps. Use a fresh run name; do not resume earlier optional-loading results. For local PowerShell runs, the matching template is `examples/agent/varex.qwen-dev30.json` (prepare its data directory first).
 
 Resume an interrupted run with the same configuration and unchanged artifacts. Completed episodes, including failures, are not rerun:
 

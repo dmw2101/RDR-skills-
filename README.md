@@ -11,7 +11,7 @@ This research prototype represents procedural skills as Ripple-Down Rule (RDR) t
 - `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
 - `tests/`: automated tests for the engine and skill pipeline.
 
-The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. Multiple task categories are supported. The compiler still duplicates decision nodes and caps the tree at six conditional rules. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab. A capped hosted-API pilot verified model-initiated skill requests; full-budget accuracy evaluation and live follow-up requests remain pending. Trace-driven updates and oracle integration remain separate future work.
+The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and an RDR tree, then renders selected Markdown for a task. Multiple task categories are supported. The compiler still duplicates decision nodes and caps the tree at six conditional rules. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab. Current pilot configurations automatically refresh guidance before every model call using the task initially and the last three assistant turns thereafter (`run.skill_loading="rolling"`); the original model-initiated mode remains selectable. See [agent evaluation](docs/agent-evaluation.md) for accounting and limitations. Trace-driven updates and oracle integration remain separate future work.
 
 ## Run commands
 

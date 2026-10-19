@@ -37,7 +37,11 @@ async def doctor(config):
             raise ValueError("service provenance differs from receipt")
         results["skill_service"] = "ok"
         results["skill_capabilities"] = resolved.capabilities
-        results["skill_loading"] = "model-initiated only; no skill is injected before the first model call"
+        results["skill_loading"] = (
+            "automatic before every model call; task first, then last three assistant turns; "
+            "request_skill only acknowledges requests"
+            if config["run"].get("skill_loading") == "rolling" else
+            "model-initiated only; no skill is injected before the first model call")
     except Exception as exc:
         results["skill_service"] = f"ERROR: {exc}"
     return results

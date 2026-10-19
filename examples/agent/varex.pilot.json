@@ -27,6 +27,7 @@
     }
   },
   "run": {
+    "skill_loading": "rolling",
     "output_dir": "experiments/varex-pilot",
     "split": "dev",
     "limit": 5,

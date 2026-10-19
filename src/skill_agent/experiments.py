@@ -18,7 +18,7 @@ from . import __version__
 from .storage import read_json, write_json
 from .contracts import fingerprint, source_fingerprint
 from .resolvers import StaticSkillResolver
-from .runtime import SessionContext, run_episode
+from .runtime import ModelInitiatedSkillPolicy, RollingSkillPolicy, SessionContext, run_episode
 
 CONDITIONS = ("none", "full", "reduced")
 
@@ -75,10 +75,10 @@ def load_config(path):
     if set(config) != required or config["version"] != 1:
         raise ValueError("expected v1 config with model, benchmark, skill, run")
     run = config["run"]
-    if set(run) - {"output_dir", "split", "limit", "task_ids", "replicates", "concurrency", "max_calls", "timeout_seconds"}:
+    if set(run) - {"output_dir", "split", "limit", "task_ids", "replicates", "concurrency", "max_calls", "timeout_seconds", "skill_loading"}:
         raise ValueError("unknown run option")
     defaults = {"split": "dev", "limit": 5, "replicates": 1, "concurrency": 1,
-                "max_calls": 20, "timeout_seconds": 600}
+                "max_calls": 20, "timeout_seconds": 600, "skill_loading": "model_initiated"}
     config["run"] = run = {**defaults, **run}
     for name in ("replicates", "concurrency", "max_calls", "timeout_seconds"):
         if type(run[name]) is not int or run[name] < 1:
@@ -87,6 +87,8 @@ def load_config(path):
         raise ValueError("limit must be positive or null")
     if run["split"] not in ("dev", "heldout"):
         raise ValueError("split must be dev or heldout")
+    if run["skill_loading"] not in ("model_initiated", "rolling"):
+        raise ValueError("skill_loading must be model_initiated or rolling")
     if run.get("task_ids") is not None:
         ids = run["task_ids"]
         if (not isinstance(ids, list) or not ids
@@ -169,7 +171,8 @@ async def run_experiment(config, *, resume=False):
                 "dependency_versions": dependency_versions(),
                 "benchmark_fingerprint": adapter.snapshot_fingerprint, "runtime_provenance": runtime_provenance,
                 "skill_receipt": receipt, "skill_capabilities": probe.capabilities,
-                "skill_loading": "model-initiated", "tasks": tasks, "system_prompt": adapter.system_prompt}
+                "skill_loading": run.get("skill_loading", "model_initiated").replace("_", "-"),
+                "tasks": tasks, "system_prompt": adapter.system_prompt}
     run_id = fingerprint(manifest)
     root = Path(run["output_dir"])
     root.mkdir(parents=True, exist_ok=True)
@@ -212,8 +215,11 @@ async def run_experiment(config, *, resume=False):
                     model = factory(config["model"])
                     session = await adapter.open_session(task)
                     setup_seconds = time.monotonic() - started
+                    policy = (RollingSkillPolicy() if run.get("skill_loading") == "rolling"
+                              else ModelInitiatedSkillPolicy())
                     result = await run_episode(model=model, session=session, skill_context=context,
-                                               system_prompt=adapter.system_prompt, max_calls=run["max_calls"],
+                                               system_prompt=adapter.system_prompt, policy=policy,
+                                               max_calls=run["max_calls"],
                                                timeout_seconds=run["timeout_seconds"])
                     outcome = asdict(result)
                     outcome["setup_seconds"] = setup_seconds
@@ -231,7 +237,8 @@ async def run_experiment(config, *, resume=False):
                 temporary.replace(path)
                 calls = model_skill_calls(record["events"])
                 print(f"{task['id']} rep={replicate} {condition}: {record['status']} "
-                      f"(skill calls={calls}, follow-ups={max(0, calls - 1)})", flush=True)
+                      f"(skill calls={calls}, follow-ups={max(0, calls - 1)}, "
+                      f"auto refreshes={automatic_skill_refreshes(record['events'])})", flush=True)
                 return record
 
         jobs = []
@@ -260,6 +267,11 @@ def model_skill_calls(events):
                for call in (event["message"].get("tool_calls") or []))
 
 
+def automatic_skill_refreshes(events):
+    return sum(event["type"] == "skill" and event.get("selection", {}).get("policy") == "rolling"
+               for event in events)
+
+
 def usage_summary(records):
     result = {}
     for condition in CONDITIONS:
@@ -280,6 +292,7 @@ def usage_summary(records):
             "failures": {s: sum(r["status"] == s for r in episodes) for s in sorted({r["status"] for r in episodes})},
             "agent_model_calls": model_requests,
             "skill_requests": skill_requests,
+            "automatic_skill_refreshes": automatic_skill_refreshes(events),
             "skill_refresh_calls": sum(e["type"] == "tool" and e.get("name") == "request_skill"
                                        for e in events),
             "model_skill_calls": model_skill_calls(events),
@@ -313,6 +326,7 @@ def inspect_skill_requests(root):
         events = record["events"]
         calls = model_skill_calls(events)
         requests = [{"request": e["request"]["task"], "context": e["request"]["context"],
+                     "selection": e.get("selection"),
                      "guidance_characters": len(e["response"]["markdown"]),
                      "markdown_sha256": e["markdown_sha256"]}
                     for e in events if e["type"] == "skill"]
@@ -320,6 +334,7 @@ def inspect_skill_requests(root):
                          "replicate": record["replicate"], "status": record["status"],
                          "error": record.get("error"),
                          "model_skill_calls": calls, "model_followup_skill_calls": max(0, calls - 1),
+                         "automatic_skill_refreshes": automatic_skill_refreshes(events),
                          "distinct_guidance_views": len({r["markdown_sha256"] for r in requests}),
                          "requests": requests})
     expected = len(manifest["tasks"]) * manifest["config"]["run"]["replicates"] * len(CONDITIONS)
