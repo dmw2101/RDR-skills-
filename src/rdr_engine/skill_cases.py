@@ -128,7 +128,7 @@ def _pdf_case(task: str) -> dict[str, FeatureValue]:
     """Infer all matching PDF operations and explicit source-type cues."""
     cues = {
         "extract_content": (
-            r"\b(extract(?:ing|ion)?|read(?:ing)?|ocr)\b"
+            r"\b(extract(?:ing|ion)?|read(?:ing)?)\b"
             r"|\bmake\b.{0,40}\bsearchable\b"
         ),
         "combine_or_split": r"\b(merg(?:e|ing)|combin(?:e|ing)|split(?:ting)?|separat(?:e|ing))\b",

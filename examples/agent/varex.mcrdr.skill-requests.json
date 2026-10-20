@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "model": {
+    "factory": "skill_agent.models:OpenAICompatibleClient",
+    "options": {
+      "base_url": "https://YOUR-PROVIDER/v1",
+      "model": "YOUR-TOOL-CALLING-MODEL",
+      "api_key_env": "MODEL_API_KEY",
+      "temperature": 0,
+      "max_tokens": 2048,
+      "timeout": 90
+    }
+  },
+  "benchmark": {
+    "factory": "skill_agent.benchmarks.varex:VarexAdapter",
+    "options": {
+      "data_dir": "benchmarks/local-data/varex-skill-requests"
+    }
+  },
+  "skill": {
+    "id": "pdf",
+    "full_markdown": "skills/pdf/initial.md",
+    "receipt": "experiments/pdf-snapshot-mcrdr.json",
+    "resolver": {
+      "factory": "skill_agent.resolvers:HttpSkillResolver",
+      "options": {"base_url": "http://127.0.0.1:8765", "timeout": 30}
+    }
+  },
+  "run": {
+    "output_dir": "experiments/mcrdr-skill-requests-pilot",
+    "split": "dev",
+    "task_ids": ["FS5441-3E", "LS-275si"],
+    "limit": 2,
+    "replicates": 1,
+    "concurrency": 1,
+    "max_calls": 20,
+    "timeout_seconds": 600
+  }
+}

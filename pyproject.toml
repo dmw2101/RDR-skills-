@@ -12,6 +12,10 @@ dependencies = []
 
 [project.optional-dependencies]
 skill-compiler = ["google-genai>=2.22,<3", "pydantic>=2,<3"]
+agent-benchmarks = ["datasets>=3,<5", "huggingface-hub>=0.28,<2", "numpy>=1.26,<3", "scipy>=1.12,<2", "rapidfuzz>=3,<4"]
+pdf-runtime = ["pypdf==5.9.0", "pdfplumber==0.11.7", "reportlab==4.4.3", "pytesseract==0.3.13", "pdf2image==1.17.0", "Pillow==11.3.0"]
+skill-service = ["pydantic>=2,<3"]
+local-model = ["transformers[serving]==5.20.0", "torch==2.9.1", "torchvision==0.24.1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
