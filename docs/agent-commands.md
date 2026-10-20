@@ -198,19 +198,60 @@ Configure the provider in the chosen MCRDR config exactly as in step 5, then che
 
 The full-vs-reduced and skill-blind variants work unchanged: set `run.conditions` in a copy of an MCRDR config. A none-only run never contacts the service, so it gives the same protocol on both branches.
 
-### Colab
+### Colab (in-repo setup script)
 
-The external `setup_rdr_colab.py` clones and pulls the `testing` branch, which still serves the single-classification engine. Until that script can select a branch, run setup as before with a fresh run name starting `mcrdr-`, then switch the checkout and restart the service before running:
+[`scripts/setup_mcrdr_colab.py`](../scripts/setup_mcrdr_colab.py) sets up and optionally runs any MCRDR experiment from the `MCRDR-testing` branch. It is a new script written for this branch, **not** a copy of the external `setup_rdr_colab.py` (which still pulls `testing` and the single-classification engine), and it has not yet been run on Colab. It uses its own folder (`/content/rdr-skills-mcrdr`) and service port (8766), so it can share a runtime with the external script without touching its checkout, service or results.
 
-```bash
-cd /content/rdr-skills-evaluation
-git fetch origin MCRDR-testing
-git switch MCRDR-testing
-pkill -f "rdr_service serve" || true
-.venv/bin/python -m pip install -e '.[skill-service,agent-benchmarks,pdf-runtime]'
+Set the key first (not in a tracked file), then download and run the script. It needs only the standard library, and it clones the public repository itself:
+
+```python
+import os
+os.environ["MODEL_API_KEY"] = "YOUR_API_KEY"
+!wget -q -O /content/setup_mcrdr_colab.py https://raw.githubusercontent.com/dmw2101/RDR-skills-/MCRDR-testing/scripts/setup_mcrdr_colab.py
+%run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --run-name mcrdr-qwen-rolling-dev30
 ```
 
-Then rerun `prepare`, writing to the `skill.receipt` path named in the generated run configuration, and start `rdr_service serve` again in the background as the setup script does. The editable install means the switched checkout is what the service and runner import. Rerunning the setup script pulls `testing` again and undoes the switch, so repeat these steps after every setup run, and check that `doctor` and the run manifest report the new resolver revision before spending tokens.
+In order, it:
+
+1. installs Poppler, Tesseract, qpdf and venv support if any is missing;
+2. clones or fast-forwards the branch. It stops if the checkout has local changes or is on another branch.
+3. creates `.venv` and installs the extras, skipped when nothing changed;
+4. prepares the experiment's VAREX documents, reused when already prepared;
+5. freezes the PDF skill snapshot and (re)starts the MCRDR service it owns;
+6. writes an absolute-path run config;
+7. runs `doctor`, and stops on any error;
+8. prints the run, inspect-skills and summarize commands.
+
+Add `--run` to execute them as well. `--dry-run` prints every step and the generated config without changing anything. Generated configs, snapshot, logs and results are kept under `/content/rdr-skills-mcrdr/experiments/` (ignored by Git). An existing results directory is only reused with `--resume`, and nothing is deleted.
+
+| Experiment | Base config | Prepared documents | Example |
+|---|---|---|---|
+| `qwen-dev30` (default) | `varex.mcrdr.qwen-dev30.json` | first 30 dev | `--experiment qwen-dev30 --run-name mcrdr-qwen-rolling-dev30` |
+| `deepseek-dev30` | `varex.mcrdr.deepseek-dev30.json` | first 30 dev | `--experiment deepseek-dev30 --run-name mcrdr-deepseek-dev30` |
+| `pilot` | `varex.mcrdr.pilot.json` | first 5 dev | `--experiment pilot --run-name mcrdr-pilot --base-url https://openrouter.ai/api/v1 --model qwen/qwen3.7-flash` |
+| `skill-requests` | `varex.mcrdr.skill-requests.json` | FS5441-3E, LS-275si | `--experiment skill-requests --run-name mcrdr-skill-requests --base-url https://openrouter.ai/api/v1 --model qwen/qwen3.7-flash` |
+
+The pilot and skill-requests configs contain provider placeholders, so the script requires `--base-url` and `--model` for them. With no overrides, a run uses exactly the settings of its `varex.mcrdr.*` config. `--limit N` selects the first N dev documents (1–30) and prepares a matching `varex-dev-N` folder.
+
+Overrides use the same flags as the external script:
+- `--model`, `--base-url`
+- `--provider`, `--max-input-price`, `--max-output-price` (USD per million tokens)
+- `--max-tokens`, `--limit`, `--replicates`, `--concurrency`
+- `--conditions`, `--skill-loading`
+- `--backend local`: the pinned local Qwen3.5-4B server on a T4 GPU, with concurrency 1 and a 30-minute attempt timeout. The api-only flags are rejected.
+
+The external script's variants map as follows:
+
+```python
+# Full vs reduced only (60 episodes)
+%run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --conditions full reduced --run-name mcrdr-qwen-rolling-dev30-full-reduced-run1
+# Skill-blind baseline (no snapshot or service is prepared; identical protocol on both branches)
+%run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --conditions none --run-name mcrdr-qwen-skill-blind-dev30-run1
+# Local Qwen on a T4 GPU, no provider key
+%run /content/setup_mcrdr_colab.py --experiment pilot --backend local --run-name mcrdr-varex-qwen-local
+```
+
+Rerunning the script is safe: it reuses everything already in place and restarts only its own service. Check that `doctor` reports `skill_service: ok` and that the printed resolver revision differs from the single-classification runs before spending tokens.
 
 ## 8. Score and inspect results
 

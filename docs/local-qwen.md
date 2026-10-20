@@ -12,6 +12,8 @@ Upload the updated **external** `setup_rdr_colab.py` from the project workspace 
 
 Setup pulls `testing`, reuses the venv/data, starts one resident model server, checks a structured tool call and its follow-up, and prints the run/scoring commands. Add `--run` to execute them automatically. No automatic results deletion: clear the old run directory yourself or choose another name. Use `--backend api` for the previous hosted-provider workflow; local mode ignores provider environment settings.
 
+For MCRDR runs, the in-repo `scripts/setup_mcrdr_colab.py --backend local` does the same with the `MCRDR-testing` branch; see [MCRDR runs](agent-commands.md#colab-in-repo-setup-script).
+
 ## Local serving commands (Linux, from the repository root)
 
 Use an existing `.venv` containing the benchmark/service/PDF dependencies. Install the local dependencies; select CUDA 12.6 wheels explicitly for T4 compatibility:
