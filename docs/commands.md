@@ -126,7 +126,13 @@ The six optimized skill checkpoints from the pinned SkillOpt snapshot (`benchmar
 
 Their feature names, values and descriptions are in `skills/feature_schemas.json`. Gemini may only use those values in rule conditions.
 
-One command converts all six. Set your Gemini key in the current PowerShell session first (replace the placeholder):
+One command converts all six. If you have not done so yet, install the compiler dependencies once (as in section 1):
+
+```powershell
+py -3.12 -m pip install -e ".[skill-compiler]"
+```
+
+Set your Gemini key in the current PowerShell session (replace the placeholder):
 
 ```powershell
 $env:GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
