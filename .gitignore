@@ -1,8 +1,11 @@
 .env
 .venv/
+.venv-trace2skill/
 __pycache__/
 .pytest_cache/
+.presentation-build/
 *.egg-info/
 /build/
 /dist/
 /benchmarks/local-data/
+/experiments/

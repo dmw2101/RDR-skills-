@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Inherited fragment delta",
+  "type": "object", "additionalProperties": false,
+  "required": ["add", "remove"],
+  "properties": {
+    "add": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "remove": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

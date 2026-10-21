@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Condition applicability expression",
+  "oneOf": [
+    {"type": "object", "additionalProperties": false, "required": ["condition"],
+      "properties": {"condition": {"type": "string", "minLength": 1}}},
+    {"type": "object", "additionalProperties": false, "required": ["all"],
+      "properties": {"all": {"type": "array", "items": {"$ref": "#"}}}},
+    {"type": "object", "additionalProperties": false, "required": ["any"],
+      "properties": {"any": {"type": "array", "items": {"$ref": "#"}}}},
+    {"type": "object", "additionalProperties": false, "required": ["not"],
+      "properties": {"not": {"$ref": "#"}}}
+  ]
+}

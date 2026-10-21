@@ -9,7 +9,7 @@ This research prototype represents procedural skills as Multiple Classification 
 - `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
 - `tests/`: automated tests for the engine and skill pipeline.
 
-The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and a flat MCRDR tree (one unconditional general-guidance rule plus one rule per condition, with no rule limit), then renders the fragments of every terminal conclusion for a task. The ALFWorld and PDF demos can identify multiple task categories in one natural-language query; membership conditions select all matching guidance. Trace-driven updates, an oracle/verifier integration, and benchmark evaluation are not yet connected.
+The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and a flat MCRDR tree (one unconditional general-guidance rule plus one rule per condition, with no rule limit), then renders the fragments of every terminal conclusion for a task. The ALFWorld and PDF demos can identify multiple task categories in one natural-language query; membership conditions select all matching guidance. The separate offline Trace2Skill bridge supports recorded conditional proposals and reference exception insertion. Production trace-driven updates and benchmark evaluation are not yet connected.
 
 ## Run commands
 
@@ -23,6 +23,8 @@ The command guide assumes PowerShell is already open at this repository's root. 
 
 ## Further documentation
 
+- [Offline Trace2Skill bridge: conditions, structured proposals, and exception insertion](docs/trace2skill-bridge.md)
+- [Bridge offline verification and pending GPU checks](docs/trace2skill-bridge-verification.md)
 - [RDR engine overview](docs/rdr-engine.md)
 - [Base-skill-to-RDR implementation plan](docs/base-skill-to-rdr-plan.md)
 - [Skills and benchmark inventory](benchmarks/README.md)

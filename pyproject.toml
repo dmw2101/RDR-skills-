@@ -18,3 +18,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 rdr_engine = ["prompts/*.md"]
+trace2skill_bridge = ["prompts/*.md", "schemas/*.json"]
