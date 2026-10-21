@@ -53,6 +53,7 @@ Optional `run.conditions` selects a nonempty subset of `none`, `full`, `reduced`
 | `skill_agent/benchmarks/` | `BenchmarkAdapter`, `VarexAdapter`, pinned preparation and scoring |
 | `skill_agent/pdf_session.py` | `VenvPDFSession`, bounded local shell execution and venv provenance |
 | `skill_agent/experiments.py` | factories, paired runs, atomic episode records, resume, reports |
+| `skill_agent/reporting.py` | `report`: pilot-deck metrics pooled across runs, plus SCRDR/MCRDR series comparison and guidance-identity check |
 | `rdr_service/backend.py` | `RDRBackend.prepare` and `.resolve`; sole RDR integration point |
 
 Configuration factories use `module:Class` + options. Configuration files are trusted code configuration, not model-controlled input. To add a model, implement `complete(messages, tools)` returning `ModelResponse`. To add a benchmark, implement `prepare_runtime`, `tasks`, `open_session`, `score`, `system_prompt`, and `snapshot_fingerprint`. A session exposes `prompt`, `tools`, `collect`, and `close`. A scorer returns `summaries` and `document_metrics`: rows with `task_id`, `condition`, `replicate`, `metric`, `numerator`, `denominator`. This supports success-rate benchmarks as well as field-level metrics without changing the loop or paired analysis.

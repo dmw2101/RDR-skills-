@@ -70,6 +70,9 @@ def main(argv=None):
     inspect.add_argument("run_dir")
     rename = commands.add_parser("rename-episodes", help="Give existing episode files document/condition names")
     rename.add_argument("run_dir")
+    report = commands.add_parser("report", help="Pilot-deck metrics across summarized runs and engine series")
+    report.add_argument("--spec", required=True, help="JSON file mapping series and runs to run folders")
+    report.add_argument("--output", help="Output folder (default: report/ beside the spec)")
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
@@ -78,6 +81,9 @@ def main(argv=None):
             result = summarize(args.run_dir)
         elif args.command == "rename-episodes":
             result = rename_episode_files(args.run_dir)
+        elif args.command == "report":
+            from .reporting import write_report
+            result = write_report(args.spec, args.output)
         elif args.command == "inspect-skills":
             result = inspect_skill_requests(args.run_dir)
         else:

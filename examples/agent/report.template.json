@@ -1,0 +1,17 @@
+{
+  "series": {
+    "SCRDR": {
+      "Run 1": ["scrdr/qwen-rolling-dev30-full-reduced-run1", "scrdr/qwen-skill-blind-dev30-run1"],
+      "Run 2": ["scrdr/qwen-rolling-dev30-full-reduced-run2", "scrdr/qwen-skill-blind-dev30-run2"],
+      "Run 3": ["scrdr/qwen-rolling-dev30-full-reduced-run3", "scrdr/qwen-skill-blind-dev30-run3"]
+    },
+    "MCRDR": {
+      "Run 1": ["results/mcrdr-qwen-rolling-dev30-full-reduced-run1", "results/mcrdr-qwen-skill-blind-dev30-run1"],
+      "Run 2": ["results/mcrdr-qwen-rolling-dev30-full-reduced-run2", "results/mcrdr-qwen-skill-blind-dev30-run2"],
+      "Run 3": ["results/mcrdr-qwen-rolling-dev30-full-reduced-run3", "results/mcrdr-qwen-skill-blind-dev30-run3"]
+    }
+  },
+  "outliers": 5,
+  "top_documents": 5,
+  "bootstrap_samples": 2000
+}

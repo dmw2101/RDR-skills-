@@ -463,6 +463,9 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
         runner.note("run these from any cell (they use absolute paths):")
         for command in commands:
             runner.out("!" + shlex.join(str(part) for part in command))
+    runner.note("after all runs are summarized, compare them (see docs/agent-commands.md, step 9):")
+    runner.out("!" + shlex.join([str(paths.python), "-m", "skill_agent", "report",
+                                 "--spec", str(paths.experiments / "report-spec.json")]))
     return config
 
 

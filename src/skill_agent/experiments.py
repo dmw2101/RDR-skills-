@@ -396,12 +396,13 @@ def paired_bootstrap(document_metrics, *, samples=2000, seed=42):
     return result
 
 
-def summarize(root):
+def load_run(root):
+    """Return the verified manifest and every episode record of a complete run."""
     root = Path(root)
     manifest = read_json(root / "manifest.json")
     if manifest["run_id"] != fingerprint({k: v for k, v in manifest.items() if k not in ("run_id", "preflight_skill")}):
         raise ValueError("run manifest changed")
-    records = [read_json(path) for path in (root / "episodes").glob("*.json")]
+    records = [read_json(path) for path in sorted((root / "episodes").glob("*.json"))]
     expected = {(t["id"], r, c) for t in manifest["tasks"]
                 for r in range(manifest["config"]["run"]["replicates"])
                 for c in selected_conditions(manifest["config"]["run"])}
@@ -411,6 +412,12 @@ def summarize(root):
     for record in records:
         if record["run_id"] != manifest["run_id"] or record.get("record_sha256") != fingerprint({k: v for k, v in record.items() if k != "record_sha256"}):
             raise ValueError("episode record changed")
+    return manifest, records
+
+
+def summarize(root):
+    root = Path(root)
+    manifest, records = load_run(root)
     adapter = factory(manifest["config"]["benchmark"])
     if adapter.snapshot_fingerprint != manifest["benchmark_fingerprint"]:
         raise ValueError("benchmark changed since inference")

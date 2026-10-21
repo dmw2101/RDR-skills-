@@ -271,6 +271,41 @@ Episode filenames use `<document>_<condition>_<hash>.json`, e.g. `fha2226_reduce
 
 For the final run, copy the pilot configuration to a new file, change `split` to `heldout`, `limit` to `null`, `replicates` to `3`, and choose a **new** `output_dir`. Pass that file to `run` and its output directory to `summarize`. Freeze the configuration and non-inferiority margin before inspecting held-out results.
 
+## 9. Report across runs and engines
+
+`skill_agent report` reproduces every number in the VAREX pilot slides from completed, summarized run folders. It makes no model calls and does not rescore. It also compares engines side by side (for example SCRDR against MCRDR). Run `summarize` on each folder first; the report reads the official per-document scores that `summarize` writes to `scores/`.
+
+A spec file groups folders into **series** (one per engine) and **runs**. One run may combine folders, as the pilot did: a full/reduced run plus a separate skill-blind run over the same documents. Folder paths are relative to the spec file. Start from [`examples/agent/report.template.json`](../examples/agent/report.template.json): copy it into the `experiments` folder that holds the runs, and edit the folder names to match yours. On Colab with the MCRDR setup script that is `/content/rdr-skills-mcrdr/experiments/`, with your partner's single-classification run folders downloaded into its `scrdr/` subfolder.
+
+```powershell
+.\.venv\Scripts\python.exe -m skill_agent report --spec experiments/report-spec.json
+```
+
+Linux / Colab: `.venv/bin/python -m skill_agent report --spec experiments/report-spec.json`.
+
+It writes `report.json` (every value, unrounded) and `report.md` (deck-style tables) to `report/` beside the spec, or to `--output`.
+
+| Slide | Reported per series |
+|---|---|
+| Field-level exact match by run | Normalized field exact match per run and condition; pooled row with the field count; correct fields per condition |
+| Completion and perfect documents | Completed episodes and perfect documents per condition; incomplete episodes are listed and scored as zero |
+| Reduced vs full by run | Reduced − full and reduced − skill-blind, per run and pooled, with paired document-bootstrap 95% intervals |
+| Usage | Median (p50), mean and p90 input tokens per episode; mean output tokens; reported cost total and per-episode mean (`not reported` when a provider omitted it); median reduction vs full |
+| Variability | Share of input tokens from the five highest-usage documents; highest-input episodes with the paired episodes' input tokens |
+
+With two or more series the report adds:
+- **A series comparison:** per-condition differences in exact match, completion, perfect documents, and median and mean input.
+- **A guidance-identity check:** reduced-arm requests that are identical across series (for example the turn-0 request, which uses the shared task text) must return identical guidance. Because the MCRDR bundles render byte-identically to the single-classification ones, a differing view signals a setup problem.
+
+The report refuses to mix data silently:
+- folder or score integrity changes;
+- unsummarized folders;
+- a condition repeated within a run;
+- unpaired documents within a run;
+- a series mixing engines.
+
+Differences in model settings, budgets, prompt or data fingerprint between folders are listed as warnings and in the provenance table.
+
 ## Linux / Colab venv
 
 Local Qwen3.5-4B is also supported without a provider account; see [local Qwen setup](local-qwen.md). The API commands above remain supported.
