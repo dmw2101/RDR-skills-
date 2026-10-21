@@ -1,0 +1,344 @@
+{
+  "root": [
+    {
+      "start": 6,
+      "end": 6
+    },
+    {
+      "start": 8,
+      "end": 8
+    },
+    {
+      "start": 14,
+      "end": 14
+    },
+    {
+      "start": 16,
+      "end": 16
+    },
+    {
+      "start": 18,
+      "end": 18
+    },
+    {
+      "start": 21,
+      "end": 21
+    },
+    {
+      "start": 23,
+      "end": 23
+    },
+    {
+      "start": 25,
+      "end": 26
+    },
+    {
+      "start": 29,
+      "end": 31
+    },
+    {
+      "start": 33,
+      "end": 33
+    },
+    {
+      "start": 35,
+      "end": 36
+    },
+    {
+      "start": 42,
+      "end": 42
+    },
+    {
+      "start": 45,
+      "end": 45
+    },
+    {
+      "start": 50,
+      "end": 50
+    },
+    {
+      "start": 53,
+      "end": 54
+    },
+    {
+      "start": 57,
+      "end": 57
+    },
+    {
+      "start": 59,
+      "end": 59
+    },
+    {
+      "start": 65,
+      "end": 65
+    }
+  ],
+  "rules": [
+    {
+      "id": "name_or_word_meaning_answer",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "name_or_word_meaning"
+        }
+      ],
+      "source": [
+        {
+          "start": 9,
+          "end": 9
+        }
+      ]
+    },
+    {
+      "id": "preserve_geographic_feature_designators",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "geographic_feature"
+        }
+      ],
+      "source": [
+        {
+          "start": 11,
+          "end": 11
+        }
+      ]
+    },
+    {
+      "id": "company_or_brand_concise_name",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "company_or_brand"
+        }
+      ],
+      "source": [
+        {
+          "start": 12,
+          "end": 12
+        }
+      ]
+    },
+    {
+      "id": "person_answer_form",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "person_answer"
+        }
+      ],
+      "source": [
+        {
+          "start": 20,
+          "end": 20
+        }
+      ]
+    },
+    {
+      "id": "this_type_clue_interpretation",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "this_type_clue"
+        }
+      ],
+      "source": [
+        {
+          "start": 39,
+          "end": 40
+        }
+      ]
+    },
+    {
+      "id": "creative_work_target_identification",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "creative_work"
+        }
+      ],
+      "source": [
+        {
+          "start": 43,
+          "end": 43
+        }
+      ]
+    },
+    {
+      "id": "terse_examples_shared_category",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "examples_given"
+        }
+      ],
+      "source": [
+        {
+          "start": 46,
+          "end": 46
+        }
+      ]
+    },
+    {
+      "id": "crossword_constraints_and_dual_definitions",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "crossword_or_letter_count"
+        }
+      ],
+      "source": [
+        {
+          "start": 48,
+          "end": 48
+        }
+      ]
+    },
+    {
+      "id": "visual_reference_missing_image",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "visual_reference"
+        }
+      ],
+      "source": [
+        {
+          "start": 49,
+          "end": 49
+        }
+      ]
+    },
+    {
+      "id": "examples_given_parent_class",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "examples_given"
+        }
+      ],
+      "source": [
+        {
+          "start": 61,
+          "end": 61
+        }
+      ]
+    },
+    {
+      "id": "quotation_phrase_continuation",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "quotation_or_lyric"
+        }
+      ],
+      "source": [
+        {
+          "start": 62,
+          "end": 62
+        }
+      ]
+    },
+    {
+      "id": "song_poem_quotation_target",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "quotation_or_lyric"
+        }
+      ],
+      "source": [
+        {
+          "start": 64,
+          "end": 64
+        }
+      ]
+    },
+    {
+      "id": "wordplay_or_puns_handling",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "wordplay"
+        }
+      ],
+      "source": [
+        {
+          "start": 66,
+          "end": 66
+        }
+      ]
+    },
+    {
+      "id": "quoted_anchor_distinction",
+      "when": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "quotation_or_lyric"
+        }
+      ],
+      "source": [
+        {
+          "start": 68,
+          "end": 68
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "start": 1,
+      "end": 1,
+      "reason": "Skill title heading"
+    },
+    {
+      "start": 3,
+      "end": 3,
+      "reason": "Placeholder notice"
+    },
+    {
+      "start": 5,
+      "end": 5,
+      "reason": "Section heading"
+    },
+    {
+      "start": 28,
+      "end": 28,
+      "reason": "Section heading"
+    },
+    {
+      "start": 38,
+      "end": 38,
+      "reason": "Section heading"
+    },
+    {
+      "start": 52,
+      "end": 52,
+      "reason": "Section heading"
+    },
+    {
+      "start": 56,
+      "end": 56,
+      "reason": "Section heading"
+    },
+    {
+      "start": 70,
+      "end": 71,
+      "reason": "Update markers"
+    }
+  ]
+}

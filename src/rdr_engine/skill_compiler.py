@@ -437,6 +437,8 @@ class FragmentCatalog:
                 header = table_rows.get(number)
                 if header is None:
                     continue
+                if fragment.start <= header[0] and header[1] <= fragment.end:
+                    continue  # The whole table, header included, is this one fragment.
                 dependency = by_line.get(header[0])
                 if dependency is None or dependency.end < header[1] or dependency.role != "non_instruction":
                     raise ValueError(

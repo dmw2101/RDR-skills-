@@ -1,0 +1,211 @@
+{
+  "excluded": [
+    {
+      "end": 1,
+      "reason": "Title heading",
+      "start": 1
+    },
+    {
+      "end": 3,
+      "reason": "Section heading",
+      "start": 3
+    },
+    {
+      "end": 14,
+      "reason": "Section heading",
+      "start": 14
+    },
+    {
+      "end": 32,
+      "reason": "Section heading",
+      "start": 32
+    },
+    {
+      "end": 38,
+      "reason": "Section heading",
+      "start": 38
+    },
+    {
+      "end": 45,
+      "reason": "Section heading",
+      "start": 45
+    },
+    {
+      "end": 50,
+      "reason": "Update markers and comments",
+      "start": 49
+    }
+  ],
+  "root": [
+    {
+      "end": 10,
+      "start": 7
+    },
+    {
+      "end": 16,
+      "start": 15
+    },
+    {
+      "end": 22,
+      "start": 21
+    },
+    {
+      "end": 36,
+      "start": 34
+    },
+    {
+      "end": 42,
+      "start": 42
+    },
+    {
+      "end": 47,
+      "start": 47
+    }
+  ],
+  "rules": [
+    {
+      "id": "external_time_series",
+      "source": [
+        {
+          "end": 5,
+          "start": 5
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "external_time_series"
+        }
+      ]
+    },
+    {
+      "id": "period_range",
+      "source": [
+        {
+          "end": 12,
+          "start": 12
+        },
+        {
+          "end": 28,
+          "start": 28
+        },
+        {
+          "end": 41,
+          "start": 41
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "period_range"
+        }
+      ]
+    },
+    {
+      "id": "treasury_financing",
+      "source": [
+        {
+          "end": 18,
+          "start": 18
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "treasury_financing"
+        }
+      ]
+    },
+    {
+      "id": "unit_or_currency_conversion",
+      "source": [
+        {
+          "end": 19,
+          "start": 19
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "unit_or_currency_conversion"
+        }
+      ]
+    },
+    {
+      "id": "derived_comparison",
+      "source": [
+        {
+          "end": 24,
+          "start": 24
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "derived_comparison"
+        }
+      ]
+    },
+    {
+      "id": "statistical_calculation",
+      "source": [
+        {
+          "end": 25,
+          "start": 25
+        },
+        {
+          "end": 30,
+          "start": 30
+        },
+        {
+          "end": 40,
+          "start": 40
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "statistical_calculation"
+        }
+      ]
+    },
+    {
+      "id": "multi_stage_lookup",
+      "source": [
+        {
+          "end": 26,
+          "start": 26
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "multi_stage_lookup"
+        }
+      ]
+    },
+    {
+      "id": "security_quotation",
+      "source": [
+        {
+          "end": 43,
+          "start": 43
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "security_quotation"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,189 @@
+{
+  "fragments": [
+    {
+      "end": 1,
+      "id": "frag_6ab4d33d09b5179c",
+      "order": 1,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 1,
+      "text": "# DocVQA Skill\n"
+    },
+    {
+      "end": 3,
+      "id": "frag_de957784a281549b",
+      "order": 3,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 3,
+      "text": "## Visual Evidence Discipline\n"
+    },
+    {
+      "end": 5,
+      "id": "frag_6f357d40a66aecd8",
+      "order": 4,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_de957784a281549b"
+      ],
+      "role": "instruction",
+      "start": 4,
+      "text": "- Read the document carefully before answering.\n- Prefer the smallest exact text span that answers the question.\n"
+    },
+    {
+      "end": 7,
+      "id": "frag_9f6109213fc71ded",
+      "order": 7,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_de957784a281549b"
+      ],
+      "role": "instruction",
+      "start": 7,
+      "text": "- For questions asking for a value, count, page number, date, or graph reading, return only the requested value span; omit nearby labels, category names, units, or explanatory words unless the question explicitly asks for them.\n"
+    },
+    {
+      "end": 8,
+      "id": "frag_2b82a040d7cc0903",
+      "order": 8,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_de957784a281549b"
+      ],
+      "role": "instruction",
+      "start": 8,
+      "text": "- When several nearby strings look similar, choose the one whose surrounding labels or layout best match the question.\n"
+    },
+    {
+      "end": 10,
+      "id": "frag_d58a30bf1f9b1c93",
+      "order": 10,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 10,
+      "text": "## Exact Answer Discipline\n"
+    },
+    {
+      "end": 11,
+      "id": "frag_04fa4b391a12efc7",
+      "order": 11,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_d58a30bf1f9b1c93"
+      ],
+      "role": "instruction",
+      "start": 11,
+      "text": "- Copy names, numbers, and dates exactly from the document whenever possible.\n"
+    },
+    {
+      "end": 13,
+      "id": "frag_2cd9f8830093f210",
+      "order": 13,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_d58a30bf1f9b1c93"
+      ],
+      "role": "instruction",
+      "start": 13,
+      "text": "- Preserve the document's exact spelling and punctuation for names and quoted phrases; do not substitute similar letters or change straight/curly quotes, spacing, or parentheses when the visible text provides them.\n"
+    },
+    {
+      "end": 15,
+      "id": "frag_4ec262129f0be499",
+      "order": 14,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_d58a30bf1f9b1c93"
+      ],
+      "role": "instruction",
+      "start": 14,
+      "text": "- Prefer direct extraction over paraphrase.\n- Before finalizing, compare the answer against nearby alternatives and keep the best-supported exact span.\n"
+    },
+    {
+      "end": 17,
+      "id": "frag_2131312f5ec9211f",
+      "order": 17,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 17,
+      "text": "## Structured Layout Lookup\n"
+    },
+    {
+      "end": 18,
+      "id": "frag_44e6baa6eaeaf5d0",
+      "order": 18,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_2131312f5ec9211f"
+      ],
+      "role": "instruction",
+      "start": 18,
+      "text": "- For tables, first find the row or entry named in the question, then read the value under the requested column, header, date, or category; answer with that cell only.\n"
+    },
+    {
+      "end": 19,
+      "id": "frag_943e5e32ce65a924",
+      "order": 19,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_2131312f5ec9211f"
+      ],
+      "role": "instruction",
+      "start": 19,
+      "text": "- For forms, receipts, or labeled fields, locate the exact role, party, or field label mentioned in the question, then copy the filled-in value from the same line, box, block, or immediately adjacent field.\n"
+    },
+    {
+      "end": 20,
+      "id": "frag_0f71c025db528e87",
+      "order": 20,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_2131312f5ec9211f"
+      ],
+      "role": "instruction",
+      "start": 20,
+      "text": "- For table-of-contents, indexed, numbered, or bulleted lists, match the requested title, entry, or point number, then follow the same line or list item to the associated value; do not take a nearby value from another item.\n"
+    },
+    {
+      "end": 22,
+      "id": "frag_ecfae6f113835e60",
+      "order": 22,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 22,
+      "text": "## Anchored Handwriting / Nearby Text\n"
+    },
+    {
+      "end": 23,
+      "id": "frag_6b1dcedbb745ffac",
+      "order": 23,
+      "requires": [
+        "frag_6ab4d33d09b5179c",
+        "frag_ecfae6f113835e60"
+      ],
+      "role": "instruction",
+      "start": 23,
+      "text": "- For handwritten or list/table questions with an anchor term, first locate the anchor, then inspect the immediately adjacent text in the same row, column, or nearby margin. If legible, provide the best-supported nearby span rather than leaving the answer blank.\n"
+    },
+    {
+      "end": 25,
+      "id": "frag_656dd1f6dbbdc827",
+      "order": 25,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 25,
+      "text": "<!-- SLOW_UPDATE_START -->\n"
+    },
+    {
+      "end": 26,
+      "id": "frag_40a67f7ba5a747c8",
+      "order": 26,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 26,
+      "text": "<!-- SLOW_UPDATE_END -->"
+    }
+  ],
+  "schema_version": 2,
+  "source_sha256": "5432e21a8bb053b13d0cb50372ff371924a925a459ff108725c67c806c9e8a2f"
+}

@@ -1,0 +1,33 @@
+{
+  "engine_schema_version": 2,
+  "feature_schema": {
+    "features": {
+      "clue_cues": {
+        "description": "Cues in the visible trivia, Jeopardy, or crossword clue. this_type_clue: refers to the answer as this/these/he/she/his/her plus a type. crossword_or_letter_count: gives a letter count, a parenthetical number, or a dual definition. quotation_or_lyric: contains a quotation, lyric, poem, rhyme, slogan, or the start of a phrase. creative_work: concerns a book, film, play, song, poem, show, or other work, its creator, cast, character, or setting. examples_given: lists examples or names that include, like, or such as, or names separated by commas or slashes. name_or_word_meaning: asks for the name or word that means something, or the origin of a name. geographic_feature: concerns a lake, river, bay, mountain, island, gorge, or other natural feature. company_or_brand: concerns a company, brand, organization, or product. person_answer: the answer is a person or the name of a person. visual_reference: mentions an image or clip (seen here, pictured, shown). wordplay: contains puns, quotation-marked wordplay, or a category hint. Several cues may apply; use an empty list if none is recognized.",
+        "multiple": true,
+        "values": [
+          "this_type_clue",
+          "crossword_or_letter_count",
+          "quotation_or_lyric",
+          "creative_work",
+          "examples_given",
+          "name_or_word_meaning",
+          "geographic_feature",
+          "company_or_brand",
+          "person_answer",
+          "visual_reference",
+          "wordplay"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "bff066fd0d2218d03a5e3b0ce5fa0bb4cc113c2163b79485ca50159d719f517b",
+  "fragments_sha256": "0d44d0f904a222a04b33fc63150f50547a4f68de3371179b3d700a250b3a1e32",
+  "generated_at": "2026-10-21T00:45:22.896683+00:00",
+  "ir_sha256": "d3fe8cba1afb596f8c82c4dfd2e4c912f1d6c73dd3e57bb951a3a52d786e103c",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "2",
+  "schema_version": 2,
+  "source_sha256": "4e0a19d42dea09538e5431ad9241eaf6d6ce0a7fbd6c5578e6e5fcee77c187f8",
+  "tree_sha256": "5c08ad69d8679f06f07ea8c0746fe590a6a608021fe9955e1cc1f8f67128eaab"
+}

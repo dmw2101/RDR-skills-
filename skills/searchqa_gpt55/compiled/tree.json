@@ -1,0 +1,315 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "conclusion": {
+        "fragments": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 0,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_92c11b43d39483fc",
+          "frag_5a4ac6ccfb59f516",
+          "frag_fabf3e146dc82363",
+          "frag_999d6f869710d11b",
+          "frag_076836b6e8fa4af9",
+          "frag_4d830a388e2693bb",
+          "frag_c62c89375ecf1491",
+          "frag_d997cc5ad646ec5e",
+          "frag_8bb2d71f9c85bd69",
+          "frag_80e644ddf19f8f53",
+          "frag_2ebef801a9948521",
+          "frag_ca44e616e0b5b460",
+          "frag_ede2d5d7df8dff26",
+          "frag_1def41376bf41325",
+          "frag_bc2743102f3bc283",
+          "frag_28a5c995f6fff60b",
+          "frag_b68e38911eb63b10",
+          "frag_35f17670b888edb1"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_d2c43164b4385fb6"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "name_or_word_meaning"
+        }
+      ],
+      "evidence": [],
+      "id": 2,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_1b8ecacb2138deea"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "geographic_feature"
+        }
+      ],
+      "evidence": [],
+      "id": 3,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_382e159d27fdebd0"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "company_or_brand"
+        }
+      ],
+      "evidence": [],
+      "id": 4,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_99e8b67ddc75e199"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "person_answer"
+        }
+      ],
+      "evidence": [],
+      "id": 5,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_210f8a2840bdb882"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "this_type_clue"
+        }
+      ],
+      "evidence": [],
+      "id": 6,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_9ef3a234d9198225"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "creative_work"
+        }
+      ],
+      "evidence": [],
+      "id": 7,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_5e4e24330d9e1d3a"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "examples_given"
+        }
+      ],
+      "evidence": [],
+      "id": 8,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_692078abcd6ef37d"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "crossword_or_letter_count"
+        }
+      ],
+      "evidence": [],
+      "id": 9,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_5edcabc9ae167606"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "visual_reference"
+        }
+      ],
+      "evidence": [],
+      "id": 10,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_babfcff2eba149e6"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "examples_given"
+        }
+      ],
+      "evidence": [],
+      "id": 11,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_63295b517f737906"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "quotation_or_lyric"
+        }
+      ],
+      "evidence": [],
+      "id": 12,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_c3415c3508a68ecf"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "quotation_or_lyric"
+        }
+      ],
+      "evidence": [],
+      "id": 13,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_f863f9c249898e5d"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "wordplay"
+        }
+      ],
+      "evidence": [],
+      "id": 14,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_6f3f9ea55263ead9"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "clue_cues",
+          "op": "contains",
+          "value": "quotation_or_lyric"
+        }
+      ],
+      "evidence": [],
+      "id": 15,
+      "stopping": false
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 2
+}

@@ -1,0 +1,28 @@
+{
+  "engine_schema_version": 2,
+  "feature_schema": {
+    "features": {
+      "option_cues": {
+        "description": "Cues visible in the question and its answer options. stronger_result_option: an option says another option is correct but a stronger result can be proven. nested_strength: options are versions of one claim ordered by strength (rates, constants, bounds, endpoints, blowup versus unboundedness). quantifier_or_equivalence: options hinge on quantifiers or equivalence (for every, there exists, if and only if, exactly when, converse, characterization). threshold_or_inequality: options differ by sign, endpoint, strict versus non-strict inequality, or a parameter threshold. quantitative_estimate: options are estimates differing in exponents, constants, log factors, or convergence mode. local_vs_global: options differ by local, completed, prime-by-prime, or sufficiently-large versus global or every-case statements. Several cues may apply; use an empty list if none is recognized.",
+        "multiple": true,
+        "values": [
+          "stronger_result_option",
+          "nested_strength",
+          "quantifier_or_equivalence",
+          "threshold_or_inequality",
+          "quantitative_estimate",
+          "local_vs_global"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "3d40490902ff8c9acb77410cacd2a83824fe90d96068c4a566600476fa6febf3",
+  "fragments_sha256": "a273f5b0cc164d6969e12f1b87c07980897d7208eb23ef9076629b12eeb125f2",
+  "generated_at": "2026-10-21T00:39:34.902798+00:00",
+  "ir_sha256": "3c13169193a74fa5e5280447637cbf2182904a19260c60e4a6aefb69d28f5079",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "2",
+  "schema_version": 2,
+  "source_sha256": "53073aa57ce84de76d9976f76a0f80b301c2e76b334b5206b1de1e0d6abd9357",
+  "tree_sha256": "0e9975efb8e8fefaa27741cd9f615fe435795fbc8f9ba57704141647409db0e4"
+}

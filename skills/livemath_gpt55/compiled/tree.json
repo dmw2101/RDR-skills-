@@ -1,0 +1,150 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "conclusion": {
+        "fragments": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 0,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_4d253886b68717c3",
+          "frag_f41ddef5a6cf10d2",
+          "frag_b00e39ad4adee4db"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_1988860a5bca1513"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "stronger_result_option"
+        }
+      ],
+      "evidence": [],
+      "id": 2,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_7b7b817bfe18b3b9"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "nested_strength"
+        }
+      ],
+      "evidence": [],
+      "id": 3,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_2ff63c2c90e1bcae",
+          "frag_dd25529c0d5dc4d5",
+          "frag_ecb107256429d2fd"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "quantifier_or_equivalence"
+        }
+      ],
+      "evidence": [],
+      "id": 4,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_d928a5d11036fa33"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "threshold_or_inequality"
+        }
+      ],
+      "evidence": [],
+      "id": 5,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_325c726922b0f50a"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "local_vs_global"
+        }
+      ],
+      "evidence": [],
+      "id": 6,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_17440e04427977fb"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "quantitative_estimate"
+        }
+      ],
+      "evidence": [],
+      "id": 7,
+      "stopping": false
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 2
+}

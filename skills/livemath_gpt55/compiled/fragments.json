@@ -1,0 +1,235 @@
+{
+  "fragments": [
+    {
+      "end": 1,
+      "id": "frag_68f65e6810ed47b4",
+      "order": 1,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 1,
+      "text": "# Live Mathematical MCQ Heuristics\n"
+    },
+    {
+      "end": 3,
+      "id": "frag_ef34823eeecbd08a",
+      "order": 3,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 3,
+      "text": "## Option Comparison\n"
+    },
+    {
+      "end": 5,
+      "id": "frag_8ed0631229bba18a",
+      "order": 5,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 5,
+      "text": "### Meta-Options About Stronger Results\n"
+    },
+    {
+      "end": 7,
+      "id": "frag_1988860a5bca1513",
+      "order": 6,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_ef34823eeecbd08a",
+        "frag_8ed0631229bba18a"
+      ],
+      "role": "instruction",
+      "start": 6,
+      "text": "- Treat options of the form “one of the remaining options is correct, but a stronger result can be proven” as serious candidates, especially when the question asks for the strongest statement.\n- If a concrete option is true but your theorem or derivation gives a strictly stronger conclusion not exactly listed, choose the meta-option rather than the weaker concrete statement.\n"
+    },
+    {
+      "end": 8,
+      "id": "frag_7b7b817bfe18b3b9",
+      "order": 8,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_ef34823eeecbd08a",
+        "frag_8ed0631229bba18a"
+      ],
+      "role": "instruction",
+      "start": 8,
+      "text": "- When options are nested by strength, rank them explicitly before answering: e.g. finite-time blowup is stronger than merely “not globally bounded”; positive stable growth is stronger than ordinary unboundedness; sharper constants, rates, exceptional-set bounds, endpoint inclusion, or full equivalences are stronger than weaker asymptotic versions.\n"
+    },
+    {
+      "end": 9,
+      "id": "frag_4d253886b68717c3",
+      "order": 9,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_ef34823eeecbd08a",
+        "frag_8ed0631229bba18a"
+      ],
+      "role": "instruction",
+      "start": 9,
+      "text": "- Compare all options before committing. The correct choice is often the strongest statement justified by the question, while nearby distractors are weaker, overstrong, or miss an equality case.\n"
+    },
+    {
+      "end": 10,
+      "id": "frag_2ff63c2c90e1bcae",
+      "order": 10,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_ef34823eeecbd08a",
+        "frag_8ed0631229bba18a"
+      ],
+      "role": "instruction",
+      "start": 10,
+      "text": "- Track exact quantifiers such as \"there exists\", \"for every\", \"if and only if\", and \"exactly when\".\n"
+    },
+    {
+      "end": 12,
+      "id": "frag_fe787be4d707364d",
+      "order": 12,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 12,
+      "text": "## Theorem-Level Precision\n"
+    },
+    {
+      "end": 16,
+      "id": "frag_dd25529c0d5dc4d5",
+      "order": 14,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_fe787be4d707364d"
+      ],
+      "role": "instruction",
+      "start": 14,
+      "text": "- Do not add converse, realization, or classification claims unless the theorem explicitly proves them. Phrases such as “conversely,” “every such parameter occurs,” “if and only if,” or “exactly all” add strength beyond a one-way implication.\n- Check whether an option weakens the conclusion by dropping a characterization, equality clause, or full equivalence.\n- Check whether an option overstates the theorem by upgrading regularity, removing scale restrictions, or changing an existential statement into a universal one.\n"
+    },
+    {
+      "end": 18,
+      "id": "frag_532aa28960405837",
+      "order": 18,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 18,
+      "text": "## Hypotheses\n"
+    },
+    {
+      "end": 20,
+      "id": "frag_fd6ac81bf6ae9fdd",
+      "order": 20,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 20,
+      "text": "### Exact Conditions and Thresholds\n"
+    },
+    {
+      "end": 21,
+      "id": "frag_ecb107256429d2fd",
+      "order": 21,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_532aa28960405837",
+        "frag_fd6ac81bf6ae9fdd"
+      ],
+      "role": "instruction",
+      "start": 21,
+      "text": "- For biconditional/equivalence questions, reject conditions that are merely necessary or merely sufficient. A broader condition, such as congruence modulo a divisor instead of modulo the full modulus, is usually weaker and not equivalent unless the domain collapses the extra cases.\n"
+    },
+    {
+      "end": 22,
+      "id": "frag_d928a5d11036fa33",
+      "order": 22,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_532aa28960405837",
+        "frag_fd6ac81bf6ae9fdd"
+      ],
+      "role": "instruction",
+      "start": 22,
+      "text": "- For threshold conditions, verify the exact sign and endpoint: distinguish \\(\\mu_0\\) from \\(-\\mu_0\\), \\(<\\) from \\(\\le\\), and whether the equality case belongs to the positive, zero, or negative parameter regime.\n"
+    },
+    {
+      "end": 25,
+      "id": "frag_f41ddef5a6cf10d2",
+      "order": 23,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_532aa28960405837",
+        "frag_fd6ac81bf6ae9fdd"
+      ],
+      "role": "instruction",
+      "start": 23,
+      "text": "- When options differ by “for every” vs “for sufficiently large,” local vs global domains, strict vs non-strict inequalities, or dependence of constants, rank them by logical strength and match the sharpest justified version.\n- Verify the hypotheses and domain carefully. Distractors often keep the theorem shape but alter the required assumptions.\n- Pay close attention to equality cases, extremal conditions, and whether a result applies to the full family or only a restricted subfamily.\n"
+    },
+    {
+      "end": 27,
+      "id": "frag_4264372dbdff9ba0",
+      "order": 27,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 27,
+      "text": "## Final Answer\n"
+    },
+    {
+      "end": 28,
+      "id": "frag_b00e39ad4adee4db",
+      "order": 28,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_4264372dbdff9ba0"
+      ],
+      "role": "instruction",
+      "start": 28,
+      "text": "- Output the final answer as the single option label only.\n"
+    },
+    {
+      "end": 30,
+      "id": "frag_8eed6c9e4dbcb8e5",
+      "order": 30,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 30,
+      "text": "## Exact Scope and Quantitative Wording\n"
+    },
+    {
+      "end": 31,
+      "id": "frag_325c726922b0f50a",
+      "order": 31,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_8eed6c9e4dbcb8e5"
+      ],
+      "role": "instruction",
+      "start": 31,
+      "text": "- Distinguish global conclusions from localized or completed ones. Equivalence after localization, completion, or at each prime/scale is usually weaker than an unqualified equivalence.\n"
+    },
+    {
+      "end": 32,
+      "id": "frag_17440e04427977fb",
+      "order": 32,
+      "requires": [
+        "frag_68f65e6810ed47b4",
+        "frag_8eed6c9e4dbcb8e5"
+      ],
+      "role": "instruction",
+      "start": 32,
+      "text": "- In estimate-heavy options, compare every quantitative detail: exponent, derivative index range, constants and their parameter dependence, log factors, additive terms, one-sided vs two-sided notation, and pointwise vs uniform convergence.\n"
+    },
+    {
+      "end": 34,
+      "id": "frag_3b990e5096c35d76",
+      "order": 34,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 34,
+      "text": "<!-- SLOW_UPDATE_START -->\n"
+    },
+    {
+      "end": 35,
+      "id": "frag_acee9160ea6fdaf8",
+      "order": 35,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 35,
+      "text": "<!-- SLOW_UPDATE_END -->"
+    }
+  ],
+  "schema_version": 2,
+  "source_sha256": "53073aa57ce84de76d9976f76a0f80b301c2e76b334b5206b1de1e0d6abd9357"
+}

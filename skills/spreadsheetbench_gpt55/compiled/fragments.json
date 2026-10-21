@@ -1,0 +1,469 @@
+{
+  "fragments": [
+    {
+      "end": 1,
+      "id": "frag_5439d93e78dec45a",
+      "order": 1,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 1,
+      "text": "# Spreadsheet Manipulation Skill (xlsx)\n"
+    },
+    {
+      "end": 3,
+      "id": "frag_46085c04e77c9421",
+      "order": 3,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 3,
+      "text": "## Overview\n"
+    },
+    {
+      "end": 7,
+      "id": "frag_f32881259b5cdd6d",
+      "order": 4,
+      "requires": [
+        "frag_5439d93e78dec45a",
+        "frag_46085c04e77c9421"
+      ],
+      "role": "instruction",
+      "start": 4,
+      "text": "This skill guides agents in manipulating Excel (.xlsx) spreadsheets using Python.\n\n**Primary libraries**: `openpyxl` (structure-preserving read/write), `pandas` (data transformation).\nNever use any other third-party libraries.\n"
+    },
+    {
+      "end": 9,
+      "id": "frag_87399212e19b6377",
+      "order": 9,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 9,
+      "text": "---\n"
+    },
+    {
+      "end": 11,
+      "id": "frag_d85232e1783a58ac",
+      "order": 11,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 11,
+      "text": "## Common Workflow\n"
+    },
+    {
+      "end": 22,
+      "id": "frag_1f792fad57f0604d",
+      "order": 13,
+      "requires": [
+        "frag_5439d93e78dec45a",
+        "frag_d85232e1783a58ac"
+      ],
+      "role": "instruction",
+      "start": 13,
+      "text": "1. **Explore** the input file: list sheets, inspect headers, check dimensions.\n\n- Inspect actual workbook data beyond the preview, including nearby rows/columns, sample outputs, formulas, labels, headers, and any reference/example sheets such as `Output`, `Manual Result`, or `Desired...` tabs.\n\n- Treat existing filled cells in the requested output area or adjacent example tables as semantic examples for edge cases and expected formats, but still recompute and write the complete requested target range.\n   - Scan the used range for complete header groups, not just row 1. Tables may start in later rows/columns, have title rows above them, or have multiple source/result tables on the same sheet; use nearby labels and the requested output range to distinguish sources from destinations.\n   - Locate tables, fields, and target ranges by header text, nearby labels, and surrounding nonblank structure rather than fixed coordinates. Build header maps from actual cells when useful, e.g. `{str(cell.value).strip(): cell.column}`.\n2. **Write `solution.py`** with `INPUT_PATH` and `OUTPUT_PATH` defined at the top.\n3. **Execute** `python solution.py` and verify the output file was created.\n4. **Confirm** the target cells/range contain the expected values.\n"
+    },
+    {
+      "end": 24,
+      "id": "frag_c6ca1853ad701384",
+      "order": 24,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 24,
+      "text": "---\n"
+    },
+    {
+      "end": 26,
+      "id": "frag_b44a712f3dfba7c2",
+      "order": 26,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 26,
+      "text": "## Library Selection\n"
+    },
+    {
+      "end": 32,
+      "id": "frag_3f56ebc8c74e7dc7",
+      "order": 28,
+      "requires": [
+        "frag_5439d93e78dec45a",
+        "frag_b44a712f3dfba7c2"
+      ],
+      "role": "instruction",
+      "start": 28,
+      "text": "| Use case | Library |\n|----------|---------|\n| Preserve formulas, formatting, named ranges | `openpyxl` |\n| Bulk data transformation, aggregation, sorting | `pandas` → write back with `openpyxl` |\n| Simple cell read/write | `openpyxl` |\n"
+    },
+    {
+      "end": 35,
+      "id": "frag_4367faa2d1fe8835",
+      "order": 34,
+      "requires": [
+        "frag_5439d93e78dec45a",
+        "frag_b44a712f3dfba7c2"
+      ],
+      "role": "instruction",
+      "start": 34,
+      "text": "**Warning**: `pandas.to_excel()` silently destroys existing formulas and named ranges.\nWhen writing back to a spreadsheet that contains formulas, always use `openpyxl.save()`.\n"
+    },
+    {
+      "end": 44,
+      "id": "frag_aa303dff71953fae",
+      "order": 37,
+      "requires": [
+        "frag_5439d93e78dec45a",
+        "frag_b44a712f3dfba7c2"
+      ],
+      "role": "instruction",
+      "start": 37,
+      "text": "**Formula evaluation caution**: `openpyxl` can write formulas but does **not** calculate them or update cached results. If the requested output will be checked as cell values, compute the result in Python and write literal values unless the user explicitly requires live formulas. When existing formulas are inputs to your logic, load a second workbook with `data_only=True` to read cached values while saving changes through the normal workbook:\n\n```python\nwb = openpyxl.load_workbook(INPUT_PATH)\nwb_values = openpyxl.load_workbook(INPUT_PATH, data_only=True)\nws = wb[\"Sheet1\"]\nws_values = wb_values[\"Sheet1\"]\n```\n"
+    },
+    {
+      "end": 48,
+      "id": "frag_931069c8fef1f921",
+      "order": 46,
+      "requires": [
+        "frag_5439d93e78dec45a",
+        "frag_b44a712f3dfba7c2"
+      ],
+      "role": "instruction",
+      "start": 46,
+      "text": "Treat wording such as “write/fix a formula,” “SUMIFS/COUNTIFS,” “VBA,” or “macro” as a description of the spreadsheet logic unless the deliverable explicitly requires live formula text, an `.xlsm`, or a preserved VBA project. For normal `.xlsx` outputs, implement the equivalent logic in Python/openpyxl and write the computed final values to the requested cells so verification does not depend on Excel recalculation or macros.\n\nWhen the user provides an existing or broken formula, use it as a semantic specification: honor its referenced lookup ranges, criteria ranges, return ranges, aggregation intent, and error-handling behavior, then write the resulting values rather than guessing different source columns or leaving unevaluated formulas.\n"
+    },
+    {
+      "end": 50,
+      "id": "frag_c902cdcbcd27982a",
+      "order": 50,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 50,
+      "text": "---\n"
+    },
+    {
+      "end": 52,
+      "id": "frag_df0c23c8a03ee2e5",
+      "order": 52,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 52,
+      "text": "## solution.py Template\n"
+    },
+    {
+      "end": 67,
+      "id": "frag_58611c2124dc37b3",
+      "order": 54,
+      "requires": [
+        "frag_5439d93e78dec45a",
+        "frag_df0c23c8a03ee2e5"
+      ],
+      "role": "instruction",
+      "start": 54,
+      "text": "```python\nimport openpyxl\nimport pandas as pd\n\nINPUT_PATH  = \"...\"   # set to the actual input path\nOUTPUT_PATH = \"...\"   # set to the actual output path\n\nwb = openpyxl.load_workbook(INPUT_PATH)\nws = wb.active  # or wb[\"SheetName\"]\n\n# --- perform manipulation ---\n\nwb.save(OUTPUT_PATH)\n```\n"
+    },
+    {
+      "end": 69,
+      "id": "frag_b9f78eba9971f75c",
+      "order": 69,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 69,
+      "text": "---\n"
+    },
+    {
+      "end": 71,
+      "id": "frag_1a52120dd768a1df",
+      "order": 71,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 71,
+      "text": "## Output Requirements\n"
+    },
+    {
+      "end": 75,
+      "id": "frag_6ffd3c0d32d4592f",
+      "order": 73,
+      "requires": [
+        "frag_1a52120dd768a1df"
+      ],
+      "role": "instruction",
+      "start": 73,
+      "text": "- Save the result to `OUTPUT_PATH`.\n- Do not hardcode row counts or column letters — iterate over actual rows in the workbook.\n- Preserve sheets and cells not mentioned in the instruction.\n"
+    },
+    {
+      "end": 77,
+      "id": "frag_8249a6cbc20ec69c",
+      "order": 77,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 77,
+      "text": "## Matching and Target Range Hygiene\n"
+    },
+    {
+      "end": 79,
+      "id": "frag_74f50c74455f1d19",
+      "order": 79,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 79,
+      "text": "- Choose the comparison operator from the instruction and examples: use `startswith` for “begins with”, substring search for “contains/search/occurrence”, and exact normalized equality only when a whole-cell match is implied.\n"
+    },
+    {
+      "end": 80,
+      "id": "frag_0e29374fd2983c70",
+      "order": 80,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 80,
+      "text": "- Create small helper functions for comparisons and numeric parsing. Normalize text by trimming, collapsing repeated spaces/NBSPs, and casefolding; when names or labels have punctuation/spacing inconsistencies, consider punctuation-insensitive keys. Parse numeric text after removing commas/currency symbols while preserving signs and decimal points; skip `None`/blank and booleans for numeric tests, and handle placeholders such as `\"-\"`, `\"$\"`, `\"$0\"`, blanks, and numeric zero deliberately.\n"
+    },
+    {
+      "end": 81,
+      "id": "frag_415cbaa9ec2fe18f",
+      "order": 81,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 81,
+      "text": "- Normalize date keys deliberately: handle `datetime`/`date` objects, Excel serial numbers, and date-like strings, then compare at the granularity implied by the task, such as exact date, month, month/year, fiscal period, or year. For workday/date-window logic, compute the range in Python and exclude weekends/holidays as specified.\n"
+    },
+    {
+      "end": 85,
+      "id": "frag_1a33d5f755eb78b2",
+      "order": 83,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 83,
+      "text": "- For monthly or period summary grids, canonicalize period labels from all sources: sheet names, title text, row/column headers, text months such as `March`, and actual date cells. Match summaries by normalized period plus the other stated criteria rather than by fixed month offsets or existing formulas.\n- For date ranges and rolling windows, infer endpoint inclusivity from wording and examples. Phrases like `X to Y`, `through`, and `up to`, or examples such as `2 to 5` meaning `4 days`, usually require inclusive boundary handling.\n- For time extraction or time-threshold logic, parse `datetime`, `time`, Excel serial/fractional times, and time-like strings into real Python `time`/`datetime` values. Write real time values with an Excel `number_format` such as `hh:mm:ss AM/PM`; do not write text substrings when the result should behave as a time.\n"
+    },
+    {
+      "end": 87,
+      "id": "frag_d6b75ff3526ebbe8",
+      "order": 86,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 86,
+      "text": "- For joins, deduplication, grouping, interval lookups, lookup grids, and ordered outputs, build explicit normalized keys, including composite keys when the task refers to multiple fields. Preserve original source order within each group unless sorting is explicitly requested.\n- For outputs that depend on other rows or lookup grids, make a first pass to build normalized dictionaries/groups/range structures, then a second pass to write results. Avoid nested full-sheet scans per row; split delimited tokens and ignore empty tokens, and treat error literals such as `#N/A` as meaningful sentinel values when the task refers to them.\n"
+    },
+    {
+      "end": 90,
+      "id": "frag_4a77ff74d5a65ab4",
+      "order": 89,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 89,
+      "text": "- For lookups, filters, joins, and label/header matching, normalize comparison keys consistently: trim whitespace, skip blanks explicitly, use case-insensitive text matching when appropriate, and treat numeric-looking IDs consistently (`330`, `330.0`, and `\"330\"`). Keep numeric outputs numeric; use `number_format` for display formatting instead of converting numbers to strings unless text is explicitly required.\n- When replacing a generated output area, clear only the instructed target range before writing new results so stale values/formulas do not remain. Preserve formatting, column widths, borders, formulas, and unrelated cells unless the instruction explicitly asks to change them.\n"
+    },
+    {
+      "end": 92,
+      "id": "frag_383ad1aea0e1ca36",
+      "order": 92,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 92,
+      "text": "- If the instruction includes formatting changes, apply them exactly after writing values and only to the requested cells/range. Use `openpyxl` styles for fills, alignment, fonts, borders, and number formats; convert hex colors to ARGB when needed, for example `#FFC000` → `FFFFC000`. For “format as text,” set `number_format = '@'` and write string values when the expected cell values are text.\n"
+    },
+    {
+      "end": 96,
+      "id": "frag_180f547a169b4c50",
+      "order": 94,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 94,
+      "text": "- When the instruction names a destination range or columns, write derived results directly there. Do not insert rows/columns, relocate the source table, or sort/delete source records unless that structural change is explicitly requested.\n- For filtered lists, summaries, and aggregations, first collect all source records/results in memory, preserving the required order, then write from the first output row and clear leftover cells below the new results in the target columns. When adding rows, copy style/alignment/number format from an existing template row when appropriate; when deleting rows, delete from bottom to top to avoid row-index shifts.\n- Preserve intended blanks as empty cells (`None`) rather than placeholder text or `0` unless the task specifies otherwise.\n"
+    },
+    {
+      "end": 98,
+      "id": "frag_2a998bd23d806365",
+      "order": 98,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 98,
+      "text": "- For numeric aggregation, crosstab, SUMIFS-like, and INDEX/MATCH-style summary outputs, infer missing-match behavior from table semantics and examples: numeric summary grids usually require literal `0` for no matching records, while filtered lists or “show only once” outputs usually require blanks (`None`).\n"
+    },
+    {
+      "end": 99,
+      "id": "frag_c13a97a5fbec2d83",
+      "order": 99,
+      "requires": [
+        "frag_8249a6cbc20ec69c"
+      ],
+      "role": "instruction",
+      "start": 99,
+      "text": "- For blank-sensitive logic such as “if input is blank, output blank,” evaluate the driving input with `data_only=True` when it may itself be a formula, and write `None` for truly blank outputs rather than relying on a new formula returning `\"\"`.\n"
+    },
+    {
+      "end": 101,
+      "id": "frag_2cfed4157b019d76",
+      "order": 101,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 101,
+      "text": "## Robustness for Simple Fill Tasks\n"
+    },
+    {
+      "end": 103,
+      "id": "frag_bfa1deff47653f11",
+      "order": 103,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 103,
+      "text": "- Prefer simple, auditable row/column loops over complex workbook XML parsing unless the task truly requires unsupported workbook internals. Before returning, run the script once to catch syntax/indentation errors and verify that representative target rows were actually written.\n"
+    },
+    {
+      "end": 105,
+      "id": "frag_f97330e70cd8353a",
+      "order": 105,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 105,
+      "text": "<!-- SLOW_UPDATE_START -->\n"
+    },
+    {
+      "end": 110,
+      "id": "frag_0fe79d923ab48b39",
+      "order": 106,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 106,
+      "text": "When the user asks for a formula, macro, VBA code, or a fix to an Excel formula, still deliver the completed workbook state: compute the intended results in Python and write literal final values into the requested cells. Do not write formula strings unless the task explicitly says the output must contain live formulas.\n\nAfter writing, reload or inspect the saved workbook and verify that every requested/evaluated target cell contains a non-formula literal where a value is expected. If a target cell is still `None` unexpectedly, fix the script before finishing.\n\nUse existing formulas in the workbook as examples/specifications, not as output. If a cell contains a reference formula such as `=A25` or an INDEX/MATCH/SUMIFS pattern, parse what source cells/ranges/criteria it refers to, compute those results yourself, and overwrite the destination with the referenced or calculated value.\n"
+    },
+    {
+      "end": 112,
+      "id": "frag_4855ec1c707091a1",
+      "order": 112,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 112,
+      "text": "For blank-sensitive formula tasks, compute the branch explicitly: if the driving source cell is truly blank, write `None`; otherwise write the actual result such as `0`, `1`, a category label, or a lookup value. Never rely on `IF(...,\"\",...)` formulas to be recalculated later.\n"
+    },
+    {
+      "end": 114,
+      "id": "frag_48dce7e7bf3c49d9",
+      "order": 114,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 114,
+      "text": "For lookup/category tasks, locate both the input rows and the lookup table by headers and nearby labels. Support exact keys, numeric-looking keys, and interval/range tables; then fill every destination row that has a driving input, not just the first visible example.\n"
+    },
+    {
+      "end": 116,
+      "id": "frag_b5b45ce318049509",
+      "order": 116,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 116,
+      "text": "For “every nth row” or OFFSET-style tasks, infer the source column, first source row, and step from the provided examples or formulas, then copy the actual source values into the requested output range as literals.\n"
+    },
+    {
+      "end": 118,
+      "id": "frag_e2e07b7c23569b37",
+      "order": 118,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 118,
+      "text": "For schedule/calendar fill tasks, build a cycle-day-to-periods mapping from the schedule/template area first, then fill the daily rows across all requested class columns based on each row’s cycle day. Preserve repeated/double periods exactly as shown by the template; do not leave formulas in the schedule cells.\n"
+    },
+    {
+      "end": 120,
+      "id": "frag_80debc01b333a10e",
+      "order": 120,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 120,
+      "text": "For INDEX/MATCH problems where the first row works but subsequent rows fail, treat row labels, column/year headers, region/type criteria, and expense/category labels as a multi-key lookup. Fill the whole result matrix with values from the source data table, using cached `data_only` values when source cells are formulas.\n"
+    },
+    {
+      "end": 122,
+      "id": "frag_ca1244a7f075493d",
+      "order": 122,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 122,
+      "text": "For multi-step macro/VBA-style requests, implement every stated operation in the workbook, not just the first deletion/filtering step. Re-read the numbered requirements before saving and verify later computed columns, totals, and derived fields as well as the obvious filtered rows.\n"
+    },
+    {
+      "end": 124,
+      "id": "frag_3bd3328f15ab71b6",
+      "order": 124,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 124,
+      "text": "When a target range includes special rows such as `Total`, `Grand Total`, `min`, `max`, constraints, headers, or blank separators, do not apply ordinary row logic blindly to those rows. Compute totals as aggregates when indicated, and leave constraint/header/blank cells untouched unless explicitly requested.\n"
+    },
+    {
+      "end": 126,
+      "id": "frag_b2ad0325e2ab6822",
+      "order": 126,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 126,
+      "text": "For residual-balancing tasks, identify data rows separately from min/max constraint rows. Add positive residuals from unit 1 toward unit 5 without exceeding max values; subtract negative residuals from unit 5 toward unit 1 without going below min values; update only the unit cells in actual data rows.\n"
+    },
+    {
+      "end": 128,
+      "id": "frag_f305321413cecf00",
+      "order": 128,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 128,
+      "text": "For time-threshold rows, decide per row whether it is a normal data row or a summary row. Normal rows use the before/after threshold rule; summary rows should aggregate the computed normal-row results if the workbook labels or examples indicate a total.\n"
+    },
+    {
+      "end": 132,
+      "id": "frag_87b1f4590984bef0",
+      "order": 130,
+      "requires": [
+        "frag_2cfed4157b019d76"
+      ],
+      "role": "instruction",
+      "start": 130,
+      "text": "Keep scripts simple enough to run cleanly. Avoid unnecessary dynamic code generation and fragile f-strings with regex expressions inside them. Always execute the final `solution.py`; fix any syntax, indentation, or runtime error, then verify representative target cells.\n\nIf workbook cells contain arbitrary sample text that could be sensitive or trigger content filters, do not quote large raw cell contents in your response. Process them locally in Python with neutral variable names and output only the completed script/workbook changes.\n"
+    },
+    {
+      "end": 133,
+      "id": "frag_bec5bf177aa4569c",
+      "order": 133,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 133,
+      "text": "<!-- SLOW_UPDATE_END -->\n"
+    }
+  ],
+  "schema_version": 2,
+  "source_sha256": "82249a54bba13550aa87dcc84087728ebb176d753c95bc09e6b9c49f30942892"
+}

@@ -1,0 +1,28 @@
+{
+  "engine_schema_version": 2,
+  "feature_schema": {
+    "features": {
+      "question_cues": {
+        "description": "Cues in the visible question text, before looking at the document. value_or_count: asks for a value, amount, count, number, page number, date, year, time, or graph/chart reading. name_or_quote: asks for a name, title, person, organization, or quoted phrase. table_lookup: names a table, row, column, header, or table entry. form_or_label: names a form, receipt, invoice, labeled field, party, or role. list_or_index: names a table of contents, index, numbered or bulleted list item, or point number. handwriting_or_anchor: mentions handwriting, a signature, a margin note, or text written next to an anchor term. Several cues may apply; use an empty list if none is recognized.",
+        "multiple": true,
+        "values": [
+          "value_or_count",
+          "name_or_quote",
+          "table_lookup",
+          "form_or_label",
+          "list_or_index",
+          "handwriting_or_anchor"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "6e03d138185be4d7dca660d27ccb833d381c0716cb1fe72cc2c03fcec4917cad",
+  "fragments_sha256": "c0317ab6d8ed6cc986f40bb413d691caacea73d1ea7567de54a098bc1c00e761",
+  "generated_at": "2026-10-21T00:35:55.757240+00:00",
+  "ir_sha256": "6ecd65548013967876e309e0f77c65e6802248e46fda936cdeb657ca836eff97",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "2",
+  "schema_version": 2,
+  "source_sha256": "5432e21a8bb053b13d0cb50372ff371924a925a459ff108725c67c806c9e8a2f",
+  "tree_sha256": "bd423cd246c037520561cba640734bda453ff5a0696cd812e3496ffa3800bb8e"
+}

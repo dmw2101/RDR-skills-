@@ -1,0 +1,228 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "conclusion": {
+        "fragments": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 0,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_bdedf3a7eab2feb1",
+          "frag_0e0d31d5d39f2e11",
+          "frag_885dd175115bd1e8",
+          "frag_5d3c722ae3860d8b",
+          "frag_ab5891a0e7da2a84",
+          "frag_5fa65eef1c6959bd",
+          "frag_b9939466085eced5",
+          "frag_4c47706af197be50"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_9533b3bb4a2527d0"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "pick_place"
+        }
+      ],
+      "evidence": [],
+      "id": 2,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_05f976bcffc388ad",
+          "frag_e4bd6b2236dbc0e3",
+          "frag_391ba79c39348a88"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "pick_two_place"
+        }
+      ],
+      "evidence": [],
+      "id": 3,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_de2f45a7b857f919",
+          "frag_76bab104920da52c"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "examine_in_light"
+        }
+      ],
+      "evidence": [],
+      "id": 4,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_3ed6c40248bf98e9"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "clean_place"
+        }
+      ],
+      "evidence": [],
+      "id": 5,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_372c3cc6b0905e06"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "heat_place"
+        }
+      ],
+      "evidence": [],
+      "id": 6,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_2524adc7bb9e9ad4"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "cool_place"
+        }
+      ],
+      "evidence": [],
+      "id": 7,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_93e813b1fa1b8612"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "pick_place"
+        },
+        {
+          "field": "target_object",
+          "op": "eq",
+          "value": "pan"
+        }
+      ],
+      "evidence": [],
+      "id": 8,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_14095fffc949d1af"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "clean_place"
+        },
+        {
+          "field": "target_object",
+          "op": "eq",
+          "value": "kettle_or_teapot"
+        }
+      ],
+      "evidence": [],
+      "id": 9,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_1393940596aeebb7"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "clean_place"
+        },
+        {
+          "field": "target_object",
+          "op": "eq",
+          "value": "dishsponge"
+        }
+      ],
+      "evidence": [],
+      "id": 10,
+      "stopping": false
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 2
+}

@@ -1,0 +1,471 @@
+{
+  "fragments": [
+    {
+      "end": 1,
+      "id": "frag_77aa2aa19692c6e5",
+      "order": 1,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 1,
+      "text": "# Question Answering Skill\n"
+    },
+    {
+      "end": 3,
+      "id": "frag_ad922ec4a36261bf",
+      "order": 3,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 3,
+      "text": "(No learned rules yet. Rules will be added through the reflection process.)\n"
+    },
+    {
+      "end": 5,
+      "id": "frag_fd73a7aff3484e1d",
+      "order": 5,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 5,
+      "text": "## Concise Answer Normalization\n"
+    },
+    {
+      "end": 6,
+      "id": "frag_92c11b43d39483fc",
+      "order": 6,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 6,
+      "text": "- Prefer the shortest unambiguous answer that directly satisfies the question. Do not include generic descriptors, legal suffixes, or expanded formal names unless the question specifically asks for the full official name or the descriptor is necessary to identify the entity.\n"
+    },
+    {
+      "end": 8,
+      "id": "frag_5a4ac6ccfb59f516",
+      "order": 8,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 8,
+      "text": "- If the answer appears inside a longer descriptive phrase, strip words that merely repeat the clue's requested type or modifiers already stated in the clue. For short-answer trivia, return the distinctive core entity or headword rather than role titles, product flavor adjectives, or place/facility designators, even when those words are part of a fuller official phrase, unless the full official name is explicitly requested.\n"
+    },
+    {
+      "end": 9,
+      "id": "frag_d2c43164b4385fb6",
+      "order": 9,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 9,
+      "text": "- For place/name-etymology questions asking for “the name” or “the word” that means something, answer the distinctive name/word itself rather than a larger phrase with a generic type label.\n"
+    },
+    {
+      "end": 11,
+      "id": "frag_1b8ecacb2138deea",
+      "order": 11,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 11,
+      "text": "- For natural geographic features, preserve conventional feature designators such as “Lake,” “River,” “Bay,” “Gorge,” “Mount,” or “Island” when they are part of the proper name or match the requested feature type. Do not shorten “Lake Okeechobee,” “Tampa Bay,” or “Olduvai Gorge” to an ambiguous base name merely to be concise.\n"
+    },
+    {
+      "end": 12,
+      "id": "frag_382e159d27fdebd0",
+      "order": 12,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 12,
+      "text": "- For companies, brands, and organizations, answer the common distinctive name when sufficient; omit additions such as “Company,” “Corporation,” “Inc.,” etc. unless explicitly required.\n"
+    },
+    {
+      "end": 14,
+      "id": "frag_fabf3e146dc82363",
+      "order": 14,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 14,
+      "text": "- Preserve the answer surface form supported by the strongest evidence when exact variants differ: spelling, capitalization, punctuation, and word order can matter. Do not substitute an equivalent official/common variant such as an alternate spelling or inverted institution name if a direct title/snippet/answer field gives the expected form.\n"
+    },
+    {
+      "end": 16,
+      "id": "frag_999d6f869710d11b",
+      "order": 16,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 16,
+      "text": "- When copying titles or quoted names, preserve ordinary ASCII punctuation from the evidence, especially straight apostrophes (`'`). Do not replace them with typographic curly quotes/apostrophes unless that exact stylized form is explicitly shown as the supported answer.\n"
+    },
+    {
+      "end": 18,
+      "id": "frag_076836b6e8fa4af9",
+      "order": 18,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 18,
+      "text": "- For nicknames, epithets, saints, and quoted titles, copy the supported surface form exactly, including spacing, capitalization, and conventional abbreviations such as “St.” Do not normalize a stylized or quoted form into a lowercase dictionary word or an expanded spelling when the clue/evidence points to the stylized answer.\n"
+    },
+    {
+      "end": 20,
+      "id": "frag_99e8b67ddc75e199",
+      "order": 20,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 20,
+      "text": "- For person answers in trivia or crossword-style clues, prefer the conventional supported name. Use just a surname, first name, or saint/regnal name only when the clue/source clearly expects that short form; otherwise use the canonical full personal name from the strongest evidence or answer field, especially when a lone given name would be ambiguous.\n"
+    },
+    {
+      "end": 21,
+      "id": "frag_4d830a388e2693bb",
+      "order": 21,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 21,
+      "text": "- Return the grammatical base form expected by the clue. Do not add a plural `s` merely because a crossword source pluralizes a shared name or category; if the clue lists people sharing a first name, answer the singular given name.\n"
+    },
+    {
+      "end": 23,
+      "id": "frag_c62c89375ecf1491",
+      "order": 23,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 23,
+      "text": "- For common-noun category answers, default to the singular dictionary headword in trivia/crossword-style clues, even if the clue uses plural words like “these,” “those,” “places,” or “items” for grammar. Use a plural only when the term is inherently plural or an answer field/source clearly gives a plural phrase.\n"
+    },
+    {
+      "end": 26,
+      "id": "frag_d997cc5ad646ec5e",
+      "order": 25,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_fd73a7aff3484e1d"
+      ],
+      "role": "instruction",
+      "start": 25,
+      "text": "- For common-noun clues about things being replaced, used in place of, or substituted by another system/item, answer the broad headword for the thing replaced unless a narrowing modifier is required by the clue or answer field. Do not add adjectives such as “letter,” “regular,” or “standard” merely because they appear in explanatory context.\n- For fill-in-the-blank or definitional clues using words like “this” or “that,” provide a standalone noun phrase. Avoid context-dependent pronouns or possessives from the source text; use a natural article such as “the” when needed (e.g., answer “the highest point,” not “its highest point”).\n"
+    },
+    {
+      "end": 28,
+      "id": "frag_cc2638a6ac4739e5",
+      "order": 28,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 28,
+      "text": "## Context-Grounded Evidence Matching\n"
+    },
+    {
+      "end": 31,
+      "id": "frag_8bb2d71f9c85bd69",
+      "order": 29,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_cc2638a6ac4739e5"
+      ],
+      "role": "instruction",
+      "start": 29,
+      "text": "- Start by identifying the most distinctive terms in the question: proper names, dates, titles, quoted phrases, unusual words, roles, relationships, and category descriptors.\n- Prioritize passages or document titles where several distinctive clue terms occur together, especially if the wording directly repeats or closely paraphrases the question.\n- Treat document titles as useful evidence: the answer is often named in a title while the snippet confirms the clue facts.\n"
+    },
+    {
+      "end": 33,
+      "id": "frag_80e644ddf19f8f53",
+      "order": 33,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_cc2638a6ac4739e5"
+      ],
+      "role": "instruction",
+      "start": 33,
+      "text": "- Do not assume the document title itself is the answer. If the requested type differs from the title entity, use the title as context and extract the matching typed entity from the snippet or clue relationship.\n"
+    },
+    {
+      "end": 36,
+      "id": "frag_2ebef801a9948521",
+      "order": 35,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_cc2638a6ac4739e5"
+      ],
+      "role": "instruction",
+      "start": 35,
+      "text": "- For “known as,” “called,” “defined as,” or category/type clues, choose the canonical term explicitly used in the strongest matching title/snippet or scraped answer field rather than inventing a related derivative or near-synonym from the clue wording. When multiple plausible candidates appear, prefer the candidate whose evidence directly states the requested relationship and repeats the most distinctive clue facts.\n- Ignore noisy results that only match generic words; prefer evidence that directly connects the clue facts to one specific entity.\n"
+    },
+    {
+      "end": 38,
+      "id": "frag_aff212349b24d1d6",
+      "order": 38,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 38,
+      "text": "## Clue Interpretation and Answer Type\n"
+    },
+    {
+      "end": 40,
+      "id": "frag_210f8a2840bdb882",
+      "order": 39,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 39,
+      "text": "- For Jeopardy-style wording such as “this man,” “this group,” “this film,” “this country,” “this system,” “he,” or “his wife,” infer the expected answer type before choosing the answer.\n- Use that expected type to validate candidates: answer with the concise person, place, title, organization, object, term, or phrase requested by the clue.\n"
+    },
+    {
+      "end": 42,
+      "id": "frag_ca44e616e0b5b460",
+      "order": 42,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 42,
+      "text": "- Treat modifiers attached to the requested type as hard filters, not background flavor: constraints like dates, “largest,” “2-letter-named,” “1978 remake,” “hot dog brand,” “dual throne,” or “on this company’s board” must all fit the candidate before you answer.\n"
+    },
+    {
+      "end": 43,
+      "id": "frag_9ef3a234d9198225",
+      "order": 43,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 43,
+      "text": "- For clues centered on creative works such as books, films, plays, songs, poems, or other media, first determine whether the clue asks for the work itself, its creator, a performer or cast member, a character, a quotation source, or a setting. Verbs such as “wrote,” “directed,” “stars,” “played,” and “set in,” plus pronouns like “he” or “her,” usually determine the target.\n"
+    },
+    {
+      "end": 45,
+      "id": "frag_ede2d5d7df8dff26",
+      "order": 45,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 45,
+      "text": "- For fill-in-style clues with placeholders such as “this,” “these,” or “one of these,” substitute each candidate back into the clue and choose the concise answer that makes the full phrase, title, or fact read correctly.\n"
+    },
+    {
+      "end": 46,
+      "id": "frag_5e4e24330d9e1d3a",
+      "order": 46,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 46,
+      "text": "- For terse clues that are just examples or names separated by commas, slashes, or “or,” infer the shared category, class, or synonym that links them, then answer with that concise common term.\n"
+    },
+    {
+      "end": 48,
+      "id": "frag_692078abcd6ef37d",
+      "order": 48,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 48,
+      "text": "- For crossword-style clues, treat parenthetical numbers or stated letter counts as hard constraints on the answer length, and omit generic labels that would violate them. In dual-definition clues using wording like “X, or what Y does,” choose the single word that satisfies both senses and preserve the required inflected form.\n"
+    },
+    {
+      "end": 49,
+      "id": "frag_5edcabc9ae167606",
+      "order": 49,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 49,
+      "text": "- If the clue references an unavailable image or link with wording like “seen here,” “pictured,” or parenthetical visual hints, rely on the textual clues and context to infer the answer; do not treat the missing image as necessary evidence.\n"
+    },
+    {
+      "end": 50,
+      "id": "frag_1def41376bf41325",
+      "order": 50,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_aff212349b24d1d6"
+      ],
+      "role": "instruction",
+      "start": 50,
+      "text": "- If multiple snippets support the same entity, use that corroboration to choose the canonical/common form of the answer.\n"
+    },
+    {
+      "end": 52,
+      "id": "frag_dc8427404c7c812f",
+      "order": 52,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 52,
+      "text": "## Trivia / Jeopardy Snippet Formats\n"
+    },
+    {
+      "end": 54,
+      "id": "frag_bc2743102f3bc283",
+      "order": 53,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_dc8427404c7c812f"
+      ],
+      "role": "instruction",
+      "start": 53,
+      "text": "- Retrieved trivia snippets may contain the clue and answer in scraped formats such as `CATEGORY | clue | answer`, `clue. ANSWER`, or labels like `right:`.\n- When the question text matches the clue in such a snippet, extract the answer field or adjacent answer name, not the category or the whole clue sentence.\n"
+    },
+    {
+      "end": 56,
+      "id": "frag_5ea0535cafb70723",
+      "order": 56,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 56,
+      "text": "## Common Clue Traps\n"
+    },
+    {
+      "end": 57,
+      "id": "frag_28a5c995f6fff60b",
+      "order": 57,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 57,
+      "text": "- Watch for inverse relationships: if the clue says “His third wife was Jiang Qing,” the requested answer is the husband, not Jiang Qing.\n"
+    },
+    {
+      "end": 59,
+      "id": "frag_b68e38911eb63b10",
+      "order": 59,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 59,
+      "text": "- More generally, preserve relation direction in clues: “A is evidence of this B,” “A is related to this language,” or “home to these characters” asks for the target of the relationship, not the entity already named in the clue.\n"
+    },
+    {
+      "end": 61,
+      "id": "frag_babfcff2eba149e6",
+      "order": 61,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 61,
+      "text": "- When a clue says examples, models, breeds, members, or items “include,” “like,” or “such as” named entities, treat those names as evidence for the requested parent class or entity. Answer the encompassing brand, animal, category, place, or term requested by “this,” not one of the examples already given.\n"
+    },
+    {
+      "end": 62,
+      "id": "frag_63295b517f737906",
+      "order": 62,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 62,
+      "text": "- If the question gives the start of a quotation or phrase, answer with the exact missing continuation from the context.\n"
+    },
+    {
+      "end": 64,
+      "id": "frag_c3415c3508a68ecf",
+      "order": 64,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 64,
+      "text": "- For song, poem, nursery-rhyme, or quotation clues, first decide whether the question asks for a missing word or phrase from the quote or for the associated creator, performer, or work; use pronouns and answer-type signals to choose the right target.\n"
+    },
+    {
+      "end": 65,
+      "id": "frag_35f17670b888edb1",
+      "order": 65,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 65,
+      "text": "- When a clue asks for a constrained form such as a first name, abbreviation, acronym, or lyric word, return that exact form rather than the fuller person, title, or explanation; preserve conventional punctuation or spelling when it is part of the requested form.\n"
+    },
+    {
+      "end": 66,
+      "id": "frag_f863f9c249898e5d",
+      "order": 66,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 66,
+      "text": "- If the clue contains wordplay, quotation marks, or puns, treat them as hints, but answer with the real entity supported by the evidence.\n"
+    },
+    {
+      "end": 68,
+      "id": "frag_6f3f9ea55263ead9",
+      "order": 68,
+      "requires": [
+        "frag_77aa2aa19692c6e5",
+        "frag_5ea0535cafb70723"
+      ],
+      "role": "instruction",
+      "start": 68,
+      "text": "- If a clue includes a quoted title, quoted narration or lyric, named event, slogan, or other distinctive phrase but asks for an associated “this” entity, treat the quote or name as evidence to identify the requested person, work, place, group, category, source, or term; do not return the quoted anchor unless the clue explicitly asks for it.\n"
+    },
+    {
+      "end": 70,
+      "id": "frag_bdda86e74350977f",
+      "order": 70,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 70,
+      "text": "<!-- SLOW_UPDATE_START -->\n"
+    },
+    {
+      "end": 71,
+      "id": "frag_0739561325b2f154",
+      "order": 71,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 71,
+      "text": "<!-- SLOW_UPDATE_END -->\n"
+    }
+  ],
+  "schema_version": 2,
+  "source_sha256": "4e0a19d42dea09538e5431ad9241eaf6d6ce0a7fbd6c5578e6e5fcee77c187f8"
+}

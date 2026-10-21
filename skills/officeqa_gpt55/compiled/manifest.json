@@ -1,0 +1,30 @@
+{
+  "engine_schema_version": 2,
+  "feature_schema": {
+    "features": {
+      "question_cues": {
+        "description": "Cues in the visible question about U.S. Treasury and official financial records. external_time_series: needs an official time-series value that may not be in the provided pages (for example an actual published rate or series observation). period_range: spans several months, quarters, or years, or an inclusive date range. unit_or_currency_conversion: converts currencies, exchange rates, or scales (thousands, millions, billions). treasury_financing: concerns Treasury offerings, auctions, tenders, subscriptions, refunding, or new cash. derived_comparison: asks for a change, difference, gap, share, ratio, or percent of a total. statistical_calculation: asks for a standard deviation, z-score, regression, correlation, growth rate, CAGR, median, mean, smoothing, or forecast. multi_stage_lookup: one lookup determines the period or entity for a second lookup. security_quotation: concerns bond, note, or bill price quotations or yields. Several cues may apply; use an empty list if none is recognized.",
+        "multiple": true,
+        "values": [
+          "external_time_series",
+          "period_range",
+          "unit_or_currency_conversion",
+          "treasury_financing",
+          "derived_comparison",
+          "statistical_calculation",
+          "multi_stage_lookup",
+          "security_quotation"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "dffb78ef470991086abef5e650eb2641e032e9c27713d9b80b222660830ac4f1",
+  "fragments_sha256": "80306ccf8277a6643d43533a7dcb4f2861a4318c078778ecacc2ef274ff93a78",
+  "generated_at": "2026-10-21T00:43:53.572048+00:00",
+  "ir_sha256": "0c8efad94eb23c543222a1207ee78a30db7ae6afe1f57c127a2a17f80677b8f5",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "2",
+  "schema_version": 2,
+  "source_sha256": "fc15969126fbc4bc0bb53b654df4984ff748d35965e1ba50af52aebe703aa59e",
+  "tree_sha256": "b7b48fb3989a9f685ec10b61d7be7e3c7b6bc7a6251914670d7b2009033d393b"
+}

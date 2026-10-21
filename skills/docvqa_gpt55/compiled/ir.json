@@ -1,0 +1,150 @@
+{
+  "excluded": [
+    {
+      "end": 1,
+      "reason": "Skill title heading",
+      "start": 1
+    },
+    {
+      "end": 3,
+      "reason": "Section heading",
+      "start": 3
+    },
+    {
+      "end": 10,
+      "reason": "Section heading",
+      "start": 10
+    },
+    {
+      "end": 17,
+      "reason": "Section heading",
+      "start": 17
+    },
+    {
+      "end": 22,
+      "reason": "Section heading",
+      "start": 22
+    },
+    {
+      "end": 26,
+      "reason": "Update markers and placeholder comments",
+      "start": 25
+    }
+  ],
+  "root": [
+    {
+      "end": 5,
+      "start": 4
+    },
+    {
+      "end": 8,
+      "start": 8
+    },
+    {
+      "end": 11,
+      "start": 11
+    },
+    {
+      "end": 15,
+      "start": 14
+    }
+  ],
+  "rules": [
+    {
+      "id": "value_or_count_span",
+      "source": [
+        {
+          "end": 7,
+          "start": 7
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "value_or_count"
+        }
+      ]
+    },
+    {
+      "id": "exact_name_or_quote_extraction",
+      "source": [
+        {
+          "end": 13,
+          "start": 13
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "name_or_quote"
+        }
+      ]
+    },
+    {
+      "id": "table_cell_lookup",
+      "source": [
+        {
+          "end": 18,
+          "start": 18
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "table_lookup"
+        }
+      ]
+    },
+    {
+      "id": "form_or_label_field_lookup",
+      "source": [
+        {
+          "end": 19,
+          "start": 19
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "form_or_label"
+        }
+      ]
+    },
+    {
+      "id": "list_or_index_lookup",
+      "source": [
+        {
+          "end": 20,
+          "start": 20
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "list_or_index"
+        }
+      ]
+    },
+    {
+      "id": "handwriting_or_anchor_lookup",
+      "source": [
+        {
+          "end": 23,
+          "start": 23
+        }
+      ],
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "handwriting_or_anchor"
+        }
+      ]
+    }
+  ]
+}

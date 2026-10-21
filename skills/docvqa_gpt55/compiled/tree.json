@@ -1,0 +1,149 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "conclusion": {
+        "fragments": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 0,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_6f357d40a66aecd8",
+          "frag_2b82a040d7cc0903",
+          "frag_04fa4b391a12efc7",
+          "frag_4ec262129f0be499"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_9f6109213fc71ded"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "value_or_count"
+        }
+      ],
+      "evidence": [],
+      "id": 2,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_2cd9f8830093f210"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "name_or_quote"
+        }
+      ],
+      "evidence": [],
+      "id": 3,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_44e6baa6eaeaf5d0"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "table_lookup"
+        }
+      ],
+      "evidence": [],
+      "id": 4,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_943e5e32ce65a924"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "form_or_label"
+        }
+      ],
+      "evidence": [],
+      "id": 5,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_0f71c025db528e87"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "list_or_index"
+        }
+      ],
+      "evidence": [],
+      "id": 6,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_6b1dcedbb745ffac"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "handwriting_or_anchor"
+        }
+      ],
+      "evidence": [],
+      "id": 7,
+      "stopping": false
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 2
+}

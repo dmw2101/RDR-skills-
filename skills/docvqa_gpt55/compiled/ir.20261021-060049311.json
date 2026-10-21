@@ -1,0 +1,150 @@
+{
+  "root": [
+    {
+      "start": 4,
+      "end": 5
+    },
+    {
+      "start": 8,
+      "end": 8
+    },
+    {
+      "start": 11,
+      "end": 11
+    },
+    {
+      "start": 14,
+      "end": 15
+    }
+  ],
+  "rules": [
+    {
+      "id": "value_or_count_span",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "value_or_count"
+        }
+      ],
+      "source": [
+        {
+          "start": 7,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "id": "exact_name_or_quote_extraction",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "name_or_quote"
+        }
+      ],
+      "source": [
+        {
+          "start": 13,
+          "end": 13
+        }
+      ]
+    },
+    {
+      "id": "table_cell_lookup",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "table_lookup"
+        }
+      ],
+      "source": [
+        {
+          "start": 18,
+          "end": 18
+        }
+      ]
+    },
+    {
+      "id": "form_or_label_field_lookup",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "form_or_label"
+        }
+      ],
+      "source": [
+        {
+          "start": 19,
+          "end": 19
+        }
+      ]
+    },
+    {
+      "id": "list_or_index_lookup",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "list_or_index"
+        }
+      ],
+      "source": [
+        {
+          "start": 20,
+          "end": 20
+        }
+      ]
+    },
+    {
+      "id": "handwriting_or_anchor_lookup",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "handwriting_or_anchor"
+        }
+      ],
+      "source": [
+        {
+          "start": 23,
+          "end": 23
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "start": 1,
+      "end": 1,
+      "reason": "Skill title heading"
+    },
+    {
+      "start": 3,
+      "end": 3,
+      "reason": "Section heading"
+    },
+    {
+      "start": 10,
+      "end": 10,
+      "reason": "Section heading"
+    },
+    {
+      "start": 17,
+      "end": 17,
+      "reason": "Section heading"
+    },
+    {
+      "start": 22,
+      "end": 22,
+      "reason": "Section heading"
+    },
+    {
+      "start": 25,
+      "end": 26,
+      "reason": "Update markers and placeholder comments"
+    }
+  ]
+}

@@ -1,0 +1,367 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "conclusion": {
+        "fragments": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 0,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_f32881259b5cdd6d",
+          "frag_1f792fad57f0604d",
+          "frag_3f56ebc8c74e7dc7",
+          "frag_4367faa2d1fe8835",
+          "frag_aa303dff71953fae",
+          "frag_58611c2124dc37b3",
+          "frag_6ffd3c0d32d4592f",
+          "frag_0e29374fd2983c70",
+          "frag_4a77ff74d5a65ab4",
+          "frag_180f547a169b4c50",
+          "frag_bfa1deff47653f11",
+          "frag_87b1f4590984bef0"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_931069c8fef1f921"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "evidence": [],
+      "id": 2,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_74f50c74455f1d19"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "text_matching"
+        }
+      ],
+      "evidence": [],
+      "id": 3,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_415cbaa9ec2fe18f",
+          "frag_1a33d5f755eb78b2"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "date_or_time"
+        }
+      ],
+      "evidence": [],
+      "id": 4,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_d6b75ff3526ebbe8"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "lookup_or_join"
+        }
+      ],
+      "evidence": [],
+      "id": 5,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_383ad1aea0e1ca36"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formatting"
+        }
+      ],
+      "evidence": [],
+      "id": 6,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_2a998bd23d806365"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "aggregation_or_summary"
+        }
+      ],
+      "evidence": [],
+      "id": 7,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_c13a97a5fbec2d83"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "blank_handling"
+        }
+      ],
+      "evidence": [],
+      "id": 8,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_0fe79d923ab48b39"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "evidence": [],
+      "id": 9,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_4855ec1c707091a1"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "blank_handling"
+        }
+      ],
+      "evidence": [],
+      "id": 10,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_48dce7e7bf3c49d9"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "lookup_or_join"
+        }
+      ],
+      "evidence": [],
+      "id": 11,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_b5b45ce318049509"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "every_nth_row"
+        }
+      ],
+      "evidence": [],
+      "id": 12,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_e2e07b7c23569b37"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "schedule_or_calendar"
+        }
+      ],
+      "evidence": [],
+      "id": 13,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_80debc01b333a10e"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "evidence": [],
+      "id": 14,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_ca1244a7f075493d"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "evidence": [],
+      "id": 15,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_3bd3328f15ab71b6"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "aggregation_or_summary"
+        }
+      ],
+      "evidence": [],
+      "id": 16,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_b2ad0325e2ab6822"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "residual_balancing"
+        }
+      ],
+      "evidence": [],
+      "id": 17,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_f305321413cecf00"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "date_or_time"
+        }
+      ],
+      "evidence": [],
+      "id": 18,
+      "stopping": false
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 2
+}

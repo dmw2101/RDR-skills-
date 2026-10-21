@@ -1,0 +1,291 @@
+{
+  "excluded": [
+    {
+      "end": 1,
+      "reason": "Document title",
+      "start": 1
+    },
+    {
+      "end": 3,
+      "reason": "Section heading",
+      "start": 3
+    },
+    {
+      "end": 11,
+      "reason": "Section separator",
+      "start": 11
+    },
+    {
+      "end": 13,
+      "reason": "Section heading",
+      "start": 13
+    },
+    {
+      "end": 16,
+      "reason": "Table header and separator",
+      "start": 15
+    },
+    {
+      "end": 20,
+      "reason": "Subsection heading",
+      "start": 20
+    },
+    {
+      "end": 29,
+      "reason": "Section separator",
+      "start": 29
+    },
+    {
+      "end": 31,
+      "reason": "Section heading",
+      "start": 31
+    },
+    {
+      "end": 58,
+      "reason": "Section separator",
+      "start": 58
+    },
+    {
+      "end": 60,
+      "reason": "Section heading",
+      "start": 60
+    },
+    {
+      "end": 68,
+      "reason": "Subsection heading",
+      "start": 68
+    },
+    {
+      "end": 78,
+      "reason": "Subsection heading",
+      "start": 78
+    },
+    {
+      "end": 89,
+      "reason": "Subsection heading",
+      "start": 89
+    },
+    {
+      "end": 93,
+      "reason": "Subsection heading",
+      "start": 93
+    },
+    {
+      "end": 97,
+      "reason": "HTML comment marker",
+      "start": 97
+    },
+    {
+      "end": 113,
+      "reason": "HTML comment marker",
+      "start": 113
+    }
+  ],
+  "root": [
+    {
+      "end": 9,
+      "start": 4
+    },
+    {
+      "end": 56,
+      "start": 33
+    },
+    {
+      "end": 66,
+      "start": 62
+    },
+    {
+      "end": 76,
+      "start": 70
+    },
+    {
+      "end": 87,
+      "start": 80
+    },
+    {
+      "end": 91,
+      "start": 91
+    },
+    {
+      "end": 102,
+      "start": 98
+    },
+    {
+      "end": 112,
+      "start": 110
+    }
+  ],
+  "rules": [
+    {
+      "id": "pick_place",
+      "source": [
+        {
+          "end": 17,
+          "start": 17
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "pick_place"
+        }
+      ]
+    },
+    {
+      "id": "pick_two_place",
+      "source": [
+        {
+          "end": 18,
+          "start": 18
+        },
+        {
+          "end": 21,
+          "start": 21
+        },
+        {
+          "end": 95,
+          "start": 95
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "pick_two_place"
+        }
+      ]
+    },
+    {
+      "id": "examine_in_light",
+      "source": [
+        {
+          "end": 22,
+          "start": 22
+        },
+        {
+          "end": 24,
+          "start": 24
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "examine_in_light"
+        }
+      ]
+    },
+    {
+      "id": "clean_place",
+      "source": [
+        {
+          "end": 25,
+          "start": 25
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "clean_place"
+        }
+      ]
+    },
+    {
+      "id": "heat_place",
+      "source": [
+        {
+          "end": 26,
+          "start": 26
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "heat_place"
+        }
+      ]
+    },
+    {
+      "id": "cool_place",
+      "source": [
+        {
+          "end": 27,
+          "start": 27
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "cool_place"
+        }
+      ]
+    },
+    {
+      "id": "pan_to_stoveburner",
+      "source": [
+        {
+          "end": 104,
+          "start": 104
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "pick_place"
+        },
+        {
+          "field": "target_object",
+          "op": "eq",
+          "value": "pan"
+        }
+      ]
+    },
+    {
+      "id": "kettle_teapot_clean_place",
+      "source": [
+        {
+          "end": 106,
+          "start": 106
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "clean_place"
+        },
+        {
+          "field": "target_object",
+          "op": "eq",
+          "value": "kettle_or_teapot"
+        }
+      ]
+    },
+    {
+      "id": "dishsponge_clean_place",
+      "source": [
+        {
+          "end": 108,
+          "start": 108
+        }
+      ],
+      "when": [
+        {
+          "field": "task_type",
+          "op": "contains",
+          "value": "clean_place"
+        },
+        {
+          "field": "target_object",
+          "op": "eq",
+          "value": "dishsponge"
+        }
+      ]
+    }
+  ]
+}

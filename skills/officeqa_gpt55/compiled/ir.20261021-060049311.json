@@ -1,0 +1,211 @@
+{
+  "root": [
+    {
+      "start": 7,
+      "end": 10
+    },
+    {
+      "start": 15,
+      "end": 16
+    },
+    {
+      "start": 21,
+      "end": 22
+    },
+    {
+      "start": 34,
+      "end": 36
+    },
+    {
+      "start": 42,
+      "end": 42
+    },
+    {
+      "start": 47,
+      "end": 47
+    }
+  ],
+  "rules": [
+    {
+      "id": "external_time_series",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "external_time_series"
+        }
+      ],
+      "source": [
+        {
+          "start": 5,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "id": "period_range",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "period_range"
+        }
+      ],
+      "source": [
+        {
+          "start": 12,
+          "end": 12
+        },
+        {
+          "start": 28,
+          "end": 28
+        },
+        {
+          "start": 41,
+          "end": 41
+        }
+      ]
+    },
+    {
+      "id": "treasury_financing",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "treasury_financing"
+        }
+      ],
+      "source": [
+        {
+          "start": 18,
+          "end": 18
+        }
+      ]
+    },
+    {
+      "id": "unit_or_currency_conversion",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "unit_or_currency_conversion"
+        }
+      ],
+      "source": [
+        {
+          "start": 19,
+          "end": 19
+        }
+      ]
+    },
+    {
+      "id": "derived_comparison",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "derived_comparison"
+        }
+      ],
+      "source": [
+        {
+          "start": 24,
+          "end": 24
+        }
+      ]
+    },
+    {
+      "id": "statistical_calculation",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "statistical_calculation"
+        }
+      ],
+      "source": [
+        {
+          "start": 25,
+          "end": 25
+        },
+        {
+          "start": 30,
+          "end": 30
+        },
+        {
+          "start": 40,
+          "end": 40
+        }
+      ]
+    },
+    {
+      "id": "multi_stage_lookup",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "multi_stage_lookup"
+        }
+      ],
+      "source": [
+        {
+          "start": 26,
+          "end": 26
+        }
+      ]
+    },
+    {
+      "id": "security_quotation",
+      "when": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "security_quotation"
+        }
+      ],
+      "source": [
+        {
+          "start": 43,
+          "end": 43
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "start": 1,
+      "end": 1,
+      "reason": "Title heading"
+    },
+    {
+      "start": 3,
+      "end": 3,
+      "reason": "Section heading"
+    },
+    {
+      "start": 14,
+      "end": 14,
+      "reason": "Section heading"
+    },
+    {
+      "start": 32,
+      "end": 32,
+      "reason": "Section heading"
+    },
+    {
+      "start": 38,
+      "end": 38,
+      "reason": "Section heading"
+    },
+    {
+      "start": 45,
+      "end": 45,
+      "reason": "Section heading"
+    },
+    {
+      "start": 49,
+      "end": 50,
+      "reason": "Update markers and comments"
+    }
+  ]
+}

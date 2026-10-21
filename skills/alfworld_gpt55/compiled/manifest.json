@@ -1,0 +1,41 @@
+{
+  "engine_schema_version": 2,
+  "feature_schema": {
+    "features": {
+      "target_object": {
+        "description": "The object type the goal sentence asks the agent to find: pan; kettle_or_teapot; dishsponge; other_kitchen_item (food, dishes, cups, mugs, utensils, cookware other than pans and kettles); office_or_bedroom_item (pens, books, CDs, phones, laptops, keys, cards, clocks, newspapers, pillows, remotes and similar); other for anything else; unknown if the goal is not visible.",
+        "multiple": false,
+        "values": [
+          "pan",
+          "kettle_or_teapot",
+          "dishsponge",
+          "other_kitchen_item",
+          "office_or_bedroom_item",
+          "other",
+          "unknown"
+        ]
+      },
+      "task_type": {
+        "description": "All household goal categories recognized in the visible goal sentence. Categories such as heat_place already include picking and placement; do not add plain pick_place for those steps. Use an empty list if no category is recognized.",
+        "multiple": true,
+        "values": [
+          "pick_place",
+          "pick_two_place",
+          "examine_in_light",
+          "clean_place",
+          "heat_place",
+          "cool_place"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "6fff1c7ba5f3aab49d3fce1f830e592214604f91f1c5891f94e70f42ddfb827a",
+  "fragments_sha256": "a2cfbc6e7399b68a75d81e571d4624eaa5990051df468000de99291594d7c6aa",
+  "generated_at": "2026-10-21T00:34:50.615310+00:00",
+  "ir_sha256": "48488e7438ef30038f8edf6001f5842fe93608d5251a124d59e8386aec686ab3",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "2",
+  "schema_version": 2,
+  "source_sha256": "c8219398bf587dae9c33f832f97ed749ea0de978ef8627840df139e0fc3fff20",
+  "tree_sha256": "bd0cb94efde1fd8a85faec9acee25e314ec8b91450da349595f6c2d724990aff"
+}

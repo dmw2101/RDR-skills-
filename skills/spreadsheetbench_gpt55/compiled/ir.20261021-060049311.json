@@ -1,0 +1,402 @@
+{
+  "root": [
+    {
+      "start": 4,
+      "end": 7
+    },
+    {
+      "start": 13,
+      "end": 22
+    },
+    {
+      "start": 28,
+      "end": 32
+    },
+    {
+      "start": 34,
+      "end": 35
+    },
+    {
+      "start": 37,
+      "end": 44
+    },
+    {
+      "start": 54,
+      "end": 67
+    },
+    {
+      "start": 73,
+      "end": 75
+    },
+    {
+      "start": 80,
+      "end": 80
+    },
+    {
+      "start": 89,
+      "end": 90
+    },
+    {
+      "start": 94,
+      "end": 96
+    },
+    {
+      "start": 103,
+      "end": 103
+    },
+    {
+      "start": 130,
+      "end": 132
+    }
+  ],
+  "rules": [
+    {
+      "id": "formula_or_macro_logic",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "source": [
+        {
+          "start": 46,
+          "end": 48
+        }
+      ]
+    },
+    {
+      "id": "text_matching_comparison_operator",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "text_matching"
+        }
+      ],
+      "source": [
+        {
+          "start": 79,
+          "end": 79
+        }
+      ]
+    },
+    {
+      "id": "date_or_time_handling",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "date_or_time"
+        }
+      ],
+      "source": [
+        {
+          "start": 81,
+          "end": 81
+        },
+        {
+          "start": 83,
+          "end": 85
+        }
+      ]
+    },
+    {
+      "id": "lookup_or_join_structures",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "lookup_or_join"
+        }
+      ],
+      "source": [
+        {
+          "start": 86,
+          "end": 87
+        }
+      ]
+    },
+    {
+      "id": "formatting_styles",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formatting"
+        }
+      ],
+      "source": [
+        {
+          "start": 92,
+          "end": 92
+        }
+      ]
+    },
+    {
+      "id": "aggregation_missing_match",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "aggregation_or_summary"
+        }
+      ],
+      "source": [
+        {
+          "start": 98,
+          "end": 98
+        }
+      ]
+    },
+    {
+      "id": "blank_handling_data_only",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "blank_handling"
+        }
+      ],
+      "source": [
+        {
+          "start": 99,
+          "end": 99
+        }
+      ]
+    },
+    {
+      "id": "formula_or_macro_literals",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "source": [
+        {
+          "start": 106,
+          "end": 110
+        }
+      ]
+    },
+    {
+      "id": "blank_sensitive_formula_branching",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "blank_handling"
+        }
+      ],
+      "source": [
+        {
+          "start": 112,
+          "end": 112
+        }
+      ]
+    },
+    {
+      "id": "lookup_category_tables",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "lookup_or_join"
+        }
+      ],
+      "source": [
+        {
+          "start": 114,
+          "end": 114
+        }
+      ]
+    },
+    {
+      "id": "every_nth_row_offset",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "every_nth_row"
+        }
+      ],
+      "source": [
+        {
+          "start": 116,
+          "end": 116
+        }
+      ]
+    },
+    {
+      "id": "schedule_calendar_fill",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "schedule_or_calendar"
+        }
+      ],
+      "source": [
+        {
+          "start": 118,
+          "end": 118
+        }
+      ]
+    },
+    {
+      "id": "formula_index_match_multi_key",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "source": [
+        {
+          "start": 120,
+          "end": 120
+        }
+      ]
+    },
+    {
+      "id": "macro_vba_multi_step",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "formula_or_macro"
+        }
+      ],
+      "source": [
+        {
+          "start": 122,
+          "end": 122
+        }
+      ]
+    },
+    {
+      "id": "aggregation_special_rows",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "aggregation_or_summary"
+        }
+      ],
+      "source": [
+        {
+          "start": 124,
+          "end": 124
+        }
+      ]
+    },
+    {
+      "id": "residual_balancing_rows",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "residual_balancing"
+        }
+      ],
+      "source": [
+        {
+          "start": 126,
+          "end": 126
+        }
+      ]
+    },
+    {
+      "id": "date_time_threshold_rows",
+      "when": [
+        {
+          "field": "operation",
+          "op": "contains",
+          "value": "date_or_time"
+        }
+      ],
+      "source": [
+        {
+          "start": 128,
+          "end": 128
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "start": 1,
+      "end": 1,
+      "reason": "Skill title"
+    },
+    {
+      "start": 3,
+      "end": 3,
+      "reason": "Section heading"
+    },
+    {
+      "start": 9,
+      "end": 9,
+      "reason": "Section separator"
+    },
+    {
+      "start": 11,
+      "end": 11,
+      "reason": "Section heading"
+    },
+    {
+      "start": 24,
+      "end": 24,
+      "reason": "Section separator"
+    },
+    {
+      "start": 26,
+      "end": 26,
+      "reason": "Section heading"
+    },
+    {
+      "start": 50,
+      "end": 50,
+      "reason": "Section separator"
+    },
+    {
+      "start": 52,
+      "end": 52,
+      "reason": "Section heading"
+    },
+    {
+      "start": 69,
+      "end": 69,
+      "reason": "Section separator"
+    },
+    {
+      "start": 71,
+      "end": 71,
+      "reason": "Section heading"
+    },
+    {
+      "start": 77,
+      "end": 77,
+      "reason": "Section heading"
+    },
+    {
+      "start": 101,
+      "end": 101,
+      "reason": "Section heading"
+    },
+    {
+      "start": 105,
+      "end": 105,
+      "reason": "Marker comment"
+    },
+    {
+      "start": 133,
+      "end": 133,
+      "reason": "Marker comment"
+    }
+  ]
+}

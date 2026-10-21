@@ -1,0 +1,193 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "conclusion": {
+        "fragments": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 0,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_f0b2f54f14070288",
+          "frag_a470390a21126c6f",
+          "frag_b79f52ea25ebeea9",
+          "frag_da4de563a6f58453",
+          "frag_b3a22eca09df0874",
+          "frag_b7dbfb13a8d59149"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_cb12df1b6799aef4"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "external_time_series"
+        }
+      ],
+      "evidence": [],
+      "id": 2,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_fb87c23406758c58",
+          "frag_1eea22815ee54016",
+          "frag_eb571db6af98f080"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "period_range"
+        }
+      ],
+      "evidence": [],
+      "id": 3,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_4982c1604559e3be"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "treasury_financing"
+        }
+      ],
+      "evidence": [],
+      "id": 4,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_544f155846e6c111"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "unit_or_currency_conversion"
+        }
+      ],
+      "evidence": [],
+      "id": 5,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_698615decc80b61e"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "derived_comparison"
+        }
+      ],
+      "evidence": [],
+      "id": 6,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_754cf2dcf8a21058",
+          "frag_559386cba3d1d70b",
+          "frag_c62995819081b8fc"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "statistical_calculation"
+        }
+      ],
+      "evidence": [],
+      "id": 7,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_2276bae6388628e0"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "multi_stage_lookup"
+        }
+      ],
+      "evidence": [],
+      "id": 8,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_57fb893367506321"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "question_cues",
+          "op": "contains",
+          "value": "security_quotation"
+        }
+      ],
+      "evidence": [],
+      "id": 9,
+      "stopping": false
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 2
+}

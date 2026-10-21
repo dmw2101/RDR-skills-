@@ -32,6 +32,23 @@ class SkillCompilerTests(unittest.TestCase):
         self.assertIn("| Type | Goal | Key Steps |\n|------|------|-----------|\n", [f.text for f in required])
         self.assertTrue(all(fragment.role == "non_instruction" for fragment in required))
 
+    def test_whole_table_in_one_fragment_needs_no_separate_header(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "initial.md"
+            path.write_text("# Demo\n\n| Use | Tool |\n|-----|------|\n| a | x |\n| b | y |\n", encoding="utf-8")
+            source = SkillInput.from_markdown(path)
+            whole = SkillIR.model_validate({"root": [{"start": 3, "end": 6}], "rules": [],
+                                            "excluded": [{"start": 1, "end": 1, "reason": "title"}]})
+            catalog = FragmentCatalog.from_ir(source, whole)
+            fragment = next(f for f in catalog.fragments if f.start == 3)
+            title = next(f for f in catalog.fragments if f.start == 1)
+            self.assertEqual((fragment.end, fragment.requires), (6, [title.id]))  # heading only, no header piece
+            split = SkillIR.model_validate({"root": [{"start": 3, "end": 5}], "rules": [{
+                "id": "row_b", "when": [{"field": "f", "op": "eq", "value": "v"}],
+                "source": [{"start": 6, "end": 6}]}], "excluded": [{"start": 1, "end": 1, "reason": "title"}]})
+            with self.assertRaisesRegex(ValueError, "needs its header"):
+                FragmentCatalog.from_ir(source, split)
+
     def test_compile_rules_as_flat_mcrdr_tree_and_predict(self) -> None:
         catalog = FragmentCatalog.from_ir(self.source, self.ir)
         tree = SkillTreeCompiler().compile(self.ir, catalog, SkillConditionEvaluator(self.schema))

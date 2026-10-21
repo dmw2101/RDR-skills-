@@ -1,0 +1,294 @@
+{
+  "fragments": [
+    {
+      "end": 1,
+      "id": "frag_8c6a95d6b3d5a1c4",
+      "order": 1,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 1,
+      "text": "# OfficeQA Skill\n"
+    },
+    {
+      "end": 3,
+      "id": "frag_e011354efd9e38a8",
+      "order": 3,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 3,
+      "text": "## Retrieval Discipline\n"
+    },
+    {
+      "end": 5,
+      "id": "frag_cb12df1b6799aef4",
+      "order": 5,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_e011354efd9e38a8"
+      ],
+      "role": "instruction",
+      "start": 5,
+      "text": "- When an external official time-series observation is needed, prefer the source's series/data-download/table page once identified. If exact-date or guessed-value searches return empty results, stop repeating them; broaden to the official series name/code plus `data` or `download` and use the table values.\n"
+    },
+    {
+      "end": 10,
+      "id": "frag_f0b2f54f14070288",
+      "order": 7,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_e011354efd9e38a8"
+      ],
+      "role": "instruction",
+      "start": 7,
+      "text": "- Treat provided/oracle parsed pages as primary evidence: if they contain the relevant table and period, extract directly from them before searching elsewhere; search only for missing continuation pages, missing periods, or an official actual value not present.\n- Start by narrowing to the most likely candidate file before reading long passages.\n- Prefer targeted search terms that name the exact entity, period, measure, or table concept from the question.\n- After a promising match, read only a small surrounding span and verify it matches the requested year, basis, and unit.\n"
+    },
+    {
+      "end": 12,
+      "id": "frag_fb87c23406758c58",
+      "order": 12,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_e011354efd9e38a8"
+      ],
+      "role": "instruction",
+      "start": 12,
+      "text": "- If the requested date range extends beyond the provided/oracle page, first enumerate the required periods and verify that every period is present in evidence. Do not compute from a partial ledger or fill missing periods from memory; retrieve continuation pages, adjacent issues, or a later issue of the same table that contains the missing dates/revisions.\n"
+    },
+    {
+      "end": 14,
+      "id": "frag_ba7169c9c89f24d4",
+      "order": 14,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 14,
+      "text": "## Evidence Discipline\n"
+    },
+    {
+      "end": 16,
+      "id": "frag_a470390a21126c6f",
+      "order": 15,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 15,
+      "text": "- Extract the exact value from the retrieved text before doing any arithmetic.\n- Keep track of each operand's period, unit, and semantic role so nearby proxy values are not mixed in.\n"
+    },
+    {
+      "end": 18,
+      "id": "frag_4982c1604559e3be",
+      "order": 18,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 18,
+      "text": "- For Treasury financing narratives, label each amount by transaction role before calculating: offered amount, tenders/subscriptions received, tenders accepted, competitive/noncompetitive accepted, foreign or Government-account exchange tenders, refunding, and **new cash** are not interchangeable.\n"
+    },
+    {
+      "end": 19,
+      "id": "frag_544f155846e6c111",
+      "order": 19,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 19,
+      "text": "- When converting currencies or scales, make a direction ledger first: source table unit, source currency, exchange-rate orientation (foreign currency per U.S. dollar means divide by the rate; U.S. dollars per foreign unit means multiply), and requested final unit.\n"
+    },
+    {
+      "end": 22,
+      "id": "frag_b79f52ea25ebeea9",
+      "order": 21,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 21,
+      "text": "- For tables, align values by row label and exact column header, not proximity alone; watch for continued or unlabeled columns, footnotes, adjacent amount-versus-percent columns, fiscal-year versus calendar-year sections, and repeated month rows under different year blocks.\n- If the question asks for a transformed or derived quantity, compute only after confirming every operand.\n"
+    },
+    {
+      "end": 24,
+      "id": "frag_698615decc80b61e",
+      "order": 24,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 24,
+      "text": "- For derived comparisons, preserve the direction and sign implied by the wording: “change from A to B” means B minus A; “former than latter” means former minus latter; “share accounted for by X” means X divided by the stated total; paired “gap” questions require computing each within-row difference before ranking.\n"
+    },
+    {
+      "end": 25,
+      "id": "frag_754cf2dcf8a21058",
+      "order": 25,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 25,
+      "text": "- For statistical, regression, correlation, and growth-rate questions, write a formula ledger before calculating: confirm the exact series/endpoints, ordered vector, elapsed intervals, and requested convention such as continuously compounded rate, CAGR, Pearson correlation, or OLS index/year choice.\n"
+    },
+    {
+      "end": 26,
+      "id": "frag_2276bae6388628e0",
+      "order": 26,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 26,
+      "text": "- For multi-stage questions where one table determines the period/entity used in another lookup, freeze that derived key with evidence first, then retrieve the second measure only for that exact month/year/reporting date/entity.\n"
+    },
+    {
+      "end": 28,
+      "id": "frag_1eea22815ee54016",
+      "order": 28,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 28,
+      "text": "- For inclusive time-series ranges, make a period-by-period ledger covering every requested month/year exactly once, preserving calendar versus fiscal basis, end-of-month or end-of-fiscal-month status, source units, and any specified adjustments.\n"
+    },
+    {
+      "end": 30,
+      "id": "frag_559386cba3d1d70b",
+      "order": 30,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_ba7169c9c89f24d4"
+      ],
+      "role": "instruction",
+      "start": 30,
+      "text": "- For statistical transforms over time-series windows, confirm endpoint inclusion/exclusion exactly as worded, use consecutive time indices for trend regressions when appropriate, sort values before medians, and for logarithmic growth use ln(final/initial) before converting to the requested percentage format.\n"
+    },
+    {
+      "end": 32,
+      "id": "frag_e992e23157430484",
+      "order": 32,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 32,
+      "text": "## Final Answer Discipline\n"
+    },
+    {
+      "end": 36,
+      "id": "frag_da4de563a6f58453",
+      "order": 34,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_e992e23157430484"
+      ],
+      "role": "instruction",
+      "start": 34,
+      "text": "- Before finalizing, enforce the requested unit and format: convert thousands/millions/billions or full nominal dollars as needed, then apply no-comma, fixed-decimal, whole-number, or nearest-tenth/thousandth formatting exactly as asked.\n- Return the final answer only after one last consistency check against the retrieved evidence.\n- Copy the final answer from a checked value, not from an unverified intermediate guess.\n"
+    },
+    {
+      "end": 38,
+      "id": "frag_51f47b38f7e0b8a8",
+      "order": 38,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 38,
+      "text": "## Statistical and Time-Series Calculation Checks\n"
+    },
+    {
+      "end": 40,
+      "id": "frag_c62995819081b8fc",
+      "order": 40,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_51f47b38f7e0b8a8"
+      ],
+      "role": "instruction",
+      "start": 40,
+      "text": "- Before computing any statistic, write the intended formula and denominator convention. If the prompt explicitly says **population standard deviation**, divide by `n`; if it says **sample**, divide by `n-1`; for a z-score comparing one observation against a small set of comparison months/periods and no population convention is stated, estimate dispersion with the **sample** standard deviation of the comparison set. Do not round intermediate operands, weighted averages, logs, exchange-rate conversions, or standard deviations before the final requested rounding.\n"
+    },
+    {
+      "end": 41,
+      "id": "frag_eb571db6af98f080",
+      "order": 41,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_51f47b38f7e0b8a8"
+      ],
+      "role": "instruction",
+      "start": 41,
+      "text": "- For long inclusive ranges, first enumerate the expected count of observations and the first/last period, then verify the ledger has exactly that count. Exclude totals, cumulative-to-date columns, comparable-period columns, estimates, and extra latest-month columns outside the requested calendar or fiscal range.\n"
+    },
+    {
+      "end": 42,
+      "id": "frag_b3a22eca09df0874",
+      "order": 42,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_51f47b38f7e0b8a8"
+      ],
+      "role": "instruction",
+      "start": 42,
+      "text": "- When a page contains multiple nearby sections with similar labels, use only the section whose title and row label match the requested measure exactly; do not compute from the first visible table if the requested measure/table title is absent or only partially shown.\n"
+    },
+    {
+      "end": 43,
+      "id": "frag_57fb893367506321",
+      "order": 43,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_51f47b38f7e0b8a8"
+      ],
+      "role": "instruction",
+      "start": 43,
+      "text": "- For Treasury security quotations, obey the table's quote basis. If the table states that price decimals are 32nds, convert quotes such as `99.27` as `99 + 27/32`, not as decimal `99.27`. If a task asks for smoothing, averaging, or forecasting in a target currency using period-specific exchange rates, convert each period's observation to the target currency first unless the prompt explicitly says to compute in the source currency and convert only the final result.\n"
+    },
+    {
+      "end": 45,
+      "id": "frag_046f49b7060104ec",
+      "order": 45,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 45,
+      "text": "## Stricter Final Formatting\n"
+    },
+    {
+      "end": 47,
+      "id": "frag_b7dbfb13a8d59149",
+      "order": 47,
+      "requires": [
+        "frag_8c6a95d6b3d5a1c4",
+        "frag_046f49b7060104ec"
+      ],
+      "role": "instruction",
+      "start": 47,
+      "text": "- Match any requested output template exactly. Unless the prompt explicitly asks for unit words or explanatory text, return only the numeric value or requested list; do not append words such as `million`, `dollars`, `percent`, or `percentage points`. Include symbols/commas only when the prompt requests currency-formatted output or the answer format clearly requires them.\n"
+    },
+    {
+      "end": 49,
+      "id": "frag_04100809e6b22a81",
+      "order": 49,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 49,
+      "text": "<!-- SLOW_UPDATE_START -->\n"
+    },
+    {
+      "end": 50,
+      "id": "frag_585f95e19a171479",
+      "order": 50,
+      "requires": [],
+      "role": "non_instruction",
+      "start": 50,
+      "text": "<!-- SLOW_UPDATE_END -->\n"
+    }
+  ],
+  "schema_version": 2,
+  "source_sha256": "fc15969126fbc4bc0bb53b654df4984ff748d35965e1ba50af52aebe703aa59e"
+}

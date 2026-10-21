@@ -1,0 +1,169 @@
+{
+  "excluded": [
+    {
+      "end": 1,
+      "reason": "Document title.",
+      "start": 1
+    },
+    {
+      "end": 3,
+      "reason": "Section heading.",
+      "start": 3
+    },
+    {
+      "end": 5,
+      "reason": "Subsection heading.",
+      "start": 5
+    },
+    {
+      "end": 12,
+      "reason": "Section heading.",
+      "start": 12
+    },
+    {
+      "end": 18,
+      "reason": "Section heading.",
+      "start": 18
+    },
+    {
+      "end": 20,
+      "reason": "Subsection heading.",
+      "start": 20
+    },
+    {
+      "end": 27,
+      "reason": "Section heading.",
+      "start": 27
+    },
+    {
+      "end": 30,
+      "reason": "Section heading.",
+      "start": 30
+    },
+    {
+      "end": 35,
+      "reason": "Comment update markers.",
+      "start": 34
+    }
+  ],
+  "root": [
+    {
+      "end": 9,
+      "start": 9
+    },
+    {
+      "end": 25,
+      "start": 23
+    },
+    {
+      "end": 28,
+      "start": 28
+    }
+  ],
+  "rules": [
+    {
+      "id": "meta_options_stronger_results",
+      "source": [
+        {
+          "end": 7,
+          "start": 6
+        }
+      ],
+      "when": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "stronger_result_option"
+        }
+      ]
+    },
+    {
+      "id": "nested_strength_ranking",
+      "source": [
+        {
+          "end": 8,
+          "start": 8
+        }
+      ],
+      "when": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "nested_strength"
+        }
+      ]
+    },
+    {
+      "id": "quantifiers_and_equivalence",
+      "source": [
+        {
+          "end": 10,
+          "start": 10
+        },
+        {
+          "end": 16,
+          "start": 14
+        },
+        {
+          "end": 21,
+          "start": 21
+        }
+      ],
+      "when": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "quantifier_or_equivalence"
+        }
+      ]
+    },
+    {
+      "id": "threshold_conditions_and_inequalities",
+      "source": [
+        {
+          "end": 22,
+          "start": 22
+        }
+      ],
+      "when": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "threshold_or_inequality"
+        }
+      ]
+    },
+    {
+      "id": "local_vs_global_conclusions",
+      "source": [
+        {
+          "end": 31,
+          "start": 31
+        }
+      ],
+      "when": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "local_vs_global"
+        }
+      ]
+    },
+    {
+      "id": "quantitative_estimate_details",
+      "source": [
+        {
+          "end": 32,
+          "start": 32
+        }
+      ],
+      "when": [
+        {
+          "field": "option_cues",
+          "op": "contains",
+          "value": "quantitative_estimate"
+        }
+      ]
+    }
+  ]
+}

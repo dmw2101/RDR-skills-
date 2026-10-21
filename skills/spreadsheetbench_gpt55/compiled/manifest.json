@@ -1,0 +1,33 @@
+{
+  "engine_schema_version": 2,
+  "feature_schema": {
+    "features": {
+      "operation": {
+        "description": "Operations requested in the visible spreadsheet instruction, before inspecting the workbook. formula_or_macro: asks for or about a formula, function (SUMIFS, INDEX/MATCH, VLOOKUP, IF), VBA, or a macro. lookup_or_join: looks up, matches, joins, or maps values between tables or sheets. date_or_time: involves dates, months, periods, weekdays, workdays, times, or time thresholds. aggregation_or_summary: sums, counts, averages, totals, crosstabs, or summary tables. filter_or_list: filters, extracts, deduplicates, or lists matching records. formatting: changes fills, colors, fonts, borders, alignment, or number formats. schedule_or_calendar: fills a schedule, timetable, rota, or calendar. every_nth_row: takes every nth row, an offset, or a repeating step. residual_balancing: distributes a residual or balances values within min/max constraints. blank_handling: specifies behaviour for blank or empty cells. text_matching: matches text by begins-with, contains, or exact equality, or normalizes names. Several operations may apply; use an empty list if none is recognized.",
+        "multiple": true,
+        "values": [
+          "formula_or_macro",
+          "lookup_or_join",
+          "date_or_time",
+          "aggregation_or_summary",
+          "filter_or_list",
+          "formatting",
+          "schedule_or_calendar",
+          "every_nth_row",
+          "residual_balancing",
+          "blank_handling",
+          "text_matching"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "36e44083bf12f501b8c3862414fa7142dd3f84e537256de8172cd00f886e947c",
+  "fragments_sha256": "89e8a4d564541d110f3f94c75ea31523b5316f07b3bd845362c3c62f777e5993",
+  "generated_at": "2026-10-21T00:49:55.301768+00:00",
+  "ir_sha256": "99d8a24b679683b416bc2581aa9e162d89659fc5807945eb2e40dfc83a1be5c6",
+  "model_id": "gemini-3.8-flash",
+  "prompt_version": "2",
+  "schema_version": 2,
+  "source_sha256": "82249a54bba13550aa87dcc84087728ebb176d753c95bc09e6b9c49f30942892",
+  "tree_sha256": "07623610afac1c06d069e05c98f863d2bda03118a035df7c2b29b106b9bd5585"
+}
