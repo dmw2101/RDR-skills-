@@ -122,6 +122,17 @@ class ColabSetupConfigTests(unittest.TestCase):
                 colab.parse_args(["--run-name", name])
 
 
+class ColabSetupRunnerTests(unittest.TestCase):
+    def test_command_output_is_streamed_and_failures_show_the_tail(self):
+        lines = []
+        runner = colab.Runner(out=lines.append)
+        runner.run([sys.executable, "-c", "print('first'); print('second')"])
+        self.assertIn("first", lines)
+        self.assertIn("second", lines)
+        with self.assertRaisesRegex(colab.SetupError, "boom"):
+            runner.run([sys.executable, "-c", "import sys; print('boom'); sys.exit(3)"])
+
+
 class ColabSetupDryRunTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

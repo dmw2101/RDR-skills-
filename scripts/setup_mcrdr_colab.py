@@ -127,12 +127,28 @@ class Runner:
         self.out(f"$ {shown}" + (f"    # in {cwd}" if cwd else ""))
         if self.dry_run:
             return subprocess.CompletedProcess(command, 0, "", "")
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
         try:
-            result = subprocess.run(command, cwd=cwd, text=True, capture_output=capture)
+            if capture:
+                result = subprocess.run(command, cwd=cwd, text=True, capture_output=True, env=env,
+                                        encoding="utf-8", errors="replace")
+                detail = (result.stderr or result.stdout or "").strip()[-2000:]
+            else:
+                # Notebook kernels (Colab, VS Code) do not show a child's inherited
+                # stdout, so stream every line through `out` as it arrives.
+                tail: list[str] = []
+                with subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                                      errors="replace", bufsize=1) as process:
+                    for line in process.stdout:
+                        line = line.rstrip("\n")
+                        self.out(line)
+                        tail = (tail + [line])[-40:]
+                result = subprocess.CompletedProcess(command, process.returncode, "", "")
+                detail = "\n".join(tail)
         except FileNotFoundError as error:
             raise SetupError(f"command not found: {command[0]}") from error
         if check and result.returncode != 0:
-            detail = (result.stderr or result.stdout or "").strip()[-2000:] if capture else ""
             raise SetupError(f"command failed ({result.returncode}): {shown}\n{detail}".rstrip())
         return result
 
