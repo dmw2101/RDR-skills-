@@ -37,6 +37,54 @@
       "local_path": "skills/livemathematicianbench/initial.md",
       "source_path": "skillopt/envs/livemathematicianbench/skills/initial.md",
       "sha256": "84d545e168a047349fe4f6851708c6e34a7fc755c6ae3804775cbc671a8aab3f"
+    },
+    {
+      "id": "alfworld_gpt55",
+      "benchmark": "ALFWorld",
+      "variant": "gpt5.5-optimized",
+      "local_path": "skills/alfworld_gpt55/initial.md",
+      "source_path": "ckpt/alfworld/gpt5.5_skill.md",
+      "sha256": "c8219398bf587dae9c33f832f97ed749ea0de978ef8627840df139e0fc3fff20"
+    },
+    {
+      "id": "docvqa_gpt55",
+      "benchmark": "DocVQA",
+      "variant": "gpt5.5-optimized",
+      "local_path": "skills/docvqa_gpt55/initial.md",
+      "source_path": "ckpt/docvqa/gpt5.5_skill.md",
+      "sha256": "5432e21a8bb053b13d0cb50372ff371924a925a459ff108725c67c806c9e8a2f"
+    },
+    {
+      "id": "livemath_gpt55",
+      "benchmark": "LiveMathematicianBench",
+      "variant": "gpt5.5-optimized",
+      "local_path": "skills/livemath_gpt55/initial.md",
+      "source_path": "ckpt/livemath/gpt5.5_skill.md",
+      "sha256": "53073aa57ce84de76d9976f76a0f80b301c2e76b334b5206b1de1e0d6abd9357"
+    },
+    {
+      "id": "officeqa_gpt55",
+      "benchmark": "OfficeQA",
+      "variant": "gpt5.5-optimized",
+      "local_path": "skills/officeqa_gpt55/initial.md",
+      "source_path": "ckpt/officeqa/gpt5.5_skill.md",
+      "sha256": "fc15969126fbc4bc0bb53b654df4984ff748d35965e1ba50af52aebe703aa59e"
+    },
+    {
+      "id": "searchqa_gpt55",
+      "benchmark": "SearchQA",
+      "variant": "gpt5.5-optimized",
+      "local_path": "skills/searchqa_gpt55/initial.md",
+      "source_path": "ckpt/searchqa/gpt5.5_skill.md",
+      "sha256": "4e0a19d42dea09538e5431ad9241eaf6d6ce0a7fbd6c5578e6e5fcee77c187f8"
+    },
+    {
+      "id": "spreadsheetbench_gpt55",
+      "benchmark": "SpreadsheetBench-Verified 400",
+      "variant": "gpt5.5-optimized",
+      "local_path": "skills/spreadsheetbench_gpt55/initial.md",
+      "source_path": "ckpt/spreadsheetbench/gpt5.5_skill.md",
+      "sha256": "82249a54bba13550aa87dcc84087728ebb176d753c95bc09e6b9c49f30942892"
     }
   ]
 }

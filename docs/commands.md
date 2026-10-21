@@ -110,3 +110,72 @@ Start-Process skills/alfworld/compiled/tree_visualisation.html
 ```
 
 The script automatically loads the matching `fragments.json` and `manifest.json`. Click a node to inspect its condition, fragment text, route, and children. Children are drawn in evaluation order; each is tested only when its parent fires, and stopping rules are outlined in red. Use **Hide unreachable** to collapse nodes that cannot match the feature schema. For another skill, replace `skills/alfworld` with its folder, for example `skills/pdf`.
+
+## 5. Convert the six SkillOpt GPT-5.5 optimized skills
+
+The six optimized skill checkpoints from the pinned SkillOpt snapshot (`benchmarks/skillopt/ckpt/*/gpt5.5_skill.md`, MIT license) are set up as skill folders, each with a byte-identical `initial.md` and a `source.json` recording its origin and SHA-256:
+
+| Folder | Benchmark | Feature (several values may hold together) |
+|---|---|---|
+| `skills/alfworld_gpt55` | ALFWorld | `task_type` (as in `alfworld`), plus `target_object` (one value) |
+| `skills/docvqa_gpt55` | DocVQA | `question_cues` |
+| `skills/livemath_gpt55` | LiveMathematicianBench | `option_cues` |
+| `skills/officeqa_gpt55` | OfficeQA | `question_cues` |
+| `skills/searchqa_gpt55` | SearchQA | `clue_cues` |
+| `skills/spreadsheetbench_gpt55` | SpreadsheetBench | `operation` |
+
+Their feature names, values and descriptions are in `skills/feature_schemas.json`. Gemini may only use those values in rule conditions.
+
+One command converts all six. Set your Gemini key in the current PowerShell session first (replace the placeholder):
+
+```powershell
+$env:GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
+```
+
+```powershell
+py -3.12 scripts/convert_skills.py
+```
+
+For each skill this:
+
+1. asks Gemini for the rule list. That is one extraction plus at most two repair calls, saved as a new `compiled/ir.<timestamp>.json`.
+2. compiles it offline into `compiled/{ir,fragments,tree,manifest}.json`.
+3. writes the tree view `compiled/tree_visualisation.html`.
+
+It finishes with a table of rules, tree nodes and fragments per skill. One failing skill does not stop the others; rerunning skips skills that are already compiled.
+
+Useful options:
+
+| Option | Effect |
+|---|---|
+| `--skills docvqa_gpt55 officeqa_gpt55` | Convert only these folders |
+| `--model gemini-3.8-flash` | Gemini model for extraction (this is the default, as used for `alfworld` and `pdf`) |
+| `--force` | Rebuild skills that are already compiled (asks Gemini again) |
+| `--compile-only` | Rebuild from the newest saved `compiled/ir.<timestamp>.json` without calling Gemini, for example after reviewing a rule list |
+| `--dry-run` | Print every step without running anything |
+
+Review each new `compiled/ir.json` before relying on it: it lists which source lines Gemini made general guidance, which it made conditional (and on what), and which it excluded. Then render a skill for a case file or a task:
+
+```powershell
+py -3.12 -m rdr_engine.skill_tool render skills/officeqa_gpt55 --case-file skills/officeqa_gpt55/cases/statistics_over_range.json --show-path
+py -3.12 -m rdr_engine.skill_tool render skills/searchqa_gpt55 --task "Crossword clue: this lake in Florida (10)" --show-path
+```
+
+Each folder has two or three example case files under `cases/`. With `--task`, conservative word-pattern heuristics in `rdr_engine/skill_cases.py` pick the feature values; `--show-path` prints the values they chose. Open a tree view with:
+
+```powershell
+Start-Process skills/officeqa_gpt55/compiled/tree_visualisation.html
+```
+
+Example tasks for `--task` demonstrations:
+
+| Folder | Task |
+|---|---|
+| `alfworld_gpt55` | `"clean some kettle and put it in cabinet"` |
+| `docvqa_gpt55` | `"What is the total amount in the table?"` |
+| `livemath_gpt55` | `"Which holds for every n? B) One of the remaining options is correct, but a stronger result can be proven."` |
+| `officeqa_gpt55` | `"What was the standard deviation of monthly receipts from 1950 to 1955?"` |
+| `searchqa_gpt55` | `"This man wrote 'The Raven'"` |
+| `spreadsheetbench_gpt55` | `"Write a SUMIFS formula to total sales by month"` |
+
+Source quirk: in `alfworld_gpt55/initial.md`, a `### Pick Two Object Bookkeeping` subsection is pasted inside the task-type table (lines 20–27). The table rows after it therefore have no header and are kept as plain lines; the source is not edited.

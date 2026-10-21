@@ -38,5 +38,51 @@
       "values": ["yes", "no", "unknown"]
     }
   },
-  "searchqa": {}
+  "searchqa": {},
+  "alfworld_gpt55": {
+    "task_type": {
+      "description": "All household goal categories recognized in the visible goal sentence. Categories such as heat_place already include picking and placement; do not add plain pick_place for those steps. Use an empty list if no category is recognized.",
+      "multiple": true,
+      "values": ["pick_place", "pick_two_place", "examine_in_light", "clean_place", "heat_place", "cool_place"]
+    },
+    "target_object": {
+      "description": "The object type the goal sentence asks the agent to find: pan; kettle_or_teapot; dishsponge; other_kitchen_item (food, dishes, cups, mugs, utensils, cookware other than pans and kettles); office_or_bedroom_item (pens, books, CDs, phones, laptops, keys, cards, clocks, newspapers, pillows, remotes and similar); other for anything else; unknown if the goal is not visible.",
+      "values": ["pan", "kettle_or_teapot", "dishsponge", "other_kitchen_item", "office_or_bedroom_item", "other", "unknown"]
+    }
+  },
+  "docvqa_gpt55": {
+    "question_cues": {
+      "description": "Cues in the visible question text, before looking at the document. value_or_count: asks for a value, amount, count, number, page number, date, year, time, or graph/chart reading. name_or_quote: asks for a name, title, person, organization, or quoted phrase. table_lookup: names a table, row, column, header, or table entry. form_or_label: names a form, receipt, invoice, labeled field, party, or role. list_or_index: names a table of contents, index, numbered or bulleted list item, or point number. handwriting_or_anchor: mentions handwriting, a signature, a margin note, or text written next to an anchor term. Several cues may apply; use an empty list if none is recognized.",
+      "multiple": true,
+      "values": ["value_or_count", "name_or_quote", "table_lookup", "form_or_label", "list_or_index", "handwriting_or_anchor"]
+    }
+  },
+  "livemath_gpt55": {
+    "option_cues": {
+      "description": "Cues visible in the question and its answer options. stronger_result_option: an option says another option is correct but a stronger result can be proven. nested_strength: options are versions of one claim ordered by strength (rates, constants, bounds, endpoints, blowup versus unboundedness). quantifier_or_equivalence: options hinge on quantifiers or equivalence (for every, there exists, if and only if, exactly when, converse, characterization). threshold_or_inequality: options differ by sign, endpoint, strict versus non-strict inequality, or a parameter threshold. quantitative_estimate: options are estimates differing in exponents, constants, log factors, or convergence mode. local_vs_global: options differ by local, completed, prime-by-prime, or sufficiently-large versus global or every-case statements. Several cues may apply; use an empty list if none is recognized.",
+      "multiple": true,
+      "values": ["stronger_result_option", "nested_strength", "quantifier_or_equivalence", "threshold_or_inequality", "quantitative_estimate", "local_vs_global"]
+    }
+  },
+  "officeqa_gpt55": {
+    "question_cues": {
+      "description": "Cues in the visible question about U.S. Treasury and official financial records. external_time_series: needs an official time-series value that may not be in the provided pages (for example an actual published rate or series observation). period_range: spans several months, quarters, or years, or an inclusive date range. unit_or_currency_conversion: converts currencies, exchange rates, or scales (thousands, millions, billions). treasury_financing: concerns Treasury offerings, auctions, tenders, subscriptions, refunding, or new cash. derived_comparison: asks for a change, difference, gap, share, ratio, or percent of a total. statistical_calculation: asks for a standard deviation, z-score, regression, correlation, growth rate, CAGR, median, mean, smoothing, or forecast. multi_stage_lookup: one lookup determines the period or entity for a second lookup. security_quotation: concerns bond, note, or bill price quotations or yields. Several cues may apply; use an empty list if none is recognized.",
+      "multiple": true,
+      "values": ["external_time_series", "period_range", "unit_or_currency_conversion", "treasury_financing", "derived_comparison", "statistical_calculation", "multi_stage_lookup", "security_quotation"]
+    }
+  },
+  "searchqa_gpt55": {
+    "clue_cues": {
+      "description": "Cues in the visible trivia, Jeopardy, or crossword clue. this_type_clue: refers to the answer as this/these/he/she/his/her plus a type. crossword_or_letter_count: gives a letter count, a parenthetical number, or a dual definition. quotation_or_lyric: contains a quotation, lyric, poem, rhyme, slogan, or the start of a phrase. creative_work: concerns a book, film, play, song, poem, show, or other work, its creator, cast, character, or setting. examples_given: lists examples or names that include, like, or such as, or names separated by commas or slashes. name_or_word_meaning: asks for the name or word that means something, or the origin of a name. geographic_feature: concerns a lake, river, bay, mountain, island, gorge, or other natural feature. company_or_brand: concerns a company, brand, organization, or product. person_answer: the answer is a person or the name of a person. visual_reference: mentions an image or clip (seen here, pictured, shown). wordplay: contains puns, quotation-marked wordplay, or a category hint. Several cues may apply; use an empty list if none is recognized.",
+      "multiple": true,
+      "values": ["this_type_clue", "crossword_or_letter_count", "quotation_or_lyric", "creative_work", "examples_given", "name_or_word_meaning", "geographic_feature", "company_or_brand", "person_answer", "visual_reference", "wordplay"]
+    }
+  },
+  "spreadsheetbench_gpt55": {
+    "operation": {
+      "description": "Operations requested in the visible spreadsheet instruction, before inspecting the workbook. formula_or_macro: asks for or about a formula, function (SUMIFS, INDEX/MATCH, VLOOKUP, IF), VBA, or a macro. lookup_or_join: looks up, matches, joins, or maps values between tables or sheets. date_or_time: involves dates, months, periods, weekdays, workdays, times, or time thresholds. aggregation_or_summary: sums, counts, averages, totals, crosstabs, or summary tables. filter_or_list: filters, extracts, deduplicates, or lists matching records. formatting: changes fills, colors, fonts, borders, alignment, or number formats. schedule_or_calendar: fills a schedule, timetable, rota, or calendar. every_nth_row: takes every nth row, an offset, or a repeating step. residual_balancing: distributes a residual or balances values within min/max constraints. blank_handling: specifies behaviour for blank or empty cells. text_matching: matches text by begins-with, contains, or exact equality, or normalizes names. Several operations may apply; use an empty list if none is recognized.",
+      "multiple": true,
+      "values": ["formula_or_macro", "lookup_or_join", "date_or_time", "aggregation_or_summary", "filter_or_list", "formatting", "schedule_or_calendar", "every_nth_row", "residual_balancing", "blank_handling", "text_matching"]
+    }
+  }
 }

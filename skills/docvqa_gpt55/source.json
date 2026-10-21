@@ -1,0 +1,12 @@
+{
+  "id": "docvqa_gpt55",
+  "benchmark": "DocVQA",
+  "variant": "SkillOpt GPT-5.5 optimized skill checkpoint",
+  "source_repository": "https://github.com/microsoft/SkillOpt",
+  "source_commit": "79124b37e9a6371e13b753f8bcd7adb1e493ade1",
+  "source_path": "ckpt/docvqa/gpt5.5_skill.md",
+  "vendored_path": "benchmarks/skillopt/ckpt/docvqa/gpt5.5_skill.md",
+  "license": "LICENSES/SkillOpt-MIT.txt",
+  "sha256": "5432e21a8bb053b13d0cb50372ff371924a925a459ff108725c67c806c9e8a2f",
+  "note": "Byte-identical copy of the vendored checkpoint; initial.md is the conversion input and is never edited."
+}

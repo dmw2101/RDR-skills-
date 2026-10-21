@@ -1,0 +1,12 @@
+{
+  "id": "livemath_gpt55",
+  "benchmark": "LiveMathematicianBench",
+  "variant": "SkillOpt GPT-5.5 optimized skill checkpoint",
+  "source_repository": "https://github.com/microsoft/SkillOpt",
+  "source_commit": "79124b37e9a6371e13b753f8bcd7adb1e493ade1",
+  "source_path": "ckpt/livemath/gpt5.5_skill.md",
+  "vendored_path": "benchmarks/skillopt/ckpt/livemath/gpt5.5_skill.md",
+  "license": "LICENSES/SkillOpt-MIT.txt",
+  "sha256": "53073aa57ce84de76d9976f76a0f80b301c2e76b334b5206b1de1e0d6abd9357",
+  "note": "Byte-identical copy of the vendored checkpoint; initial.md is the conversion input and is never edited."
+}
