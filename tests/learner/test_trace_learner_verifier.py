@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from skill_agent.contracts import ResolveSkillRequest, ResolvedSkill
-from skill_agent.learned_features import (MAX_JUDGE_CHARS, MAX_MATERIAL_CHARS, JudgeError,
+from skill_agent.learned_features import (MAX_JUDGE_CHARS, MAX_MATERIAL_CHARS, FeatureJudge, JudgeError,
                                           LearnedFeatureResolver, judge_context)
 from skill_agent.models import ModelResponse
 from trace_learner.records import skill_views, trace_steps, view_at
@@ -146,6 +146,10 @@ class JudgeModel:
         return ModelResponse(self.reply or call("report_features", {"lf_tables": "true"}), dict(USAGE), {"model": "j"})
 
 
+async def _message(message):
+    return ModelResponse(message, dict(USAGE), {"finish_reason": "tool_calls"})
+
+
 async def _response(finish_reason):
     return ModelResponse({"role": "assistant", "content": "thinking"}, dict(USAGE), {"finish_reason": finish_reason})
 
@@ -194,6 +198,30 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("[... 5 more characters not shown]", text)
         self.assertTrue(text.endswith("END\n</recent_activity>"))
         self.assertLess(len(text), MAX_JUDGE_CHARS + MAX_MATERIAL_CHARS + 200)
+
+    async def test_an_answer_split_over_several_tool_calls_is_merged(self):
+        features = {name: {"description": f"{name} holds."} for name in ("lf_a", "lf_b")}
+
+        def calls(*arguments, name="report_features"):
+            return {"role": "assistant", "content": None, "tool_calls": [
+                {"id": f"c{i}", "type": "function", "function": {"name": name, "arguments": json.dumps(a)}}
+                for i, a in enumerate(arguments)]}
+
+        async def judged(message):
+            judge = JudgeModel()
+            judge.complete = lambda messages, tools: _message(message)
+            return await FeatureJudge(judge).judge(features, "has tables")
+
+        values, _ = await judged(calls({"lf_a": "true"}, {"lf_b": "false"}))  # One call per condition.
+        self.assertEqual(values, {"lf_a": "true", "lf_b": "false"})
+        values, _ = await judged(calls({"lf_a": "true", "lf_b": "unknown"}, {"lf_a": "true"}))  # A repeat.
+        self.assertEqual(values, {"lf_a": "true", "lf_b": "unknown"})
+        for message, error in ((calls({"lf_a": "true"}, {"lf_a": "false", "lf_b": "true"}), "conflicting"),
+                               (calls({"lf_a": "true"}, name="answer"), r"called \['answer'\]"),
+                               (calls({"lf_a": "true"}), r"missing \['lf_b'\]"),
+                               (calls({"lf_a": "true", "lf_b": "maybe"}), "invalid")):
+            with self.subTest(error=error), self.assertRaisesRegex(JudgeError, error):
+                await judged(message)
 
     async def test_cut_off_or_blocked_judge_answers_say_why(self):
         for reason, message in (("length", "ran out of output tokens"), ("content_filter", "content filter")):

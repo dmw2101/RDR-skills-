@@ -89,19 +89,29 @@ class FeatureJudge:
             if reason == "content_filter":
                 raise ValueError("judge response was blocked by the provider's content filter")
             calls = response.message.get("tool_calls") or []
-            if calls:
-                if len(calls) != 1 or calls[0].get("function", {}).get("name") != "report_features":
-                    raise ValueError("judge returned an unexpected tool call")
-                raw = calls[0]["function"]["arguments"]
-            else:
-                raw = response.message.get("content")
-            try:
-                values = json.loads(raw)
-            except (TypeError, ValueError) as exc:
-                raise ValueError("judge did not return valid JSON") from exc
-            if (not isinstance(values, dict) or set(values) != set(features)
-                    or any(value not in JUDGED_VALUES for value in values.values())):
-                raise ValueError("judge did not report every feature as true/false/unknown")
+            names = [call.get("function", {}).get("name") for call in calls]
+            if any(name != "report_features" for name in names):
+                raise ValueError(f"judge called {names}; expected only report_features")
+            # Some models split one answer over several report_features calls (e.g. one per
+            # condition) or repeat it; the parts are merged unless they contradict each other.
+            values = {}
+            for raw in ([call["function"].get("arguments") for call in calls] if calls
+                        else [response.message.get("content")]):
+                try:
+                    part = json.loads(raw)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"judge did not return valid JSON ({len(calls)} tool call(s))") from exc
+                if not isinstance(part, dict):
+                    raise ValueError("judge did not return a JSON object")
+                for name, value in part.items():
+                    if values.get(name, value) != value:
+                        raise ValueError(f"judge gave conflicting answers for {name}")
+                    values[name] = value
+            invalid = {name: value for name, value in values.items() if value not in JUDGED_VALUES}
+            if set(values) != set(features) or invalid:
+                raise ValueError(f"judge did not report every feature as true/false/unknown (missing "
+                                 f"{sorted(set(features) - set(values))}, unexpected "
+                                 f"{sorted(set(values) - set(features))}, invalid {invalid})")
         except ValueError as exc:
             raise JudgeError(str(exc), response.usage) from exc
         return values, response
