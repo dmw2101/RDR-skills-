@@ -31,7 +31,7 @@ For a Colab T4 without provider rate limits, use the optional [local Qwen3.5-4B 
 ## Further documentation
 
 - [RDR engine overview](docs/rdr-engine.md)
-- [Base-skill-to-RDR implementation plan](docs/base-skill-to-rdr-plan.md)
+- [Base-skill-to-RDR implementation plan (archived)](docs/archive/base-skill-to-rdr-plan.md)
 - [Skills and benchmark inventory](benchmarks/README.md)
 - [Agent evaluation architecture, interfaces, and limits](docs/agent-evaluation.md)
 - [Verifier-driven MCRDR learning](docs/verifier-learning.md)

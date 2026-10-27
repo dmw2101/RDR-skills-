@@ -1,8 +1,10 @@
 # Plan: compile a base Markdown skill into an RDR-backed skill
 
+> Archived: kept for history. For the current design see [rdr-engine.md](../rdr-engine.md).
+
 ## Status
 
-Steps 1–6 are implemented, and the engine is now a Multiple Classification RDR (see [rdr-engine.md](rdr-engine.md)). `skill_compiler.py` extracts and validates an IR; `FragmentCatalog`, `SkillTreeCompiler`, and `SkillBundle` create and load checked artifacts; `skill_cases.py` evaluates/builds cases; `skill_renderer.py` composes matched fragments. `skill_tool.py` provides offline `compile` and `render` commands. The ALFWorld example is compiled under `skills/alfworld/compiled/` and has focused mechanical tests. Step 7 remains: review conversions for the other four seeds, expand regression tests, and compare rendered versus original skills on benchmark tasks. Online verifier/oracle integration remains a later phase.
+Steps 1–6 are implemented, and the engine is now a Multiple Classification RDR (see [rdr-engine.md](../rdr-engine.md)). `skill_compiler.py` extracts and validates an IR; `FragmentCatalog`, `SkillTreeCompiler`, and `SkillBundle` create and load checked artifacts; `skill_cases.py` evaluates/builds cases; `skill_renderer.py` composes matched fragments. `skill_tool.py` provides offline `compile` and `render` commands. The ALFWorld example is compiled under `skills/alfworld/compiled/` and has focused mechanical tests. Step 7 remains: review conversions for the other four seeds, expand regression tests, and compare rendered versus original skills on benchmark tasks. Online verifier/oracle integration remains a later phase.
 
 ## Decision
 
