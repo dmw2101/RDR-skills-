@@ -1,6 +1,8 @@
 import importlib.util
 import io
 import json
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -201,6 +203,65 @@ class ColabSetupRunnerTests(unittest.TestCase):
         self.assertIn("second", lines)
         with self.assertRaisesRegex(colab.SetupError, "boom"):
             runner.run([sys.executable, "-c", "import sys; print('boom'); sys.exit(3)"])
+
+
+class FakeRunner(colab.Runner):
+    """Records commands; 'python -m venv' fails the first time, as on a Colab Python without its venv package."""
+
+    def __init__(self, venv_failures=1, pip_works=True):
+        super().__init__(out=lambda *args: None)
+        self.commands, self.venv_failures, self.pip_works = [], venv_failures, pip_works
+
+    def run(self, command, *, cwd=None, check=True, capture=False):
+        shown = " ".join(str(part) for part in command)
+        self.commands.append(shown)
+        code = 0
+        if " -m venv " in shown:
+            if self.venv_failures:
+                self.venv_failures -= 1
+                code = 1
+                Path(command[-1], "bin").mkdir(parents=True, exist_ok=True)  # The half-made venv.
+            else:
+                python = colab.Paths(Path(command[-1]).parent).python
+                python.parent.mkdir(parents=True, exist_ok=True)
+                python.write_text("")
+        elif "-m pip --version" in shown and not self.pip_works:
+            code = 1
+        if check and code:
+            raise colab.SetupError(f"command failed: {shown}")
+        return subprocess.CompletedProcess(command, code, "", "")
+
+
+class ColabSetupVenvTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.paths = colab.Paths(Path(self.temp.name) / "work")
+        self.paths.workdir.mkdir()
+
+    def test_failed_venv_installs_the_versioned_venv_package_and_retries(self):
+        runner = FakeRunner(venv_failures=1)
+        with patch.object(colab.shutil, "which", return_value="/usr/bin/apt-get"):
+            colab.ensure_venv(options(), self.paths, runner)
+        venv_calls = [i for i, text in enumerate(runner.commands) if " -m venv " in text]
+        install = next(i for i, text in enumerate(runner.commands) if f"install -y -qq {colab.venv_package()}" in text)
+        self.assertEqual(len(venv_calls), 2)
+        self.assertTrue(venv_calls[0] < install < venv_calls[1])
+        self.assertRegex(colab.venv_package(), r"^python3\.\d+-venv$")
+        self.assertTrue(any("pip install -q -e" in text for text in runner.commands))
+        # Without apt there is nothing to install: stop with a clear message.
+        shutil.rmtree(self.paths.workdir / ".venv")
+        with patch.object(colab.shutil, "which", return_value=None), \
+                self.assertRaisesRegex(colab.SetupError, "includes venv and pip"):
+            colab.ensure_venv(options(), self.paths, FakeRunner(venv_failures=1))
+
+    def test_a_venv_without_pip_is_rebuilt(self):
+        self.paths.python.parent.mkdir(parents=True)
+        self.paths.python.write_text("")  # Left by a creation that failed at its pip step.
+        runner = FakeRunner(venv_failures=0, pip_works=False)
+        colab.ensure_venv(options(), self.paths, runner)
+        self.assertTrue(any(" -m venv " in text for text in runner.commands))
+        self.assertTrue(self.paths.python.exists())
 
 
 class ColabSetupDryRunTests(unittest.TestCase):

@@ -415,10 +415,33 @@ def ensure_repo(options, paths: Paths, runner: Runner) -> None:
     runner.run(["git", "-C", paths.workdir, "merge", "--ff-only", f"origin/{options.branch}"])
 
 
+def apt_prefix() -> list[str]:
+    return [] if (os.name == "nt" or os.geteuid() == 0 or shutil.which("sudo") is None) else ["sudo"]
+
+
+def venv_package() -> str:
+    """Debian/Ubuntu ship venv support per Python version (Colab's python3 needs e.g. python3.12-venv)."""
+    return f"python{sys.version_info.major}.{sys.version_info.minor}-venv"
+
+
 def ensure_venv(options, paths: Paths, runner: Runner) -> None:
     runner.step("Python environment")
+    venv = paths.workdir / ".venv"
+    if paths.python.exists() and not runner.dry_run:
+        has_pip = runner.run([paths.python, "-m", "pip", "--version"], check=False, capture=True).returncode == 0
+        if not has_pip:  # Left by a venv creation that failed at its pip step; holds nothing else.
+            runner.note(f"{venv} has no pip (an earlier creation failed); rebuilding it")
+            shutil.rmtree(venv)
     if not paths.python.exists():
-        runner.run([sys.executable, "-m", "venv", paths.workdir / ".venv"])
+        created = runner.run([sys.executable, "-m", "venv", venv], check=False)
+        if created.returncode != 0:
+            if shutil.which("apt-get") is None:
+                raise SetupError(f"could not create {venv}; check that this Python includes venv and pip")
+            runner.note(f"venv creation failed; installing {venv_package()} and retrying")
+            shutil.rmtree(venv, ignore_errors=True)
+            runner.run([*apt_prefix(), "apt-get", "update", "-qq"])
+            runner.run([*apt_prefix(), "apt-get", "install", "-y", "-qq", venv_package()])
+            runner.run([sys.executable, "-m", "venv", venv])
     extras = list(EXTRAS) + (["local-model"] if options.backend == "local" else [])
     pyproject = paths.workdir / "pyproject.toml"
     wanted = {"extras": extras,
@@ -512,9 +535,8 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
         runner.note("pdftotext, tesseract, qpdf and venv support are available")
     else:
         runner.note("missing: " + ", ".join(missing))
-        prefix = [] if (os.name == "nt" or os.geteuid() == 0 or shutil.which("sudo") is None) else ["sudo"]
-        runner.run([*prefix, "apt-get", "update", "-qq"])
-        runner.run([*prefix, "apt-get", "install", "-y", "-qq", *APT_PACKAGES])
+        runner.run([*apt_prefix(), "apt-get", "update", "-qq"])
+        runner.run([*apt_prefix(), "apt-get", "install", "-y", "-qq", *APT_PACKAGES])
 
     ensure_repo(options, paths, runner)
     ensure_venv(options, paths, runner)
