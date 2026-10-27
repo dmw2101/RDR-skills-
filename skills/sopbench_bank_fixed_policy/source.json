@@ -1,0 +1,24 @@
+{
+  "source_repository": "https://github.com/Leezekun/SOPBench",
+  "source_commit": "8790ed7406acbd22270f90bd1c4038de3fc5db8f",
+  "paper": "https://arxiv.org/abs/2503.08669",
+  "kind": "Official generated SOP instructions, not an upstream SKILL.md",
+  "export": "env.task.task_initializer: assistant.instructions.rstrip() + newline",
+  "settings": {
+    "domain": "bank",
+    "default_constraint_option": "full",
+    "constraint_descr_format": "structured",
+    "env_mode": "prompt",
+    "included_functions": null,
+    "shuffle_func": false,
+    "dependency_verb_dep_orig": true
+  },
+  "source_data_sha256": "63d6af54c4c7e3cb7cee7637ee39ed755eeabe83737c506f84adbf4021f76fec",
+  "initial_sha256": "f6d3da734ea07f8e403a47895c1ec7c89dc5fa126449680f035678ec2a44d43f",
+  "words": 1699,
+  "total_cases": 134,
+  "distinct_policies": 57,
+  "selected_cases": 34,
+  "selection": "Largest group with byte-identical complete policy; no model scores used",
+  "license": "CC BY 4.0 data; MIT code/documentation"
+}

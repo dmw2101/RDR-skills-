@@ -1,0 +1,192 @@
+{
+  "policy_sha256": "f6d3da734ea07f8e403a47895c1ec7c89dc5fa126449680f035678ec2a44d43f",
+  "indexing": "Zero-based index within each action's upstream task list",
+  "counts_by_action": {
+    "apply_credit_card": 2,
+    "cancel_credit_card": 3,
+    "close_account": 2,
+    "deposit_funds": 1,
+    "exchange_foreign_currency": 1,
+    "get_account_owed_balance": 2,
+    "get_loan": 4,
+    "open_account": 1,
+    "pay_bill": 3,
+    "pay_bill_with_credit_card": 3,
+    "pay_loan": 5,
+    "set_account_information": 2,
+    "set_safety_box": 2,
+    "transfer_funds": 3
+  },
+  "cases": [
+    {
+      "action": "apply_credit_card",
+      "index": 6,
+      "task_sha256": "dc0a396d14a2fab446619eaadb61bb9e7fea76adc92d5b162217c06a44073bde"
+    },
+    {
+      "action": "apply_credit_card",
+      "index": 8,
+      "task_sha256": "ed059c588d68beeabb76753b75b77d20892796f56dcc70ad9d322a5e4dfb1172"
+    },
+    {
+      "action": "cancel_credit_card",
+      "index": 14,
+      "task_sha256": "e9807ca28e387b4eacbb746ff45e3927e78736b53e431759e6335bc2b0d80f68"
+    },
+    {
+      "action": "cancel_credit_card",
+      "index": 15,
+      "task_sha256": "e86c3cf7ca5d6ec3ac151e5b305a1c5a66ba874993bebc74ceb6c77ebdb81d82"
+    },
+    {
+      "action": "cancel_credit_card",
+      "index": 16,
+      "task_sha256": "3599044d5bba9c5507cae761427e84acaf6f099fbdebc7fd00eb62408b9174b8"
+    },
+    {
+      "action": "close_account",
+      "index": 0,
+      "task_sha256": "90a2f81e9bb078100356048a963bef784ab57c09f46c9457fd9a165e51461efa"
+    },
+    {
+      "action": "close_account",
+      "index": 1,
+      "task_sha256": "6557d690872028d0b38e25ad2f776bbc3cd5d2b9e669f38c0a886944c5e8c77e"
+    },
+    {
+      "action": "deposit_funds",
+      "index": 3,
+      "task_sha256": "5762048d668a74c4a8f3a8559c9336f5c1cb4b9fc847786d5c4f2e9e18a9c0b3"
+    },
+    {
+      "action": "exchange_foreign_currency",
+      "index": 3,
+      "task_sha256": "d3fba27635ecf1a2a6c4fa8ea2213c40adf5daa174cb6b31f7be0fb01a512d69"
+    },
+    {
+      "action": "get_account_owed_balance",
+      "index": 0,
+      "task_sha256": "5362b164f69f7544713b4b84f18e642fdcb2cf273d5b24216a5d792dc546305e"
+    },
+    {
+      "action": "get_account_owed_balance",
+      "index": 1,
+      "task_sha256": "1560fdfeb0307a4c1353028280a885050e245fae36089f8086bb669579c07fdd"
+    },
+    {
+      "action": "get_loan",
+      "index": 8,
+      "task_sha256": "510f4b8cab9fb68e056cf83035f032d0d034baa964219996baa622b2ea4b47cd"
+    },
+    {
+      "action": "get_loan",
+      "index": 9,
+      "task_sha256": "dc2382073d6141c6ad31c4358cc0e15264a114cb3a5506f5f48400638aa3b019"
+    },
+    {
+      "action": "get_loan",
+      "index": 10,
+      "task_sha256": "17f4b98be9b5394dd2361e9a97222a3de6d86e0b1261c71cdbfa912797bb0922"
+    },
+    {
+      "action": "get_loan",
+      "index": 11,
+      "task_sha256": "3fd00a82e69d47bc50e6d66e0468087152194ae1b6fc985e9accf5044f06b7c1"
+    },
+    {
+      "action": "open_account",
+      "index": 4,
+      "task_sha256": "88bca8e9103824cb9c31a897abe8d58db5c8a1c73d246022c86e1c685956afc2"
+    },
+    {
+      "action": "pay_bill",
+      "index": 2,
+      "task_sha256": "4b278d1afcadd4a7cd3843e3e4d8e6bf93828b914bb12df20d01cdef482f5331"
+    },
+    {
+      "action": "pay_bill",
+      "index": 3,
+      "task_sha256": "195d1ffb69cef0ea40af2490fb95ea35d02128d71f02db468601319b0007e0cd"
+    },
+    {
+      "action": "pay_bill",
+      "index": 4,
+      "task_sha256": "3af2b96794dae90e486d85506fbbb3f92f5879fa48731d7bb080b8dd224891bc"
+    },
+    {
+      "action": "pay_bill_with_credit_card",
+      "index": 2,
+      "task_sha256": "82b466f6fa6ed95065370cbbf74c89138916fbbcbe23ed233727bce2d990bf68"
+    },
+    {
+      "action": "pay_bill_with_credit_card",
+      "index": 3,
+      "task_sha256": "29b6de9e83da0f0c33e6258f0740dddd0d2205a2b2ad249a73d5f5141d871de2"
+    },
+    {
+      "action": "pay_bill_with_credit_card",
+      "index": 4,
+      "task_sha256": "c733d409520fe3d9ac34c48ce12919c72e41f49527ea7e8de43ff563d1527ea5"
+    },
+    {
+      "action": "pay_loan",
+      "index": 3,
+      "task_sha256": "fe665667814b99578bc2d4b2db26943c19bc418cf08a56ffd03a7f6d68cc456c"
+    },
+    {
+      "action": "pay_loan",
+      "index": 4,
+      "task_sha256": "6d64fa2176e1d12cd1df2cf73ba50a7d4f18036add3a64170be7da131fafa247"
+    },
+    {
+      "action": "pay_loan",
+      "index": 5,
+      "task_sha256": "5520ea53dc5ddeecbeb973d5dacceac255d75bc63aefd6c9e5ee0dc95f29aa5c"
+    },
+    {
+      "action": "pay_loan",
+      "index": 6,
+      "task_sha256": "39571a00bb4e2ab3f275b7507499414a22b5065b06723eb4e3cd4aa0d4d5345c"
+    },
+    {
+      "action": "pay_loan",
+      "index": 7,
+      "task_sha256": "1f39ee3cc3f2d12312fb429397af52777b4abdac6581994bffa7bc150ddf6acd"
+    },
+    {
+      "action": "set_account_information",
+      "index": 0,
+      "task_sha256": "8d32defa7898c0d2ba06e2822e8bdc52f31d63c864784f54ea5bf3ae6c12fef6"
+    },
+    {
+      "action": "set_account_information",
+      "index": 1,
+      "task_sha256": "801b1d2a095304985495e2e87b3e73a8e068e1b36b57db48b0726dfe00f7016e"
+    },
+    {
+      "action": "set_safety_box",
+      "index": 31,
+      "task_sha256": "27b1ea91a9f6f2dcdedbe470e049cc7a87e6580370098261b9c4348d023a4166"
+    },
+    {
+      "action": "set_safety_box",
+      "index": 32,
+      "task_sha256": "e2aa3f4f84f242625f54df0639109a7d85e06c0d1167502a18d77b277a6b502c"
+    },
+    {
+      "action": "transfer_funds",
+      "index": 20,
+      "task_sha256": "21e6363e36361b0936512af7260ad9bbac68d7af661b669d423d6893ee0819bd"
+    },
+    {
+      "action": "transfer_funds",
+      "index": 21,
+      "task_sha256": "073e73846aae82456db39463fcfc296cb1cf6374f3328e378fd09544912910a1"
+    },
+    {
+      "action": "transfer_funds",
+      "index": 22,
+      "task_sha256": "34cbd9e5231b0c22529d3351e3c41e4a660f49562d5e6565e88f008cd1e4b844"
+    }
+  ]
+}

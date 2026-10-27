@@ -1,0 +1,8 @@
+{
+  "needed_actions": [
+    "login_user",
+    "authenticate_admin_password",
+    "get_account_balance",
+    "transfer_funds"
+  ]
+}

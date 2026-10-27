@@ -22,7 +22,7 @@ async def doctor(config):
     try:
         adapter = factory(config["benchmark"])
         tasks = select_tasks(adapter, config["run"])
-        results["benchmark"] = f"ok ({len(tasks)} selected documents)"
+        results["benchmark"] = f"ok ({len(tasks)} selected tasks)"
         try:
             results["benchmark_runtime"] = await adapter.prepare_runtime()
         except Exception as exc:
@@ -35,13 +35,17 @@ async def doctor(config):
         return results
     try:
         receipt, resolvers = make_resolvers(config)
-        resolved = await resolvers["reduced"].resolve(ResolveSkillRequest(
-            config["skill"]["id"], tasks[0]["task"] if tasks else "Resolve this task", {}, receipt["artifact_id"]))
+        request = ResolveSkillRequest(config["skill"]["id"], tasks[0]["task"] if tasks else "Resolve this task", {}, receipt["artifact_id"])
+        resolver = resolvers["reduced"]
+        resolved = await (resolver.preflight(request) if hasattr(resolver, "preflight") else resolver.resolve(request))
         if resolved.source_fingerprint != receipt["source_fingerprint"] or resolved.resolver_revision != receipt["resolver_revision"]:
             raise ValueError("service provenance differs from receipt")
         results["skill_service"] = "ok"
         results["skill_capabilities"] = resolved.capabilities
         results["skill_loading"] = (
+            "automatic Bank guidance each turn; original visible request and recent conversation; "
+            "classifier usage included; request_skill only acknowledges requests"
+            if hasattr(resolver, "provenance") and config["run"].get("skill_loading") == "rolling" else
             "automatic before every model call; task first, then last three assistant turns; "
             "request_skill only acknowledges requests"
             if config["run"].get("skill_loading") == "rolling" else

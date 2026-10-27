@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOPBench Bank: shared 34-case policy (MCRDR)</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #d9d8d3;
+  --node: #ffffff; --node-line: #b9b8b1; --accent: #2f5fd0; --accent-soft: #e6ecfb;
+  --true: #1f8a4c; --false: #c2462c; --dead-bg: #efefec; --dead-ink: #a5a49e;
+  --warn-bg: #fff4dc; --warn-ink: #7a5300; --root: #20201e; --root-ink: #ffffff;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9a9993; --line: #34332f;
+    --node: #23231f; --node-line: #4a4943; --accent: #7ea2ff; --accent-soft: #24304f;
+    --true: #5cc98a; --false: #f0826a; --dead-bg: #1b1b19; --dead-ink: #5c5b55;
+    --warn-bg: #3a2e12; --warn-ink: #f3cf7a; --root: #ecebe6; --root-ink: #161615;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9a9993; --line: #34332f;
+  --node: #23231f; --node-line: #4a4943; --accent: #7ea2ff; --accent-soft: #24304f;
+  --true: #5cc98a; --false: #f0826a; --dead-bg: #1b1b19; --dead-ink: #5c5b55;
+  --warn-bg: #3a2e12; --warn-ink: #f3cf7a; --root: #ecebe6; --root-ink: #161615;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+       display: flex; flex-direction: column; }
+header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+h1 { font-size: 17px; margin: 0 0 2px; }
+.sub { color: var(--muted); font-size: 12px; word-break: break-all; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 13px; }
+.stats b { font-variant-numeric: tabular-nums; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+button, label.toggle { font: inherit; font-size: 13px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+label.toggle { display: inline-flex; gap: 6px; align-items: center; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-left: auto; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+.warnings { margin: 10px 0 0; padding: 8px 12px; background: var(--warn-bg); color: var(--warn-ink);
+  border-radius: 6px; font-size: 13px; }
+.warnings ul { margin: 0; padding-left: 18px; }
+main { flex: 1; display: flex; min-height: 0; }
+#canvas { flex: 1; overflow: auto; min-width: 0; }
+#detail { width: 380px; flex: none; border-left: 1px solid var(--line); background: var(--panel);
+  overflow: auto; padding: 14px 16px 24px; }
+@media (max-width: 820px) {
+  main { flex-direction: column; }
+  #canvas { min-height: 60vh; }
+  #detail { width: auto; border-left: 0; border-top: 1px solid var(--line); }
+  .legend { margin-left: 0; }
+}
+svg { display: block; }
+.edge { fill: none; stroke-width: 1.6; }
+.edge.t { stroke: var(--true); } .edge.s { stroke: var(--false); }
+.edge.dead { stroke: var(--dead-ink); stroke-dasharray: 4 4; }
+.node rect.box { fill: var(--node); stroke: var(--node-line); stroke-width: 1; }
+.node.root rect.box { fill: var(--root); stroke: var(--root); }
+.node.root text { fill: var(--root-ink); }
+.node.dead rect.box { fill: var(--dead-bg); stroke-dasharray: 3 3; }
+.node.dead text { fill: var(--dead-ink); }
+.node.flag rect.box { stroke: var(--warn-ink); stroke-width: 1.5; }
+.node.stop rect.box { stroke: var(--false); stroke-width: 1.5; }
+.node.stop .concl { fill: var(--false); }
+.node.selected rect.box { stroke: var(--accent); stroke-width: 2.5; }
+.node.onpath rect.box { stroke: var(--accent); stroke-width: 1.8; }
+.node { cursor: pointer; }
+.node text { fill: var(--ink); }
+.node .nid { font: 600 11px var(--mono); fill: var(--muted); }
+.node.root .nid { fill: var(--root-ink); opacity: .7; }
+.node .cond { font: 600 12.5px var(--mono); }
+.node .concl { font-size: 11.5px; fill: var(--muted); }
+.node.root .concl { fill: var(--root-ink); opacity: .8; }
+.node .fold { fill: var(--panel); stroke: var(--node-line); }
+.node .foldtxt { font: 700 12px var(--mono); fill: var(--muted); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+#detail h2 { font-size: 15px; margin: 0 0 4px; }
+#detail h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 6px; }
+#detail .empty { color: var(--muted); }
+.pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); margin-right: 4px; }
+.pill.live { color: var(--true); border-color: var(--true); }
+.pill.dead { color: var(--dead-ink); }
+.pill.flag { color: var(--warn-ink); border-color: var(--warn-ink); }
+code, pre { font-family: var(--mono); font-size: 12px; }
+pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; overflow: auto;
+  white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; }
+.frag { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+.frag .head { display: flex; gap: 8px; align-items: baseline; font-size: 12px; }
+.frag .fid { font-family: var(--mono); color: var(--muted); }
+.frag pre { margin-top: 6px; }
+.note { background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; padding: 6px 10px; font-size: 13px; margin: 6px 0; }
+.note.dead { background: var(--dead-bg); color: var(--muted); }
+ol.path { margin: 0; padding-left: 20px; font-size: 13px; }
+ol.path a { color: var(--accent); cursor: pointer; text-decoration: none; }
+ol.path .m { font-weight: 700; } ol.path .m.t { color: var(--true); } ol.path .m.f { color: var(--false); }
+dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; margin: 0; }
+dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-all; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title"></h1>
+  <div class="sub" id="source"></div>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <label class="toggle"><input type="checkbox" id="hideDead"> Hide unreachable</label>
+    <button id="expand">Expand all</button>
+    <button id="collapse">Collapse dead</button>
+    <button id="zoomOut" aria-label="Zoom out">−</button>
+    <button id="zoomReset">100%</button>
+    <button id="zoomIn" aria-label="Zoom in">+</button>
+    <button id="fit">Fit</button>
+    <div class="legend">
+      <span><i style="border-color:var(--true)"></i>child: tested when the parent fires</span>
+      <span><i style="border-color:var(--false)"></i>stopping rule</span>
+      <span><i style="border-color:var(--dead-ink);border-top-style:dashed"></i>unreachable</span>
+    </div>
+  </div>
+  <div class="warnings" id="warnings" hidden></div>
+</header>
+<main>
+  <div id="canvas"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <aside id="detail"></aside>
+</main>
+<script id="data" type="application/json">{"title": "SOPBench Bank: shared 34-case policy (MCRDR)", "source": "C:\\Users\\user\\Desktop\\Ashwin-SOP\\RDR-skills\\skills\\sopbench_bank_fixed_policy\\compiled\\tree.json", "meta": {"max_selection_attempts": 3, "revision": 0, "root_id": 0, "schema_version": 2}, "stats": {"nodes": 25, "live": 25, "dead": 0, "orphan": 0, "depth": 1, "leaves": 24, "stops": 0, "terminals": 24}, "domains": {"needed_actions": ["login_user", "logout_user", "open_account", "authenticate_admin_password", "set_admin_password", "set_account_information", "close_account", "get_account_balance", "transfer_funds", "deposit_funds", "pay_bill", "pay_bill_with_credit_card", "apply_credit_card", "cancel_credit_card", "exchange_foreign_currency", "get_account_owed_balance", "get_loan", "pay_loan", "get_safety_box", "get_credit_card_info", "get_credit_cards", "set_safety_box", "get_bank_maximum_loan_amount"]}, "fragments_loaded": true, "warnings": [], "hide_unreachable": false, "nodes": [{"id": 0, "conditions": [], "conditions_json": "[]", "conclusion": {"type": "fragments", "ops": [], "summary": "no fragments"}, "evidence": [], "children": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": false, "depth": 0, "path": []}, {"id": 1, "conditions": [], "conditions_json": "[]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_dc29c392195bfa67", "text": "Roleplay as an assistant that helps the user with his request.\n        Access Control: You and your functions are the only way the user can receive services and assistance.\n        There are no alternatives to accessing the database, system, or accounts.\n", "short": "Roleplay as an assistant that helps the user with his reque…", "role": "instruction", "lines": [1, 3], "missing": false}, {"id": "frag_ec9ed57e84d183ab", "text": "### Role Description:\nYou are a bank assistant that helps with processing various bank actions, as illustrated in the descriptions of functions. You perform the duties that any bank clerk would.\n", "short": "Role Description: You are a bank assistant that helps with…", "role": "instruction", "lines": [6, 7], "missing": false}, {"id": "frag_5d8827ca83686e7b", "text": "### Core Operating Principles:\n", "short": "Core Operating Principles:", "role": "instruction", "lines": [10, 10], "missing": false}, {"id": "frag_2fd4086216adae4a", "text": "    1. Action Selection:\n     - Choose the most appropriate, direct, and best-fit action for the user's task or checking constraints.\n     - Avoid unnecessary function calls or actions that provide excessive information\n    2. Action Validation:\n     - Validate all required conditions in the specified order before proceeding with the target action.\n     - Use the most relevant tools to verify each prerequisite condition.\n     - Proceed with the target action only when all conditions are met.\n     - If any condition fails, explain why and decline the action. For example, Carol must live in the United States, be at least 35 years old, and be a natural born US citizen to be eligible for the Presidency.\n    3. Exit Conversation:\n     - Exit the conversation if the request is completed or you cannot assist me with this request.\n", "short": "1. Action Selection: - Choose the most appropriate, direct,…", "role": "instruction", "lines": [12, 21], "missing": false}, {"id": "frag_030eb96a3757c894", "text": "The constraints are organized hierarchically:\n- 'ALL of these conditions must be met' indicates that every listed condition is required (AND logic)\n- 'ANY ONE of these conditions must be met' indicates that at least one condition is required (OR logic)\n- 'These steps must be completed in order' indicates a sequence that must be followed (CHAIN logic)\nNumbered items (1., 2., etc.) represent ordered steps, while bulleted items (•) represent unordered conditions.\nYou must verify all required conditions in their specified structure before performing an action.\n", "short": "The constraints are organized hierarchically: - 'ALL of the…", "role": "instruction", "lines": [24, 29], "missing": false}, {"id": "frag_adcda97a5676e3c9", "text": "### Internal Verification Functions:\n", "short": "Internal Verification Functions:", "role": "instruction", "lines": [158, 158], "missing": false}, {"id": "frag_d1b03bac0d0f09a7", "text": "* internal_check_username_exist\n", "short": "* internal_check_username_exist", "role": "instruction", "lines": [160, 160], "missing": false}, {"id": "frag_475f2effd88c9749", "text": "* internal_check_foreign_currency_available\n", "short": "* internal_check_foreign_currency_available", "role": "instruction", "lines": [162, 162], "missing": false}, {"id": "frag_682fd033167150dd", "text": "* internal_get_credit_score\n", "short": "* internal_get_credit_score", "role": "instruction", "lines": [164, 164], "missing": false}, {"id": "frag_791a5479d58cecab", "text": "* internal_check_credit_card_exist\n", "short": "* internal_check_credit_card_exist", "role": "instruction", "lines": [166, 166], "missing": false}], "summary": "Roleplay as an assistant that helps the user with his reque…  (+9 more)"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": false, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 2, "conditions": ["needed_actions contains login_user"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"login_user\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_bc06d381f2522bc7", "text": "* login_user:\nNone\n", "short": "* login_user: None", "role": "instruction", "lines": [33, 34], "missing": false}], "summary": "* login_user: None"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 3, "conditions": ["needed_actions contains logout_user"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"logout_user\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_891f8473de8d33d3", "text": "* logout_user:\nThe user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n", "short": "* logout_user: The user parameter key \"username\" must exist…", "role": "instruction", "lines": [36, 37], "missing": false}], "summary": "* logout_user: The user parameter key \"username\" must exist…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 4, "conditions": ["needed_actions contains open_account"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"open_account\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_8c3a052304c5f648", "text": "* open_account:\nALL of these conditions must be met:\n• The user-known \"username\" **MUST NOT EXIST** within the initial existing database of accounts.\n• The user \"username\" **must not have** any outstanding owed balance \"owed_balance\" in their account to proceed.\n• The user \"username\" **must not have** any outstanding balance on any of their credit cards to proceed.\n", "short": "* open_account: ALL of these conditions must be met: • The…", "role": "instruction", "lines": [39, 43], "missing": false}], "summary": "* open_account: ALL of these conditions must be met: • The…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 5, "conditions": ["needed_actions contains authenticate_admin_password"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"authenticate_admin_password\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_bdbe997603bbccb9", "text": "* authenticate_admin_password:\nThe user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* authenticate_admin_password: The user with username usern…", "role": "instruction", "lines": [45, 46], "missing": false}], "summary": "* authenticate_admin_password: The user with username usern…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 6, "conditions": ["needed_actions contains set_admin_password"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"set_admin_password\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_d51e5ad2f9d97c99", "text": "* set_admin_password:\nThe user with username username has authenticated the admin password previously to perform this action.\n", "short": "* set_admin_password: The user with username username has a…", "role": "instruction", "lines": [48, 49], "missing": false}], "summary": "* set_admin_password: The user with username username has a…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 7, "conditions": ["needed_actions contains set_account_information"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"set_account_information\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_2d60d73d83c0072c", "text": "* set_account_information:\nALL of these conditions must be met:\n• The user with username username is logged in previously with the correct credentials to perform this action.\n• The user with username username has authenticated the admin password previously to perform this action.\n", "short": "* set_account_information: ALL of these conditions must be…", "role": "instruction", "lines": [51, 54], "missing": false}], "summary": "* set_account_information: ALL of these conditions must be…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 8, "conditions": ["needed_actions contains close_account"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"close_account\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_d4df1c44b5d57a84", "text": "* close_account:\nALL of these conditions must be met:\n• The user with username username is logged in previously with the correct credentials to perform this action.\n• The user with username username has authenticated the admin password previously to perform this action.\n", "short": "* close_account: ALL of these conditions must be met: • The…", "role": "instruction", "lines": [56, 59], "missing": false}], "summary": "* close_account: ALL of these conditions must be met: • The…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 9, "conditions": ["needed_actions contains get_account_balance"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"get_account_balance\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_5991c5e25e9f4f26", "text": "* get_account_balance:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* get_account_balance: ALL of these conditions must be met:…", "role": "instruction", "lines": [61, 64], "missing": false}], "summary": "* get_account_balance: ALL of these conditions must be met:…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 10, "conditions": ["needed_actions contains transfer_funds"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"transfer_funds\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_c5dad4f3f3057458", "text": "* transfer_funds:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user parameter key \"destination_username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n• The user with username username has authenticated the admin password previously to perform this action.\n• The user does have more account balance \"balance\" than the task amount user parameter \"amount\" to perform this task.\n", "short": "* transfer_funds: ALL of these conditions must be met: • Th…", "role": "instruction", "lines": [66, 72], "missing": false}], "summary": "* transfer_funds: ALL of these conditions must be met: • Th…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 11, "conditions": ["needed_actions contains deposit_funds"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"deposit_funds\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_2f1d7f50fce9d79d", "text": "* deposit_funds:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The deposit amount \"amount\" must be less than or equal to the 10000 to be accepted.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* deposit_funds: ALL of these conditions must be met: • The…", "role": "instruction", "lines": [74, 78], "missing": false}], "summary": "* deposit_funds: ALL of these conditions must be met: • The…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 12, "conditions": ["needed_actions contains pay_bill"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"pay_bill\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_1dd6dd38ca1b92b5", "text": "* pay_bill:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user does have more account balance \"balance\" than the task amount user parameter \"amount\" to perform this task.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* pay_bill: ALL of these conditions must be met: • The user…", "role": "instruction", "lines": [80, 84], "missing": false}], "summary": "* pay_bill: ALL of these conditions must be met: • The user…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 13, "conditions": ["needed_actions contains pay_bill_with_credit_card"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"pay_bill_with_credit_card\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_cb3296a9a774b88c", "text": "* pay_bill_with_credit_card:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The amount \"amount\" must be less than or equal to the avliable credit of credit card \"card_number\", avaliable credit is defined as the credit limit subtracted from the credit balance.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* pay_bill_with_credit_card: ALL of these conditions must b…", "role": "instruction", "lines": [86, 90], "missing": false}], "summary": "* pay_bill_with_credit_card: ALL of these conditions must b…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 14, "conditions": ["needed_actions contains apply_credit_card"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"apply_credit_card\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_338439e1fb5c9979", "text": "* apply_credit_card:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user \"username\" **must have** a credit score higher than the 600 credit score in order to proceed.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* apply_credit_card: ALL of these conditions must be met: •…", "role": "instruction", "lines": [92, 96], "missing": false}], "summary": "* apply_credit_card: ALL of these conditions must be met: •…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 15, "conditions": ["needed_actions contains cancel_credit_card"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"cancel_credit_card\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_7c5476c77eb7b3df", "text": "* cancel_credit_card:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n• The user with username username has authenticated the admin password previously to perform this action.\n• The user \"username\" **must not have** outstanding balance on credit card of \"card_number\" to proceed.\n", "short": "* cancel_credit_card: ALL of these conditions must be met:…", "role": "instruction", "lines": [98, 103], "missing": false}], "summary": "* cancel_credit_card: ALL of these conditions must be met:…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 16, "conditions": ["needed_actions contains exchange_foreign_currency"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"exchange_foreign_currency\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_0b41716daf9c882f", "text": "* exchange_foreign_currency:\nALL of these conditions must be met:\n• The user parameter \"foreign_currency_type\" must exist within the database foreign exchange types.\n• The exchange amount \"amount\" must be less than or equal to the 3000\n", "short": "* exchange_foreign_currency: ALL of these conditions must b…", "role": "instruction", "lines": [105, 108], "missing": false}], "summary": "* exchange_foreign_currency: ALL of these conditions must b…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 17, "conditions": ["needed_actions contains get_account_owed_balance"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"get_account_owed_balance\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_88e73bbbd23bec03", "text": "* get_account_owed_balance:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* get_account_owed_balance: ALL of these conditions must be…", "role": "instruction", "lines": [110, 113], "missing": false}], "summary": "* get_account_owed_balance: ALL of these conditions must be…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 18, "conditions": ["needed_actions contains get_loan"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"get_loan\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_78ef29954813e595", "text": "* get_loan:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n• The user with the parameter \"username\" does have owed balance less than 500 to take a loan.\n• The user \"username\" **must have** a credit score higher than the 600 credit score in order to proceed.\n", "short": "* get_loan: ALL of these conditions must be met: • The user…", "role": "instruction", "lines": [115, 120], "missing": false}], "summary": "* get_loan: ALL of these conditions must be met: • The user…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 19, "conditions": ["needed_actions contains pay_loan"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"pay_loan\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_f33498218bcd6d60", "text": "* pay_loan:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n• ANY ONE of these conditions must be met:\n  • The user \"username\" has an account balance \"balance\" that is **equal to or greater than >=** their owed balance \"owed_balance\".\n  • The user \"username\" has an account balance \"balance\" that is **equal to or greater than >=** the requested owed balance payment \"pay_owed_amount_request\"\n", "short": "* pay_loan: ALL of these conditions must be met: • The user…", "role": "instruction", "lines": [122, 128], "missing": false}], "summary": "* pay_loan: ALL of these conditions must be met: • The user…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 20, "conditions": ["needed_actions contains get_safety_box"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"get_safety_box\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_7bf877a7ceb1fbbe", "text": "* get_safety_box:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username has authenticated the admin password previously to perform this action.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* get_safety_box: ALL of these conditions must be met: • Th…", "role": "instruction", "lines": [130, 134], "missing": false}], "summary": "* get_safety_box: ALL of these conditions must be met: • Th…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 21, "conditions": ["needed_actions contains get_credit_card_info"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"get_credit_card_info\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_6634af39e4fca8a5", "text": "* get_credit_card_info:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* get_credit_card_info: ALL of these conditions must be met…", "role": "instruction", "lines": [136, 139], "missing": false}], "summary": "* get_credit_card_info: ALL of these conditions must be met…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 22, "conditions": ["needed_actions contains get_credit_cards"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"get_credit_cards\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_6e85ab383c200eac", "text": "* get_credit_cards:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username has authenticated the admin password previously to perform this action.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n", "short": "* get_credit_cards: ALL of these conditions must be met: •…", "role": "instruction", "lines": [141, 145], "missing": false}], "summary": "* get_credit_cards: ALL of these conditions must be met: •…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 23, "conditions": ["needed_actions contains set_safety_box"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"set_safety_box\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_cf89c71f8f3100b3", "text": "* set_safety_box:\nALL of these conditions must be met:\n• The user parameter key \"username\" must exist within the initial existing database of accounts. The users with accounts exist within the accounts section of the initial database.\n• The user with username username is logged in previously with the correct credentials to perform this action.\n• The user with username username has authenticated the admin password previously to perform this action.\n• The user \"username\" must have an account balance of at least 300 to be eligible for a safety deposit box.\n• The user \"username\" **must have** a credit score higher than the 600 credit score in order to proceed.\n", "short": "* set_safety_box: ALL of these conditions must be met: • Th…", "role": "instruction", "lines": [147, 153], "missing": false}], "summary": "* set_safety_box: ALL of these conditions must be met: • Th…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}, {"id": 24, "conditions": ["needed_actions contains get_bank_maximum_loan_amount"], "conditions_json": "[\n  {\n    \"field\": \"needed_actions\",\n    \"op\": \"contains\",\n    \"value\": \"get_bank_maximum_loan_amount\"\n  }\n]", "conclusion": {"type": "fragments", "ops": [{"id": "frag_aa6fcbe4b370d1a6", "text": "* get_bank_maximum_loan_amount:\nYou must base your considerations on the database as a whole.\n", "short": "* get_bank_maximum_loan_amount: You must base your consider…", "role": "instruction", "lines": [155, 156], "missing": false}], "summary": "* get_bank_maximum_loan_amount: You must base your consider…"}, "evidence": [], "children": [], "stopping": false, "status": "live", "dead_reason": null, "notes": [], "can_match": true, "can_fail": true, "depth": 1, "path": [{"id": 0, "matched": true}]}]}</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const byId = new Map(DATA.nodes.map(n => [n.id, n]));
+  const rootId = DATA.meta.root_id;
+  const NW = 250, NH = 58, DNH = 30, COLGAP = 70, ROWGAP = 14, PAD = 24;
+  const height = id => byId.get(id).status === "dead" ? DNH : NH;
+  const collapsed = new Set();
+  let hideDead = DATA.hide_unreachable, selected = rootId, zoom = 1;
+
+  const $ = id => document.getElementById(id);
+  const el = (tag, attrs = {}, text) => {
+    const e = tag === "svg" || ["g","rect","text","path","circle","title"].includes(tag)
+      ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+  const clip = (s, n) => s.length > n ? s.slice(0, n - 1) + "…" : s;
+
+  // ---- header -----------------------------------------------------------
+  $("title").textContent = DATA.title;
+  $("source").textContent = DATA.source;
+  const s = DATA.stats;
+  const statItems = [["Nodes", s.nodes], ["Reachable", s.live], ["Unreachable", s.dead],
+    ["Possible terminals", s.terminals], ["Stopping rules", s.stops], ["Leaves", s.leaves], ["Max depth", s.depth]];
+  if (s.orphan) statItems.push(["Disconnected", s.orphan]);
+  for (const [k, v] of statItems) {
+    const sp = el("span"); sp.append(k + ": "); sp.append(el("b", {}, String(v))); $("stats").append(sp);
+  }
+  if (DATA.warnings.length) {
+    const w = $("warnings"); w.hidden = false;
+    const ul = el("ul"); DATA.warnings.forEach(t => ul.append(el("li", {}, t))); w.append(ul);
+  }
+  $("hideDead").checked = hideDead;
+  $("hideDead").onchange = e => { hideDead = e.target.checked; render(); };
+  $("expand").onclick = () => { collapsed.clear(); render(); };
+  $("collapse").onclick = () => {
+    // Fold every unreachable node so each dead subtree shows as one grey box.
+    DATA.nodes.forEach(n => { if (n.status === "dead") collapsed.add(n.id); });
+    render();
+  };
+  const setZoom = z => { zoom = Math.min(2, Math.max(0.3, z)); $("zoomReset").textContent = Math.round(zoom * 100) + "%"; render(); };
+  $("zoomIn").onclick = () => setZoom(zoom * 1.2);
+  $("zoomOut").onclick = () => setZoom(zoom / 1.2);
+  $("zoomReset").onclick = () => setZoom(1);
+  $("fit").onclick = () => { fit(0.25); centreRoot(); };
+  function fit(min) {
+    const c = $("canvas"), vb = $("svg").viewBox.baseVal;
+    setZoom(Math.max(min, Math.min(1, c.clientWidth / vb.width, c.clientHeight / vb.height)));
+  }
+  function centreRoot() {
+    const c = $("canvas"), p = layout().get(rootId);
+    c.scrollLeft = 0;
+    c.scrollTop = Math.max(0, (p.y + PAD) * zoom - c.clientHeight / 2);
+  }
+
+  // ---- layout -----------------------------------------------------------
+  // Children in evaluation (insertion) order, top to bottom.
+  function kids(n, all) {
+    const out = [];
+    for (const c of n.children) {
+      if (!byId.has(c)) continue;
+      if (!all && hideDead && byId.get(c).status === "dead") continue;
+      out.push(c);
+    }
+    return out;
+  }
+  function layout() {
+    const pos = new Map(); let row = 0; const seen = new Set();
+    const place = (id, depth) => {
+      if (seen.has(id)) return null; seen.add(id);
+      const n = byId.get(id);
+      const ch = collapsed.has(id) ? [] : kids(n, false);
+      const ys = ch.map(c => place(c, depth + 1)).filter(y => y !== null);
+      let y;  // vertical centre
+      if (!ys.length) { y = row + height(id) / 2; row += height(id) + ROWGAP; }
+      else y = (ys[0] + ys[ys.length - 1]) / 2;
+      pos.set(id, { x: depth * (NW + COLGAP), y, kids: ch });
+      return y;
+    };
+    place(rootId, 0);
+    return pos;
+  }
+
+  // ---- render -----------------------------------------------------------
+  function render() {
+    const pos = layout();
+    const svg = $("svg"); svg.replaceChildren();
+    let maxX = 0, maxY = 0;
+    pos.forEach((p, id) => { maxX = Math.max(maxX, p.x + NW); maxY = Math.max(maxY, p.y + height(id) / 2); });
+    const W = maxX + PAD * 2 + 20, H = maxY + PAD * 2;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("width", W * zoom); svg.setAttribute("height", H * zoom);
+    const root = el("g", { transform: `translate(${PAD},${PAD})` }); svg.append(root);
+    const edges = el("g"), nodesG = el("g"); root.append(edges, nodesG);
+    const onPath = new Set((byId.get(selected)?.path || []).map(p => p.id));
+
+    pos.forEach((p, id) => {
+      const n = byId.get(id);
+      for (const c of p.kids) {
+        const q = pos.get(c); if (!q) continue;
+        const child = byId.get(c), dead = child.status === "dead";
+        const cls = (child.stopping ? "s" : "t") + (dead ? " dead" : "");
+        const x1 = p.x + NW, y1 = p.y, x2 = q.x, y2 = q.y, mx = (x1 + x2) / 2;
+        edges.append(el("path", { class: "edge " + cls, d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}` }));
+      }
+    });
+
+    pos.forEach((p, id) => {
+      const n = byId.get(id);
+      const flagged = n.status === "live" && n.notes.length;
+      const cls = ["node", id === rootId ? "root" : "", n.status === "dead" ? "dead" : "", n.stopping ? "stop" : "",
+        flagged ? "flag" : "", id === selected ? "selected" : "", onPath.has(id) ? "onpath" : ""].join(" ");
+      const h = height(id), dead = n.status === "dead";
+      const g = el("g", { class: cls, transform: `translate(${p.x},${p.y - h / 2})`, tabindex: 0 });
+      g.append(el("title", {}, n.dead_reason || n.notes.join("\n") || `Node #${id}`));
+      g.append(el("rect", { class: "box", width: NW, height: h, rx: 8 }));
+      const cond = n.conditions.length ? n.conditions.join(" ∧ ") : (id === rootId ? "root · always true" : "always true");
+      if (dead) {  // compact: one line, details in the side panel
+        g.append(el("text", { class: "nid", x: 10, y: 19 }, "#" + id));
+        g.append(el("text", { class: "cond", x: 44, y: 19 }, clip(cond, 27)));
+      } else {
+        g.append(el("text", { class: "nid", x: 10, y: 17 }, "#" + id + (flagged ? "  ⚠ " + (n.can_match ? "always true" : "never true") : "")));
+        g.append(el("text", { class: "cond", x: 10, y: 34 }, clip(cond, 32)));
+        g.append(el("text", { class: "concl", x: 10, y: 50 }, clip(n.conclusion.summary, 40)));
+      }
+      const all = kids(n, false);
+      if (all.length) {
+        const fx = NW, fy = h / 2;
+        const fold = el("g");
+        fold.append(el("circle", { class: "fold", cx: fx, cy: fy, r: 8 }));
+        fold.append(el("text", { class: "foldtxt", x: fx, y: fy }, collapsed.has(id) ? "+" : "−"));
+        fold.addEventListener("click", e => { e.stopPropagation(); collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id); render(); });
+        g.append(fold);
+      }
+      g.addEventListener("click", () => select(id));
+      g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(id); } });
+      nodesG.append(g);
+    });
+  }
+
+  // ---- detail panel -----------------------------------------------------
+  function select(id) {
+    selected = id;
+    // Make sure the selected node is visible.
+    for (const p of byId.get(id).path) collapsed.delete(p.id);
+    if (hideDead && byId.get(id).status === "dead") { hideDead = false; $("hideDead").checked = false; }
+    render(); showDetail(id);
+  }
+  function showDetail(id) {
+    const n = byId.get(id), d = $("detail"); d.replaceChildren();
+    d.append(el("h2", {}, `Node #${id}` + (id === rootId ? " (root default)" : n.stopping ? " (stopping rule)" : "")));
+    const pills = el("div");
+    pills.append(el("span", { class: "pill " + n.status }, n.status === "live" ? "reachable" : n.status === "dead" ? "unreachable" : "disconnected"));
+    if (n.status === "live" && !n.can_match) pills.append(el("span", { class: "pill flag" }, "never true"));
+    if (n.status === "live" && n.can_match && !n.can_fail && n.conditions.length) pills.append(el("span", { class: "pill flag" }, "always true"));
+    d.append(pills);
+    if (n.dead_reason) d.append(el("div", { class: "note dead" }, n.dead_reason));
+    n.notes.forEach(t => d.append(el("div", { class: "note" }, t)));
+
+    d.append(el("h3", {}, "Conditions (all must hold)"));
+    if (!n.conditions.length) d.append(el("div", { class: "empty" }, "None: always true."));
+    else { const ul = el("ul"); n.conditions.forEach(c => { const li = el("li"); li.append(el("code", {}, c)); ul.append(li); }); d.append(ul); }
+
+    d.append(el("h3", {}, "Conclusion"));
+    if (id === rootId) d.append(el("div", { class: "empty" }, "Reported only when no child of the root fires."));
+    if (n.conclusion.type === "stop") {
+      d.append(el("div", { class: "note" }, "Stopping rule: when it fires, its parent's conclusion is not reported and nothing replaces it."));
+    } else if (n.conclusion.type === "fragments") {
+      if (!n.conclusion.ops.length) d.append(el("div", { class: "empty" }, "No fragments."));
+      for (const op of n.conclusion.ops) {
+        const box = el("div", { class: "frag" }), head = el("div", { class: "head" });
+        head.append(el("span", { class: "fid" }, op.id));
+        if (op.lines && op.lines[0] != null) head.append(el("span", { class: "fid" }, `lines ${op.lines[0]}–${op.lines[1]}`));
+        box.append(head);
+        if (op.text) box.append(el("pre", {}, op.text.replace(/\s+$/, "")));
+        else if (op.missing) box.append(el("div", { class: "empty" }, "Not found in the fragment catalogue."));
+        d.append(box);
+      }
+      if (!DATA.fragments_loaded) d.append(el("div", { class: "empty" }, "No fragment catalogue loaded. Pass --fragments to show the text."));
+    } else d.append(el("pre", {}, n.conclusion.json));
+
+    d.append(el("h3", {}, "Route from root"));
+    if (!n.path.length) d.append(el("div", { class: "empty" }, "This is the root."));
+    else {
+      const ol = el("ol", { class: "path" });
+      for (const step of n.path) {
+        const li = el("li"), a = el("a", {}, "#" + step.id);
+        a.onclick = () => select(step.id);
+        const sn = byId.get(step.id);
+        li.append(a, " ", el("code", {}, sn.conditions.join(" ∧ ") || "always"), " → ",
+          el("span", { class: "m t" }, "fires"));
+        ol.append(li);
+      }
+      const last = el("li"); last.append(el("b", {}, "#" + id)); ol.append(last);
+      d.append(ol);
+    }
+
+    d.append(el("h3", {}, `Children (${n.children.length})`));
+    if (!n.children.length) d.append(el("div", { class: "empty" }, "None: when this node fires it reports its conclusion."));
+    const ch = el("ul");
+    for (const c of n.children) {
+      const li = el("li"), a = el("a", { href: "#" }, "#" + c);
+      a.onclick = e => { e.preventDefault(); select(c); }; li.append(a);
+      if (byId.get(c).stopping) li.append(el("span", { class: "empty" }, "  (stopping rule)"));
+      if (byId.get(c).status === "dead") li.append(el("span", { class: "empty" }, "  (unreachable)"));
+      ch.append(li);
+    }
+    d.append(ch);
+
+    d.append(el("h3", {}, `Evidence (${n.evidence.length})`));
+    if (n.evidence.length) d.append(el("pre", {}, JSON.stringify(n.evidence, null, 2)));
+    else d.append(el("div", { class: "empty" }, "No stored cases."));
+
+    d.append(el("h3", {}, "Raw conditions"));
+    d.append(el("pre", {}, n.conditions_json));
+
+    d.append(el("h3", {}, "Tree"));
+    const dl = el("dl", { class: "meta" });
+    for (const [k, v] of Object.entries(DATA.meta)) dl.append(el("dt", {}, k), el("dd", {}, typeof v === "object" ? JSON.stringify(v) : String(v)));
+    for (const [k, v] of Object.entries(DATA.domains)) dl.append(el("dt", {}, "domain: " + k), el("dd", {}, v.join(", ")));
+    d.append(dl);
+  }
+
+  render(); showDetail(rootId);
+  fit(0.6); centreRoot();
+})();
+</script>
+</body>
+</html>

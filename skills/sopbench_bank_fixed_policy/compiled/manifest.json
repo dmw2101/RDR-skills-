@@ -1,0 +1,45 @@
+{
+  "engine_schema_version": 2,
+  "feature_schema": {
+    "features": {
+      "needed_actions": {
+        "description": "Bank action procedures needed at this step, including any helper actions the caller intends to execute. Select actions, not eligibility outcomes. Multiple actions may be needed; [] selects only general guidance.",
+        "multiple": true,
+        "values": [
+          "login_user",
+          "logout_user",
+          "open_account",
+          "authenticate_admin_password",
+          "set_admin_password",
+          "set_account_information",
+          "close_account",
+          "get_account_balance",
+          "transfer_funds",
+          "deposit_funds",
+          "pay_bill",
+          "pay_bill_with_credit_card",
+          "apply_credit_card",
+          "cancel_credit_card",
+          "exchange_foreign_currency",
+          "get_account_owed_balance",
+          "get_loan",
+          "pay_loan",
+          "get_safety_box",
+          "get_credit_card_info",
+          "get_credit_cards",
+          "set_safety_box",
+          "get_bank_maximum_loan_amount"
+        ]
+      }
+    }
+  },
+  "feature_schema_sha256": "6ad393cae776eab4d7b1b5ee51a923c6898c6acd7f9ec4d90ec75e4b7c891709",
+  "fragments_sha256": "f94882e4bfacd12b2642f732e9d53a815d5425b0992ddc57878cbf86114491f8",
+  "generated_at": "2026-10-27T08:19:29.317168+00:00",
+  "ir_sha256": "af19816850b4061c94e3eb2b291438a996fb0a6eb1eb8398858c18416490937e",
+  "model_id": "gemini-3.1-flash-lite",
+  "prompt_version": "2",
+  "schema_version": 2,
+  "source_sha256": "f6d3da734ea07f8e403a47895c1ec7c89dc5fa126449680f035678ec2a44d43f",
+  "tree_sha256": "0b70ac5817297c8dbbcc5ad9b2ddf1c103f86ea44905273c61b0d1cafeb87360"
+}

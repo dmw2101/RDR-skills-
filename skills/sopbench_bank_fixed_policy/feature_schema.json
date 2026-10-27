@@ -1,0 +1,33 @@
+{
+  "sopbench_bank_fixed_policy": {
+    "needed_actions": {
+      "description": "Bank action procedures needed at this step, including any helper actions the caller intends to execute. Select actions, not eligibility outcomes. Multiple actions may be needed; [] selects only general guidance.",
+      "multiple": true,
+      "values": [
+        "login_user",
+        "logout_user",
+        "open_account",
+        "authenticate_admin_password",
+        "set_admin_password",
+        "set_account_information",
+        "close_account",
+        "get_account_balance",
+        "transfer_funds",
+        "deposit_funds",
+        "pay_bill",
+        "pay_bill_with_credit_card",
+        "apply_credit_card",
+        "cancel_credit_card",
+        "exchange_foreign_currency",
+        "get_account_owed_balance",
+        "get_loan",
+        "pay_loan",
+        "get_safety_box",
+        "get_credit_card_info",
+        "get_credit_cards",
+        "set_safety_box",
+        "get_bank_maximum_loan_amount"
+      ]
+    }
+  }
+}

@@ -178,7 +178,18 @@ async def run_experiment(config, *, resume=False):
         probe = SessionContext(config["skill"]["id"], receipt["artifact_id"], tasks[0]["task"],
                                resolvers["reduced"], receipt["source_fingerprint"],
                                expected_revision=receipt["resolver_revision"])
-        await probe.load_skill()
+        if hasattr(resolvers["reduced"], "preflight"):
+            from .contracts import ResolveSkillRequest
+            resolved = await resolvers["reduced"].preflight(ResolveSkillRequest(
+                probe.skill_id, probe.task, {}, probe.artifact_id))
+            if (resolved.artifact_id != probe.artifact_id
+                    or resolved.source_fingerprint != probe.expected_source
+                    or resolved.resolver_revision != probe.expected_revision):
+                raise ValueError("skill service provenance differs from receipt")
+            probe.capabilities = resolved.capabilities
+            probe.events.append({"type": "preflight", "response": resolved.to_dict()})
+        else:
+            await probe.load_skill()
     manifest = {"config": config, "code_revision": code_revision(), "package_version": __version__,
                 "python": sys.version, "platform": platform.platform(), "git_revision": git_revision(),
                 "dependency_versions": dependency_versions(),
@@ -189,6 +200,8 @@ async def run_experiment(config, *, resume=False):
                                         run.get("skill_loading", "model_initiated").replace("_", "-")
                                         for c in conditions},
                 "tasks": tasks, "system_prompt": adapter.system_prompt}
+    if "reduced" in resolvers and hasattr(resolvers["reduced"], "provenance"):
+        manifest["skill_selector"] = resolvers["reduced"].provenance
     run_id = fingerprint(manifest)
     root = Path(run["output_dir"])
     root.mkdir(parents=True, exist_ok=True)
@@ -234,7 +247,8 @@ async def run_experiment(config, *, resume=False):
                     session = await adapter.open_session(task)
                     setup_seconds = time.monotonic() - started
                     policy = (NoSkillPolicy() if condition == "none" else
-                              RollingSkillPolicy() if run.get("skill_loading") == "rolling" else
+                              (adapter.rolling_skill_policy() if hasattr(adapter, "rolling_skill_policy")
+                               else RollingSkillPolicy()) if run.get("skill_loading") == "rolling" else
                               ModelInitiatedSkillPolicy())
                     result = await run_episode(model=model, session=session, skill_context=context,
                                                system_prompt=adapter.system_prompt, policy=policy,
@@ -301,12 +315,16 @@ def usage_summary(records):
         events = [e for r in episodes for e in r["events"]]
         model_events = [e for e in events if e["type"] == "model_response"]
         skill_events = [e for e in events if e["type"] == "skill"]
+        skill_errors = [e for e in events if e["type"] == "skill_error"]
         skill_requests = sum(e["type"] == "skill_request" for e in events)
         model_requests = sum(e["type"] == "model_request" for e in events)
-        usage = [e["usage"] for e in model_events] + [e["response"]["usage"] for e in skill_events]
+        usage = ([e["usage"] for e in model_events] + [e["response"]["usage"] for e in skill_events]
+                 + [e["usage"] for e in skill_errors if "usage" in e])
+        skill_usage_complete = (skill_requests == len(skill_events) + len(skill_errors)
+                                and all("usage" in e for e in skill_errors))
         def total(name):
             values = [u.get(name) for u in usage]
-            if model_requests != len(model_events) or skill_requests != len(skill_events) or any(x is None for x in values):
+            if model_requests != len(model_events) or not skill_usage_complete or any(x is None for x in values):
                 return None
             return sum(values)
         result[condition] = {
@@ -320,8 +338,12 @@ def usage_summary(records):
             "model_skill_calls": model_skill_calls(events),
             "episodes_with_model_skill_calls": sum(model_skill_calls(r["events"]) > 0 for r in episodes),
             "model_followup_skill_calls": sum(max(0, model_skill_calls(r["events"]) - 1) for r in episodes),
-            "resolver_model_calls": (sum(e["response"]["usage"]["model_calls"] for e in skill_events)
-                                     if skill_requests == len(skill_events) and all(e["response"]["usage"].get("model_calls") is not None for e in skill_events) else None),
+            "resolver_model_calls": (sum(u["model_calls"] for u in
+                                         [e["response"]["usage"] for e in skill_events]
+                                         + [e["usage"] for e in skill_errors if "usage" in e])
+                                     if skill_usage_complete and all(u.get("model_calls") is not None for u in
+                                         [e["response"]["usage"] for e in skill_events]
+                                         + [e["usage"] for e in skill_errors if "usage" in e]) else None),
             "input_tokens": total("input_tokens"), "output_tokens": total("output_tokens"),
             "cost_usd": total("cost_usd"),
             "cached_input_tokens": (sum(e["usage"]["cached_input_tokens"] for e in model_events)
@@ -350,7 +372,9 @@ def inspect_skill_requests(root):
         requests = [{"request": e["request"]["task"], "context": e["request"]["context"],
                      "selection": e.get("selection"),
                      "guidance_characters": len(e["response"]["markdown"]),
-                     "markdown_sha256": e["markdown_sha256"]}
+                     "markdown_sha256": e["markdown_sha256"],
+                     **({"selector": e["response"]["metadata"]["selector"]}
+                        if "selector" in e["response"].get("metadata", {}) else {})}
                     for e in events if e["type"] == "skill"]
         episodes.append({"task_id": record["task_id"], "condition": record["condition"],
                          "replicate": record["replicate"], "status": record["status"],

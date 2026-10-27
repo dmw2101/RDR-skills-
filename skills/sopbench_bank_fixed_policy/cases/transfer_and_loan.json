@@ -1,0 +1,6 @@
+{
+  "needed_actions": [
+    "transfer_funds",
+    "get_loan"
+  ]
+}

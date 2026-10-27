@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "model": {
+    "factory": "skill_agent.models:OpenAICompatibleClient",
+    "options": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "qwen/qwen3.7-flash",
+      "api_key_env": "MODEL_API_KEY",
+      "temperature": 0,
+      "max_tokens": 8192,
+      "timeout": 90,
+      "provider": {"only": ["alibaba"], "allow_fallbacks": false, "require_parameters": true,
+                   "max_price": {"prompt": 0.23, "completion": 0.92}}
+    }
+  },
+  "benchmark": {
+    "factory": "skill_agent.benchmarks.sopbench_bank:SOPBenchBankAdapter",
+    "options": {"source_dir": "benchmarks/local-data/sopbench-li"}
+  },
+  "skill": {
+    "id": "sopbench_bank_fixed_policy",
+    "full_markdown": "skills/sopbench_bank_fixed_policy/initial.md",
+    "receipt": "experiments/bank-snapshot-mcrdr.json",
+    "resolver": {
+      "factory": "skill_agent.bank_selection:BankActionResolver",
+      "options": {
+        "base_url": "http://127.0.0.1:8766",
+        "timeout": 30,
+        "action_schema": "skills/sopbench_bank_fixed_policy/feature_schema.json",
+        "selector_model": {
+          "base_url": "https://openrouter.ai/api/v1",
+          "model": "qwen/qwen3.7-flash",
+          "api_key_env": "MODEL_API_KEY",
+          "temperature": 0,
+          "max_tokens": 2048,
+          "timeout": 90,
+          "provider": {"only": ["alibaba"], "allow_fallbacks": false, "require_parameters": true,
+                       "max_price": {"prompt": 0.23, "completion": 0.92}}
+        }
+      }
+    }
+  },
+  "run": {
+    "skill_loading": "rolling",
+    "output_dir": "experiments/sopbench-bank-dev34",
+    "split": "dev",
+    "limit": 34,
+    "replicates": 1,
+    "concurrency": 1,
+    "max_calls": 20,
+    "timeout_seconds": 600,
+    "conditions": ["none", "full", "reduced"]
+  }
+}

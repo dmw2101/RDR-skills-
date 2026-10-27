@@ -152,8 +152,11 @@ class SessionContext:
         try:
             result = await self.resolver.resolve(request)
         except Exception as exc:
-            self.events.append({"type": "skill_error", "error": type(exc).__name__,
-                                "seconds": time.monotonic() - started})
+            event = {"type": "skill_error", "error": type(exc).__name__,
+                     "seconds": time.monotonic() - started}
+            if isinstance(getattr(exc, "usage", None), dict):
+                event["usage"] = exc.usage
+            self.events.append(event)
             raise
         if result.artifact_id != self.artifact_id:
             raise ValueError("resolver returned a different artifact")
@@ -263,13 +266,23 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
             events.append({"type": "model_response", "turn": turn, "message": response.message,
                            "usage": response.usage, "metadata": response.metadata})
             history.append(response.message)
+            if (getattr(session, "require_complete_responses", False)
+                    and response.metadata.get("finish_reason") in ("length", "content_filter")):
+                raise ValueError("model response was truncated or blocked")
             calls = response.message.get("tool_calls") or []
             if not calls:
+                if hasattr(session, "customer_response"):
+                    reply = await session.customer_response(response.message)
+                    if reply is not None:
+                        events.append({"type": "user_message", "turn": turn, "content": reply})
+                        history.append({"role": "user", "content": reply})
+                        continue
                 prediction = await session.collect()
                 status = "completed"
                 return
             for call in calls:
                 name = call["function"]["name"]
+                args = {}
                 try:
                     args = json.loads(call["function"]["arguments"])
                     if not isinstance(args, dict):
@@ -279,9 +292,18 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                     output = await tools[name].execute(args)
                 except (ValueError, KeyError) as exc:
                     output = {"error": str(exc)}
-                events.append({"type": "tool", "name": name, "call": call, "result": output})
+                    if name != "request_skill" and hasattr(session, "record_invalid_tool_call"):
+                        session.record_invalid_tool_call(name, args if isinstance(args, dict) else {}, output)
+                event = {"type": "tool", "name": name, "call": call, "result": output}
+                if hasattr(session, "customer_response"):
+                    event["turn"] = turn
+                events.append(event)
                 history.append({"role": "tool", "tool_call_id": call["id"],
                                 "content": json.dumps(output, ensure_ascii=False)})
+                if getattr(session, "finished", False):
+                    prediction = await session.collect()
+                    status = "completed"
+                    return
         raise TimeoutError("model-call budget exhausted")
 
     try:
@@ -289,6 +311,11 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
         status = "budget_exhausted" if isinstance(exc, TimeoutError) else "failed"
+        if getattr(session, "collect_on_failure", False):
+            try:
+                prediction = await session.collect()
+            except Exception:
+                pass  # Keep the original error and mark the episode incomplete.
     finally:
         try:
             await session.close()

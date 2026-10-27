@@ -1,0 +1,581 @@
+{
+  "excluded": [
+    {
+      "end": 5,
+      "reason": "Blank separator",
+      "start": 4
+    },
+    {
+      "end": 9,
+      "reason": "Blank separator",
+      "start": 8
+    },
+    {
+      "end": 11,
+      "reason": "Blank separator",
+      "start": 11
+    },
+    {
+      "end": 23,
+      "reason": "Blank separator",
+      "start": 22
+    },
+    {
+      "end": 30,
+      "reason": "Blank separator",
+      "start": 30
+    },
+    {
+      "end": 32,
+      "reason": "Structural heading",
+      "start": 31
+    },
+    {
+      "end": 35,
+      "reason": "Blank separator",
+      "start": 35
+    },
+    {
+      "end": 38,
+      "reason": "Blank separator",
+      "start": 38
+    },
+    {
+      "end": 44,
+      "reason": "Blank separator",
+      "start": 44
+    },
+    {
+      "end": 47,
+      "reason": "Blank separator",
+      "start": 47
+    },
+    {
+      "end": 50,
+      "reason": "Blank separator",
+      "start": 50
+    },
+    {
+      "end": 55,
+      "reason": "Blank separator",
+      "start": 55
+    },
+    {
+      "end": 60,
+      "reason": "Blank separator",
+      "start": 60
+    },
+    {
+      "end": 65,
+      "reason": "Blank separator",
+      "start": 65
+    },
+    {
+      "end": 73,
+      "reason": "Blank separator",
+      "start": 73
+    },
+    {
+      "end": 79,
+      "reason": "Blank separator",
+      "start": 79
+    },
+    {
+      "end": 85,
+      "reason": "Blank separator",
+      "start": 85
+    },
+    {
+      "end": 91,
+      "reason": "Blank separator",
+      "start": 91
+    },
+    {
+      "end": 97,
+      "reason": "Blank separator",
+      "start": 97
+    },
+    {
+      "end": 104,
+      "reason": "Blank separator",
+      "start": 104
+    },
+    {
+      "end": 109,
+      "reason": "Blank separator",
+      "start": 109
+    },
+    {
+      "end": 114,
+      "reason": "Blank separator",
+      "start": 114
+    },
+    {
+      "end": 121,
+      "reason": "Blank separator",
+      "start": 121
+    },
+    {
+      "end": 129,
+      "reason": "Blank separator",
+      "start": 129
+    },
+    {
+      "end": 135,
+      "reason": "Blank separator",
+      "start": 135
+    },
+    {
+      "end": 140,
+      "reason": "Blank separator",
+      "start": 140
+    },
+    {
+      "end": 146,
+      "reason": "Blank separator",
+      "start": 146
+    },
+    {
+      "end": 154,
+      "reason": "Blank separator",
+      "start": 154
+    },
+    {
+      "end": 157,
+      "reason": "Blank separator",
+      "start": 157
+    },
+    {
+      "end": 159,
+      "reason": "Blank separator",
+      "start": 159
+    },
+    {
+      "end": 161,
+      "reason": "Blank separator",
+      "start": 161
+    },
+    {
+      "end": 163,
+      "reason": "Blank separator",
+      "start": 163
+    },
+    {
+      "end": 165,
+      "reason": "Blank separator",
+      "start": 165
+    }
+  ],
+  "root": [
+    {
+      "end": 3,
+      "start": 1
+    },
+    {
+      "end": 7,
+      "start": 6
+    },
+    {
+      "end": 10,
+      "start": 10
+    },
+    {
+      "end": 21,
+      "start": 12
+    },
+    {
+      "end": 29,
+      "start": 24
+    },
+    {
+      "end": 158,
+      "start": 158
+    },
+    {
+      "end": 160,
+      "start": 160
+    },
+    {
+      "end": 162,
+      "start": 162
+    },
+    {
+      "end": 164,
+      "start": 164
+    },
+    {
+      "end": 166,
+      "start": 166
+    }
+  ],
+  "rules": [
+    {
+      "id": "login_user",
+      "source": [
+        {
+          "end": 34,
+          "start": 33
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "login_user"
+        }
+      ]
+    },
+    {
+      "id": "logout_user",
+      "source": [
+        {
+          "end": 37,
+          "start": 36
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "logout_user"
+        }
+      ]
+    },
+    {
+      "id": "open_account",
+      "source": [
+        {
+          "end": 43,
+          "start": 39
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "open_account"
+        }
+      ]
+    },
+    {
+      "id": "authenticate_admin_password",
+      "source": [
+        {
+          "end": 46,
+          "start": 45
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "authenticate_admin_password"
+        }
+      ]
+    },
+    {
+      "id": "set_admin_password",
+      "source": [
+        {
+          "end": 49,
+          "start": 48
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "set_admin_password"
+        }
+      ]
+    },
+    {
+      "id": "set_account_information",
+      "source": [
+        {
+          "end": 54,
+          "start": 51
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "set_account_information"
+        }
+      ]
+    },
+    {
+      "id": "close_account",
+      "source": [
+        {
+          "end": 59,
+          "start": 56
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "close_account"
+        }
+      ]
+    },
+    {
+      "id": "get_account_balance",
+      "source": [
+        {
+          "end": 64,
+          "start": 61
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_account_balance"
+        }
+      ]
+    },
+    {
+      "id": "transfer_funds",
+      "source": [
+        {
+          "end": 72,
+          "start": 66
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "transfer_funds"
+        }
+      ]
+    },
+    {
+      "id": "deposit_funds",
+      "source": [
+        {
+          "end": 78,
+          "start": 74
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "deposit_funds"
+        }
+      ]
+    },
+    {
+      "id": "pay_bill",
+      "source": [
+        {
+          "end": 84,
+          "start": 80
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "pay_bill"
+        }
+      ]
+    },
+    {
+      "id": "pay_bill_with_credit_card",
+      "source": [
+        {
+          "end": 90,
+          "start": 86
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "pay_bill_with_credit_card"
+        }
+      ]
+    },
+    {
+      "id": "apply_credit_card",
+      "source": [
+        {
+          "end": 96,
+          "start": 92
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "apply_credit_card"
+        }
+      ]
+    },
+    {
+      "id": "cancel_credit_card",
+      "source": [
+        {
+          "end": 103,
+          "start": 98
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "cancel_credit_card"
+        }
+      ]
+    },
+    {
+      "id": "exchange_foreign_currency",
+      "source": [
+        {
+          "end": 108,
+          "start": 105
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "exchange_foreign_currency"
+        }
+      ]
+    },
+    {
+      "id": "get_account_owed_balance",
+      "source": [
+        {
+          "end": 113,
+          "start": 110
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_account_owed_balance"
+        }
+      ]
+    },
+    {
+      "id": "get_loan",
+      "source": [
+        {
+          "end": 120,
+          "start": 115
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_loan"
+        }
+      ]
+    },
+    {
+      "id": "pay_loan",
+      "source": [
+        {
+          "end": 128,
+          "start": 122
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "pay_loan"
+        }
+      ]
+    },
+    {
+      "id": "get_safety_box",
+      "source": [
+        {
+          "end": 134,
+          "start": 130
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_safety_box"
+        }
+      ]
+    },
+    {
+      "id": "get_credit_card_info",
+      "source": [
+        {
+          "end": 139,
+          "start": 136
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_credit_card_info"
+        }
+      ]
+    },
+    {
+      "id": "get_credit_cards",
+      "source": [
+        {
+          "end": 145,
+          "start": 141
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_credit_cards"
+        }
+      ]
+    },
+    {
+      "id": "set_safety_box",
+      "source": [
+        {
+          "end": 153,
+          "start": 147
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "set_safety_box"
+        }
+      ]
+    },
+    {
+      "id": "get_bank_maximum_loan_amount",
+      "source": [
+        {
+          "end": 156,
+          "start": 155
+        }
+      ],
+      "when": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_bank_maximum_loan_amount"
+        }
+      ]
+    }
+  ]
+}

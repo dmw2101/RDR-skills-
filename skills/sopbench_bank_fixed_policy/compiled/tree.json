@@ -1,0 +1,478 @@
+{
+  "max_selection_attempts": 3,
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "conclusion": {
+        "fragments": []
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 0,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_dc29c392195bfa67",
+          "frag_ec9ed57e84d183ab",
+          "frag_5d8827ca83686e7b",
+          "frag_2fd4086216adae4a",
+          "frag_030eb96a3757c894",
+          "frag_adcda97a5676e3c9",
+          "frag_d1b03bac0d0f09a7",
+          "frag_475f2effd88c9749",
+          "frag_682fd033167150dd",
+          "frag_791a5479d58cecab"
+        ]
+      },
+      "conditions": [],
+      "evidence": [],
+      "id": 1,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_bc06d381f2522bc7"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "login_user"
+        }
+      ],
+      "evidence": [],
+      "id": 2,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_891f8473de8d33d3"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "logout_user"
+        }
+      ],
+      "evidence": [],
+      "id": 3,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_8c3a052304c5f648"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "open_account"
+        }
+      ],
+      "evidence": [],
+      "id": 4,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_bdbe997603bbccb9"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "authenticate_admin_password"
+        }
+      ],
+      "evidence": [],
+      "id": 5,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_d51e5ad2f9d97c99"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "set_admin_password"
+        }
+      ],
+      "evidence": [],
+      "id": 6,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_2d60d73d83c0072c"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "set_account_information"
+        }
+      ],
+      "evidence": [],
+      "id": 7,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_d4df1c44b5d57a84"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "close_account"
+        }
+      ],
+      "evidence": [],
+      "id": 8,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_5991c5e25e9f4f26"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_account_balance"
+        }
+      ],
+      "evidence": [],
+      "id": 9,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_c5dad4f3f3057458"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "transfer_funds"
+        }
+      ],
+      "evidence": [],
+      "id": 10,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_2f1d7f50fce9d79d"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "deposit_funds"
+        }
+      ],
+      "evidence": [],
+      "id": 11,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_1dd6dd38ca1b92b5"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "pay_bill"
+        }
+      ],
+      "evidence": [],
+      "id": 12,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_cb3296a9a774b88c"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "pay_bill_with_credit_card"
+        }
+      ],
+      "evidence": [],
+      "id": 13,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_338439e1fb5c9979"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "apply_credit_card"
+        }
+      ],
+      "evidence": [],
+      "id": 14,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_7c5476c77eb7b3df"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "cancel_credit_card"
+        }
+      ],
+      "evidence": [],
+      "id": 15,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_0b41716daf9c882f"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "exchange_foreign_currency"
+        }
+      ],
+      "evidence": [],
+      "id": 16,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_88e73bbbd23bec03"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_account_owed_balance"
+        }
+      ],
+      "evidence": [],
+      "id": 17,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_78ef29954813e595"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_loan"
+        }
+      ],
+      "evidence": [],
+      "id": 18,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_f33498218bcd6d60"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "pay_loan"
+        }
+      ],
+      "evidence": [],
+      "id": 19,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_7bf877a7ceb1fbbe"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_safety_box"
+        }
+      ],
+      "evidence": [],
+      "id": 20,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_6634af39e4fca8a5"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_credit_card_info"
+        }
+      ],
+      "evidence": [],
+      "id": 21,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_6e85ab383c200eac"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_credit_cards"
+        }
+      ],
+      "evidence": [],
+      "id": 22,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_cf89c71f8f3100b3"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "set_safety_box"
+        }
+      ],
+      "evidence": [],
+      "id": 23,
+      "stopping": false
+    },
+    {
+      "children": [],
+      "conclusion": {
+        "fragments": [
+          "frag_aa6fcbe4b370d1a6"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "needed_actions",
+          "op": "contains",
+          "value": "get_bank_maximum_loan_amount"
+        }
+      ],
+      "evidence": [],
+      "id": 24,
+      "stopping": false
+    }
+  ],
+  "revision": 0,
+  "root_id": 0,
+  "schema_version": 2
+}

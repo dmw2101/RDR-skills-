@@ -681,18 +681,22 @@ def _response_schema() -> dict[str, Any]:
 class GeminiRuleModel:
     """Small Gemini Interactions API adapter; the key remains a placeholder here."""
 
-    def __init__(self, api_key: str, model: str = DEFAULT_MODEL) -> None:
+    def __init__(
+        self, api_key: str, model: str = DEFAULT_MODEL, *,
+        http_options: dict[str, Any] | None = None,
+    ) -> None:
         if not api_key or api_key == "REPLACE_WITH_YOUR_GEMINI_API_KEY":
             raise ValueError("Set GEMINI_API_KEY or replace its placeholder near the top of this file")
         self.api_key = api_key
         self.model = model
+        self.http_options = http_options
 
     def generate(
         self, *, system_instruction: str, user_input: str, response_schema: dict[str, Any]
     ) -> str:
         from google import genai
 
-        client = genai.Client(api_key=self.api_key)
+        client = genai.Client(api_key=self.api_key, http_options=self.http_options)
         try:
             interaction = client.interactions.create(
                 model=self.model,
