@@ -5,6 +5,7 @@ import asyncio
 import json
 
 from .pipeline import Learner, load_learner_config
+from .report import learning_report
 
 
 def main(argv=None):
@@ -18,6 +19,7 @@ def main(argv=None):
         "insert": "Insert proposals through the engine and validate them by re-running tasks (model calls)",
         "learn": "All stages in order; resumes from saved stage outputs",
         "status": "Summarize diagnoses, proposals and accepted versions (no model calls)",
+        "report": "Write report.md/report.json: failures, rules, decisions and cost (no model calls)",
     }
     for name, text in help_text.items():
         sub = commands.add_parser(name, help=text)
@@ -26,6 +28,10 @@ def main(argv=None):
     learner = Learner(load_learner_config(args.config))
     if args.command == "status":
         result = learner.status()
+    elif args.command == "report":
+        learning_report(learner)
+        print((learner.root / "report.md").read_text(encoding="utf-8"))
+        return
     else:
         stage = {"init": learner.initialize, "verify": learner.verify, "consolidate": learner.consolidate,
                  "insert": learner.insert, "learn": learner.insert}[args.command]

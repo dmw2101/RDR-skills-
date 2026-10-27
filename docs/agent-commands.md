@@ -200,7 +200,7 @@ The full-vs-reduced and skill-blind variants work unchanged: set `run.conditions
 
 ### Colab (in-repo setup script)
 
-[`scripts/setup_mcrdr_colab.py`](../scripts/setup_mcrdr_colab.py) sets up and optionally runs any MCRDR experiment from the `MCRDR-testing` branch. It is a new script written for this branch, **not** a copy of the external `setup_rdr_colab.py` (which still pulls `testing` and the single-classification engine), and it has not yet been run on Colab. It uses its own folder (`/content/rdr-skills-mcrdr`) and service port (8766), so it can share a runtime with the external script without touching its checkout, service or results.
+[`scripts/setup_mcrdr_colab.py`](../scripts/setup_mcrdr_colab.py) sets up and optionally runs any MCRDR experiment. It checks out `verifier-mcrdr` by default (the `MCRDR-testing` experiments plus [verifier-driven learning](verifier-learning.md)); pass `--branch MCRDR-testing` for the earlier branch. It is a new script written for these branches, **not** a copy of the external `setup_rdr_colab.py` (which still pulls `testing` and the single-classification engine), and it has not yet been run on Colab. It uses its own folder (`/content/rdr-skills-mcrdr`) and service port (8766), so it can share a runtime with the external script without touching its checkout, service or results.
 
 **Easiest: the notebook.** [`notebooks/mcrdr_varex_colab.ipynb`](../notebooks/mcrdr_varex_colab.ipynb) repeats the pilot deck's three full+reduced runs (180 paid episodes) with this script, then runs the report and puts the MCRDR numbers next to the deck's published SCRDR numbers. Open it in VS Code with the Google Colab extension (Select Kernel → Colab) or in the Colab web UI, and choose **Run All**. It asks for the OpenRouter key in a hidden prompt and keeps it only in memory. Rerunning after a disconnect resumes each run. Your partner's SCRDR run folders are optional: zipped and uploaded, they add the skill-blind column and a direct engine comparison.
 
@@ -209,7 +209,7 @@ To run the script by hand instead, set the key first (not in a tracked file), th
 ```python
 import os
 os.environ["MODEL_API_KEY"] = "YOUR_API_KEY"
-!wget -q -O /content/setup_mcrdr_colab.py https://raw.githubusercontent.com/dmw2101/RDR-skills-/MCRDR-testing/scripts/setup_mcrdr_colab.py
+!wget -q -O /content/setup_mcrdr_colab.py https://raw.githubusercontent.com/dmw2101/RDR-skills-/verifier-mcrdr/scripts/setup_mcrdr_colab.py
 %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --run-name mcrdr-qwen-rolling-dev30
 ```
 
@@ -234,6 +234,8 @@ Add `--run` to execute them as well. `--dry-run` prints every step and the gener
 | `skill-requests` | `varex.mcrdr.skill-requests.json` | FS5441-3E, LS-275si | `--experiment skill-requests --run-name mcrdr-skill-requests --base-url https://openrouter.ai/api/v1 --model qwen/qwen3.7-flash` |
 
 The pilot and skill-requests configs contain provider placeholders, so the script requires `--base-url` and `--model` for them. With no overrides, a run uses exactly the settings of its `varex.mcrdr.*` config. `--limit N` selects the first N dev documents (1–30) and prepares a matching `varex-dev-N` folder.
+
+`--learn` also writes `experiments/configs/<run-name>.learner.json` for [verifier-driven learning](verifier-learning.md#colab-trial) from the run's failed reduced episodes, and prints its stage commands. It needs the reduced condition in the run.
 
 Overrides use the same flags as the external script:
 - `--model`, `--base-url`

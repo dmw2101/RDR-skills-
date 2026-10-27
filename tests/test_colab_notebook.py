@@ -53,5 +53,35 @@ class ColabNotebookTests(unittest.TestCase):
             self.assertAlmostEqual(em["reduced"] - em["full"], deck["reduced_minus_full_pp"][run], delta=.015)
 
 
+class LearningNotebookTests(unittest.TestCase):
+    notebook = json.loads((ROOT / "notebooks" / "verifier_learning_colab.ipynb").read_text(encoding="utf-8"))
+    code = ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
+
+    def test_notebook_is_clean_and_every_code_cell_parses(self):
+        self.assertEqual(self.notebook["nbformat"], 4)
+        for cell in self.notebook["cells"]:
+            self.assertTrue(cell["id"])
+            if cell["cell_type"] == "code":
+                self.assertEqual((cell["outputs"], cell["execution_count"]), ([], None))
+        for source in self.code:
+            ast.parse(source)
+        self.assertFalse(any("sk-or-" in source for source in self.code))
+
+    def test_settings_give_a_valid_learning_setup(self):
+        settings = {}
+        exec(next(source for source in self.code if "BRANCH = " in source), settings)
+        spec = importlib.util.spec_from_file_location("setup_mcrdr_colab", ROOT / "scripts" / "setup_mcrdr_colab.py")
+        script = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = script
+        spec.loader.exec_module(script)
+        self.assertEqual((settings["BRANCH"], settings["WORKDIR"]), (script.BRANCH, script.WORKDIR))
+        options = script.parse_args(["--experiment", settings["EXPERIMENT"], "--limit", str(settings["DOCUMENTS"]),
+                                     "--conditions", "reduced", "--run-name", settings["RUN_NAME"], "--learn"])
+        self.assertEqual(script.data_selection(options.experiment, options.limit)[1],
+                         ["--dev-limit", str(settings["DOCUMENTS"])])
+        stages = [line for source in self.code for line in source.splitlines() if line.startswith("learn(")]
+        self.assertEqual(stages, [f'learn("{stage}")' for stage in (*script.LEARNER_STAGES, "report")])
+
+
 if __name__ == "__main__":
     unittest.main()

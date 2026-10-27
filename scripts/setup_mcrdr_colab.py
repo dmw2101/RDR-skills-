@@ -4,7 +4,7 @@
 Standalone and standard-library only, so it can be downloaded and run before the
 repository exists:
 
-    !wget -q -O /content/setup_mcrdr_colab.py https://raw.githubusercontent.com/dmw2101/RDR-skills-/MCRDR-testing/scripts/setup_mcrdr_colab.py
+    !wget -q -O /content/setup_mcrdr_colab.py https://raw.githubusercontent.com/dmw2101/RDR-skills-/verifier-mcrdr/scripts/setup_mcrdr_colab.py
     %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --run-name mcrdr-qwen-rolling-dev30
 
 Every step is idempotent: system tools, the checkout, the venv, prepared data and
@@ -12,8 +12,14 @@ the skill snapshot are reused when already present. Nothing is ever deleted, and
 existing results directory is only reused with --resume. Generated configs, snapshots,
 logs and results live under <workdir>/experiments/, which Git ignores.
 
-This is an independent script for the MCRDR-testing branch, not a copy of the
-external setup_rdr_colab.py used for the single-classification runs.
+With --learn it also writes a trace_learner config that learns from this run's failed
+reduced-arm episodes (outputs in <workdir>/experiments/learning/<run-name>):
+
+    %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --limit 10 --conditions reduced \
+        --run-name learn-dev10 --learn
+
+This is an independent script for the MCRDR branches, not a copy of the external
+setup_rdr_colab.py used for the single-classification runs.
 """
 
 from __future__ import annotations
@@ -36,7 +42,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_URL = "https://github.com/dmw2101/RDR-skills-.git"
-BRANCH = "MCRDR-testing"
+BRANCH = "verifier-mcrdr"
 WORKDIR = "/content/rdr-skills-mcrdr"
 # 8765 is the default of the single-classification service; never talk to it by accident.
 SERVICE_PORT = 8766
@@ -59,6 +65,9 @@ EXPERIMENTS = {
 }
 
 API_ONLY_OPTIONS = ("model", "base_url", "provider", "max_input_price", "max_output_price")
+# Learner models and settings (OpenRouter); --learn fills in this run's paths.
+LEARNER_BASE = "examples/learning/varex.learner.json"
+LEARNER_STAGES = ("init", "verify", "consolidate", "insert")
 
 
 class SetupError(RuntimeError):
@@ -98,6 +107,10 @@ class Paths:
     @property
     def logs(self) -> Path:
         return self.experiments / "logs"
+
+    @property
+    def learning(self) -> Path:
+        return self.experiments / "learning"
 
     @property
     def install_marker(self) -> Path:
@@ -257,6 +270,19 @@ def needs_service(config: dict) -> bool:
     return bool(config["skill"])
 
 
+def build_learner_config(base: dict, options: argparse.Namespace, paths: Paths, run_config: dict) -> dict:
+    """Learner config for this run's reduced arm: the example's models with this host's paths and service."""
+    if "reduced" not in (run_config["run"].get("conditions") or ("none", "full", "reduced")):
+        raise SetupError("--learn needs the reduced condition in the run (e.g. --conditions reduced)")
+    config = copy.deepcopy(base)
+    config.update(name=options.run_name, collect_run=run_config["run"]["output_dir"],
+                  skill_dir=str(paths.workdir / "skills" / "pdf"),
+                  output_dir=str(paths.learning / options.run_name))
+    config["validation"].update(service_url=f"http://127.0.0.1:{options.service_port}",
+                                store=str(paths.snapshots))
+    return config
+
+
 # --------------------------------------------------------------------------- #
 # Side effects
 # --------------------------------------------------------------------------- #
@@ -401,14 +427,16 @@ def ensure_local_model(paths: Paths, runner: Runner) -> None:
                cwd=paths.workdir)
 
 
-def read_base(paths: Paths, experiment: str) -> dict:
-    name = EXPERIMENTS[experiment]["config"]
-    candidates = [paths.workdir / "examples" / "agent" / name,
-                  Path(__file__).resolve().parents[1] / "examples" / "agent" / name]
+def read_example(paths: Paths, relative: str) -> dict:
+    candidates = [paths.workdir / relative, Path(__file__).resolve().parents[1] / relative]
     for candidate in candidates:
         if candidate.is_file():
             return json.loads(candidate.read_text(encoding="utf-8"))
-    raise SetupError(f"cannot find examples/agent/{name}; the checkout must be on {BRANCH}")
+    raise SetupError(f"cannot find {relative}; the checkout must be on {BRANCH}")
+
+
+def read_base(paths: Paths, experiment: str) -> dict:
+    return read_example(paths, f"examples/agent/{EXPERIMENTS[experiment]['config']}")
 
 
 def setup(options: argparse.Namespace, runner: Runner) -> dict:
@@ -431,6 +459,8 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
     ensure_venv(options, paths, runner)
 
     config = build_config(read_base(paths, options.experiment), options, paths)
+    learner = (build_learner_config(read_example(paths, LEARNER_BASE), options, paths, config)
+               if options.learn else None)
     placeholders = [key for key, value in config["model"]["options"].items()
                     if isinstance(value, str) and "YOUR-" in value]
     if placeholders:
@@ -448,6 +478,9 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
     runner.step("Run configuration")
     config_path = paths.configs / f"{options.run_name}.json"
     runner.write(config_path, json.dumps(config, indent=2) + "\n")
+    learner_path = paths.configs / f"{options.run_name}.learner.json"
+    if learner is not None:
+        runner.write(learner_path, json.dumps(learner, indent=2) + "\n")
 
     runner.step("Checks")
     if options.backend == "api" and not os.environ.get("MODEL_API_KEY"):
@@ -479,6 +512,12 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
         runner.note("run these from any cell (they use absolute paths):")
         for command in commands:
             runner.out("!" + shlex.join(str(part) for part in command))
+    if learner is not None:
+        runner.note("then learn from the failed reduced episodes, one paid stage at a time "
+                    "(see docs/verifier-learning.md); report and status make no model calls:")
+        for stage in (*LEARNER_STAGES, "report"):
+            runner.out("!" + shlex.join([str(paths.python), "-m", "trace_learner", stage,
+                                         "--config", str(learner_path)]))
     runner.note("after all runs are summarized, compare them (see docs/agent-commands.md, step 9):")
     runner.out("!" + shlex.join([str(paths.python), "-m", "skill_agent", "report",
                                  "--spec", str(paths.experiments / "report-spec.json")]))
@@ -508,6 +547,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--run", action="store_true", help="Also run, inspect and summarize")
     parser.add_argument("--resume", action="store_true", help="Continue an existing run directory")
     parser.add_argument("--dry-run", action="store_true", help="Print every step without executing")
+    parser.add_argument("--learn", action="store_true",
+                        help="Also write a trace_learner config that learns from this run's failures")
     options = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", options.run_name):
         parser.error("--run-name may only contain letters, digits, '.', '_' and '-'")

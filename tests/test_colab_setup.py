@@ -116,6 +116,30 @@ class ColabSetupConfigTests(unittest.TestCase):
             with self.subTest(limit=limit), self.assertRaises(colab.SetupError):
                 colab.data_selection("pilot", limit)
 
+    def test_learner_config_uses_the_example_models_with_this_run_and_service(self):
+        from trace_learner.pipeline import load_learner_config
+
+        opts = options("--limit", "10", "--conditions", "reduced", "--learn")
+        run_config = colab.build_config(base(opts.experiment), opts, self.paths)
+        example = json.loads((ROOT / colab.LEARNER_BASE).read_text(encoding="utf-8"))
+        learner = colab.build_learner_config(example, opts, self.paths, run_config)
+        self.assertEqual(learner["collect_run"], run_config["run"]["output_dir"])
+        self.assertEqual(learner["skill_dir"], str(self.paths.workdir / "skills" / "pdf"))
+        self.assertEqual(learner["output_dir"], str(self.paths.learning / "mcrdr-test"))
+        self.assertEqual(learner["validation"]["service_url"], "http://127.0.0.1:8766")
+        self.assertEqual(learner["validation"]["store"], str(self.paths.snapshots))
+        self.assertEqual(learner["verifier"]["model"]["options"]["model"], "qwen/qwen3.7-plus")
+        self.assertEqual(learner["merge"]["model"]["options"]["model"], "qwen/qwen3.7-plus")
+        self.assertEqual(learner["judge"]["model"]["options"]["model"],
+                         run_config["model"]["options"]["model"])  # checker = worker model
+        path = Path(self.temp.name) / "learner.json"
+        path.write_text(json.dumps(learner), encoding="utf-8")
+        load_learner_config(path)
+        with self.assertRaisesRegex(colab.SetupError, "reduced"):
+            blind = options("--conditions", "full", "--learn")
+            colab.build_learner_config(example, blind, self.paths,
+                                       colab.build_config(base(blind.experiment), blind, self.paths))
+
     def test_run_names_cannot_be_paths(self):
         for name in ("../escape", "a/b", ""):
             with self.subTest(name=name), self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
@@ -149,7 +173,7 @@ class ColabSetupDryRunTests(unittest.TestCase):
     def test_dry_run_lists_steps_in_order_and_changes_nothing(self):
         records, config = self.dry_run("--experiment", "qwen-dev30")
         commands = [text for kind, text in records if kind in ("run", "start")]
-        expected = ["apt-get update", "git clone --branch MCRDR-testing", "-m venv", "pip install",
+        expected = ["apt-get update", "git clone --branch verifier-mcrdr", "-m venv", "pip install",
                     "skill_agent prepare", "rdr_service prepare", "rdr_service serve", "skill_agent doctor"]
         positions = [next(i for i, text in enumerate(commands) if fragment in text) for fragment in expected]
         self.assertEqual(positions, sorted(positions))
@@ -176,6 +200,24 @@ class ColabSetupDryRunTests(unittest.TestCase):
         self.assertTrue(any("skill_agent run" in text and text.endswith("--resume") for text in commands))
         self.assertTrue(any("inspect-skills" in text for text in commands))
         self.assertTrue(any("skill_agent summarize" in text for text in commands))
+
+    def test_learn_dry_run_writes_the_learner_config_and_prints_its_stages(self):
+        lines = []
+        opts = options("--workdir", str(self.workdir), "--dry-run", "--limit", "10", "--conditions", "reduced",
+                       "--learn")
+        runner = colab.Runner(dry_run=True, out=lines.append)
+        with patch.object(colab, "missing_tools", return_value=[]):
+            colab.setup(opts, runner)
+        learner_path = self.workdir.resolve() / "experiments/configs/mcrdr-test.learner.json"
+        self.assertIn(("write", str(learner_path)), runner.records)
+        self.assertIn("--dev-limit 10", next(text for kind, text in runner.records
+                                             if kind == "run" and "skill_agent prepare" in text))
+        printed = [line for line in lines if isinstance(line, str) and "-m trace_learner" in line]
+        self.assertEqual([line.split("-m trace_learner ")[1].split()[0] for line in printed],
+                         ["init", "verify", "consolidate", "insert", "report"])
+        self.assertTrue(all(str(learner_path) in line for line in printed))
+        records, _ = self.dry_run()
+        self.assertFalse(any("learner.json" in text for _, text in records))
 
     def test_skill_blind_dry_run_starts_no_service(self):
         records, _ = self.dry_run("--conditions", "none")

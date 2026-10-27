@@ -57,14 +57,35 @@ The manifest records the hash of `learned.json` and the extended feature schema.
 
 The original `initial.md` and its compiled fragments are never changed. `skill_tool compile` refuses to rebuild a learned bundle (which would drop the learned rules) unless `--discard-learned` is given.
 
+## Colab trial
+
+[`notebooks/verifier_learning_colab.ipynb`](../notebooks/verifier_learning_colab.ipynb) runs one small trial end to end on Colab: open it in VS Code with the Google Colab extension (Select Kernel → Colab). It:
+1. collects a reduced-arm run on the first 10 dev documents;
+2. runs each learner stage in its own cell, with every paid cell marked;
+3. shows the `report` table;
+4. downloads a zip.
+
+It uses [`scripts/setup_mcrdr_colab.py`](../scripts/setup_mcrdr_colab.py) with `--learn` (see [Colab setup](agent-commands.md#colab-in-repo-setup-script)). That option writes `experiments/configs/<run-name>.learner.json` from the example config below, using the run's paths, the service on port 8766 and its snapshot store.
+
+Models, all on OpenRouter (provider `alibaba`):
+
+| Role | Model |
+|---|---|
+| Worker | `qwen/qwen3.7-flash`, from the run config |
+| Feature judge (checker) | `qwen/qwen3.7-flash` |
+| Verifier (inspector) and merge | `qwen/qwen3.7-plus` |
+
+The notebook has not yet been run on Colab, so its cost and pass rates are unmeasured.
+
 ## Commands (PowerShell 5.1, repository root)
 
 **1. Collect a run.** Collect with the MCRDR reduced arm, as in the [agent evaluation commands](agent-commands.md). The learner needs a completed run directory. For example, run `examples/agent/varex.mcrdr.pilot.json` (skill service on `experiments/snapshots`, port 8765). The learner checks that `skill_dir` is the skill that run used.
 
 **2. Configure the learner.** Copy [examples/learning/varex.learner.json](../examples/learning/varex.learner.json) and set:
-- the verifier, judge and merge models (any OpenAI-compatible tool-calling endpoints);
 - `collect_run`;
 - a fresh `output_dir`.
+
+Its models are the OpenRouter ones listed under [Colab trial](#colab-trial). Any OpenAI-compatible tool-calling endpoint works instead.
 
 Keys come from environment variables, as for the agent:
 
@@ -72,7 +93,7 @@ Keys come from environment variables, as for the agent:
 $env:MODEL_API_KEY = "YOUR_API_KEY"
 ```
 
-**3. Run the stages.** Each stage saves its output and resumes after an interruption. `learn` runs all of them. **Every stage except `init` and `status` makes paid model calls.** Validation re-runs agent episodes, so keep the skill service running against the configured `store`.
+**3. Run the stages.** Each stage saves its output and resumes after an interruption. `learn` runs all of them. **Every stage except `init`, `status` and `report` makes paid model calls.** Validation re-runs agent episodes, so keep the skill service running against the configured `store`.
 
 ```powershell
 .\.venv\Scripts\python.exe -m trace_learner init --config examples/learning/varex.learner.json
@@ -80,7 +101,13 @@ $env:MODEL_API_KEY = "YOUR_API_KEY"
 .\.venv\Scripts\python.exe -m trace_learner consolidate --config examples/learning/varex.learner.json
 .\.venv\Scripts\python.exe -m trace_learner insert --config examples/learning/varex.learner.json
 .\.venv\Scripts\python.exe -m trace_learner status --config examples/learning/varex.learner.json
+.\.venv\Scripts\python.exe -m trace_learner report --config examples/learning/varex.learner.json
 ```
+
+`report` writes `report.md` and `report.json` to `output_dir`, with three tables:
+- each failed episode: what the verifier blamed, whether its fix re-scored as passing, the rule it led to, and that rule's decision;
+- each rule: its conditions, advice, decision, and the tasks it fixed or broke;
+- calls and cost per stage. The judge's calls while rules are inserted are counted, but their cost is not recorded.
 
 **4. Evaluate the newest version.** `status` prints the newest version as `current_skill`. Prepare its snapshot and point an evaluation config's reduced resolver at the feature judge:
 
@@ -104,6 +131,7 @@ Use the held-out split and a new `output_dir`, then `summarize` as usual. The ju
 | `diagnoses/` | One verifier transcript, diagnosis and eligibility per failed episode (contains gold labels; keep private) |
 | `proposals.json` | Merged proposals and their source episodes |
 | `ledger.json` | Each proposal's insertion result, validation passes/regressions and decision |
+| `report.md`, `report.json` | Tables of failures, rules, decisions and cost (`report`) |
 | `versions/vN/<skill>/` | Immutable accepted versions; `v0` is the original skill plus cornerstones |
 | `validation/cN/` | Snapshot receipts and validation runs |
 

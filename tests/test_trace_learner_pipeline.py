@@ -14,6 +14,7 @@ from skill_agent.models import ModelResponse
 from skill_agent.storage import read_json, write_json
 from trace_learner.pipeline import Learner, load_learner_config
 from trace_learner.records import episode_key
+from trace_learner.report import learning_report
 from trace_learner.workspace import SkillWorkspace
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -188,6 +189,23 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(MARKER, learned.render(learned.case_for(base, TASKS["totals"])).markdown)
         # The original skill is untouched; versions are separate copies.
         self.assertFalse((self.skill / "compiled/learned.json").exists())
+
+        report = learning_report(learner)
+        self.assertEqual((report["episodes"], report["passed"]), (3, 2))
+        [failure] = report["failures"]
+        self.assertEqual((failure["task_id"], failure["attribution"], failure["eligible"], failure["proposal"],
+                          failure["decision"]), ("forms", "skill_missing", True, 0, "accepted"))
+        [rule] = report["rules"]
+        self.assertEqual((rule["kind"], rule["node"], rule["decision"], rule["version"], rule["fixed"]),
+                         ("replace", 2, "accepted", 1, {"forms": True}))
+        self.assertIn("lf_form_fields (new)", rule["conditions"])
+        self.assertEqual(report["costs"]["1 collect (worker)"]["model_calls"], 6)
+        self.assertEqual(report["costs"]["2 verify (inspector)"]["model_calls"], 3)
+        self.assertEqual(report["costs"]["5 validate (worker + checker)"]["model_calls"], 12)
+        self.assertEqual(report["total_known_cost_usd"], 0.0)
+        markdown = (self.root / "learning/report.md").read_text(encoding="utf-8")
+        self.assertIn("| forms | 0 | completed | skill_missing |", markdown)
+        self.assertIn("accepted (v1)", markdown)
 
         # Re-running every stage reuses saved outputs and makes no further model calls.
         calls = JudgeModel.calls

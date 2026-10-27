@@ -11,12 +11,18 @@
     "model": {
       "factory": "skill_agent.models:OpenAICompatibleClient",
       "options": {
-        "base_url": "https://YOUR-PROVIDER/v1",
-        "model": "YOUR-STRONG-TOOL-CALLING-MODEL",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "qwen/qwen3.7-plus",
         "api_key_env": "MODEL_API_KEY",
         "temperature": 0,
-        "max_tokens": 4096,
-        "timeout": 180
+        "max_tokens": 8192,
+        "timeout": 180,
+        "provider": {
+          "only": ["alibaba"],
+          "allow_fallbacks": false,
+          "require_parameters": true,
+          "max_price": {"prompt": 0.40, "completion": 1.60}
+        }
       }
     },
     "max_calls": 30,
@@ -27,12 +33,18 @@
     "model": {
       "factory": "skill_agent.models:OpenAICompatibleClient",
       "options": {
-        "base_url": "https://YOUR-PROVIDER/v1",
-        "model": "YOUR-TOOL-CALLING-MODEL",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "qwen/qwen3.7-flash",
         "api_key_env": "MODEL_API_KEY",
         "temperature": 0,
         "max_tokens": 512,
-        "timeout": 60
+        "timeout": 60,
+        "provider": {
+          "only": ["alibaba"],
+          "allow_fallbacks": false,
+          "require_parameters": true,
+          "max_price": {"prompt": 0.23, "completion": 0.92}
+        }
       }
     }
   },
@@ -40,12 +52,18 @@
     "model": {
       "factory": "skill_agent.models:OpenAICompatibleClient",
       "options": {
-        "base_url": "https://YOUR-PROVIDER/v1",
-        "model": "YOUR-STRONG-TOOL-CALLING-MODEL",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "qwen/qwen3.7-plus",
         "api_key_env": "MODEL_API_KEY",
         "temperature": 0,
-        "max_tokens": 4096,
-        "timeout": 180
+        "max_tokens": 8192,
+        "timeout": 180,
+        "provider": {
+          "only": ["alibaba"],
+          "allow_fallbacks": false,
+          "require_parameters": true,
+          "max_price": {"prompt": 0.40, "completion": 1.60}
+        }
       }
     }
   },
