@@ -356,6 +356,8 @@ class FragmentCatalog:
     fragments: tuple[Fragment, ...]
     skill_input: SkillInput
     ir: SkillIR
+    # Trace-learned guidance (rdr_engine.learned.LearnedFragment), outside the exact source.
+    learned: tuple[Any, ...] = ()
 
     @classmethod
     def from_ir(cls, skill_input: SkillInput, ir: SkillIR) -> FragmentCatalog:
@@ -557,11 +559,18 @@ class SkillBundle:
     @staticmethod
     def build(
         skill_dir: str | Path, *, ir_path: str | Path, feature_schema: FeatureSchema,
-        model_id: str = "unspecified", force: bool = False,
+        model_id: str = "unspecified", force: bool = False, discard_learned: bool = False,
     ) -> tuple[RDREngine, FragmentCatalog]:
+        from .learned import LEARNED_FILE
         from .skill_cases import SkillConditionEvaluator
 
         directory = Path(skill_dir).resolve()
+        learned = directory / "compiled" / LEARNED_FILE
+        # A rebuild compiles a fresh flat tree, which would silently drop learned rules.
+        if learned.exists() and not discard_learned:
+            raise ValueError(
+                f"{learned} holds trace-learned rules; pass --discard-learned to rebuild without them"
+            )
         source = SkillInput.from_markdown(directory / "initial.md")
         ir = SkillIR.model_validate_json(Path(ir_path).read_text(encoding="utf-8"), strict=True)
         issues = SkillIRValidator().validate(ir, source, feature_schema)
@@ -586,6 +595,7 @@ class SkillBundle:
         if conflicts:
             raise ValueError(f"compiled artifact already exists: {conflicts[0]}; use --force to rebuild")
         target.mkdir(parents=True, exist_ok=True)
+        learned.unlink(missing_ok=True)
         for name, data in files_to_write.items():
             destination = target / name
             if destination.resolve() != source_ir or force:
@@ -610,6 +620,7 @@ class SkillBundle:
     def load(
         skill_dir: str | Path, evaluator: ConditionEvaluator | None = None
     ) -> tuple[RDREngine, FragmentCatalog]:
+        from .learned import load_layer
         from .skill_cases import SkillConditionEvaluator
 
         directory = Path(skill_dir).resolve()
@@ -637,8 +648,12 @@ class SkillBundle:
         catalog = FragmentCatalog.from_dict(
             json.loads((compiled / "fragments.json").read_text(encoding="utf-8")), source, ir
         )
+        layer = load_layer(compiled, manifest)
+        if layer is not None:
+            layer.check_against(catalog, schema)
+            catalog = FragmentCatalog(catalog.fragments, source, ir, tuple(layer.fragments))
         tree = RDREngine.load(compiled / "tree.json", evaluator=evaluator or SkillConditionEvaluator(schema))
-        known = {fragment.id for fragment in catalog.fragments}
+        known = {fragment.id for fragment in (*catalog.fragments, *catalog.learned)}
         for node in tree.nodes:
             if node.stopping:
                 continue  # The engine already requires a null conclusion.

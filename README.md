@@ -7,11 +7,12 @@ This research prototype represents procedural skills as Multiple Classification 
 - `src/rdr_engine/`: standalone MCRDR engine, skill compiler, and skill renderer.
 - `src/rdr_service/`: versioned HTTP skill-resolution service, isolating RDR internals.
 - `src/skill_agent/`: independent model/tool runner and three-arm PDF evaluation pipeline.
+- `src/trace_learner/`: verifier-driven learning that turns validated failure diagnoses into MCRDR exceptions.
 - `skills/`: seed skills, source metadata, feature schemas, and compiled examples.
 - `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
 - `tests/`: automated tests for the engine and skill pipeline.
 
-The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and a flat MCRDR tree (one unconditional general-guidance rule plus one rule per condition, with no rule limit), then renders the fragments of every terminal conclusion for a task. Multiple task categories in one natural-language query are supported; membership conditions select all matching guidance. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab. Current pilot configurations automatically refresh guidance before every model call using the task initially and the last three assistant turns thereafter (`run.skill_loading="rolling"`); the original model-initiated mode remains selectable. The `varex.mcrdr.*` configurations rerun the same experiments with the MCRDR engine serving the reduced arm. See [agent evaluation](docs/agent-evaluation.md) for accounting and limitations. Trace-driven updates and oracle integration remain separate future work.
+The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and a flat MCRDR tree (one unconditional general-guidance rule plus one rule per condition, with no rule limit), then renders the fragments of every terminal conclusion for a task. Multiple task categories in one natural-language query are supported; membership conditions select all matching guidance. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab. Current pilot configurations automatically refresh guidance before every model call using the task initially and the last three assistant turns thereafter (`run.skill_loading="rolling"`); the original model-initiated mode remains selectable. The `varex.mcrdr.*` configurations rerun the same experiments with the MCRDR engine serving the reduced arm. See [agent evaluation](docs/agent-evaluation.md) for accounting and limitations. [Verifier-driven learning](docs/verifier-learning.md) diagnoses failed episodes with an agentic verifier (after Trace2Skill), adds validated exceptions and alternatives to the skill's MCRDR, and keeps a candidate tree only after re-running the affected tasks; it has been tested offline and against the pinned VAREX scorer, not yet in a live model run.
 
 ## Run commands
 
@@ -33,3 +34,4 @@ For a Colab T4 without provider rate limits, use the optional [local Qwen3.5-4B 
 - [Base-skill-to-RDR implementation plan](docs/base-skill-to-rdr-plan.md)
 - [Skills and benchmark inventory](benchmarks/README.md)
 - [Agent evaluation architecture, interfaces, and limits](docs/agent-evaluation.md)
+- [Verifier-driven MCRDR learning](docs/verifier-learning.md)

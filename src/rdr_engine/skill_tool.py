@@ -22,6 +22,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     compile_parser.add_argument("--features", type=Path, help="Feature schema catalog JSON")
     compile_parser.add_argument("--model-id", default="unspecified")
     compile_parser.add_argument("--force", action="store_true", help="Replace existing compiled artifacts")
+    compile_parser.add_argument("--discard-learned", action="store_true",
+                                help="Rebuild even though compiled/learned.json holds trace-learned rules")
 
     render_parser = commands.add_parser("render", help="Predict and print selected Markdown")
     render_parser.add_argument("skill_dir", type=Path)
@@ -47,6 +49,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 feature_schema=schema,
                 model_id=args.model_id,
                 force=args.force,
+                discard_learned=args.discard_learned,
             )
             print(f"Compiled {len(catalog.fragments)} fragments and {len(tree.nodes)} tree nodes in {directory / 'compiled'}")
             return 0

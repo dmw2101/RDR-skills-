@@ -42,10 +42,13 @@ async def doctor(config):
             raise ValueError("service provenance differs from receipt")
         results["skill_service"] = "ok"
         results["skill_capabilities"] = resolved.capabilities
+        learned = resolved.metadata.get("learned_features")
+        if learned:
+            results["learned_features"] = f"{len(learned)} judged by the reduced-arm feature judge each refresh"
         results["skill_loading"] = (
             "automatic Bank guidance each turn; original visible request and recent conversation; "
             "classifier usage included; request_skill only acknowledges requests"
-            if hasattr(resolver, "provenance") and config["run"].get("skill_loading") == "rolling" else
+            if hasattr(resolver, "actions") and config["run"].get("skill_loading") == "rolling" else
             "automatic before every model call; task first, then last three assistant turns; "
             "request_skill only acknowledges requests"
             if config["run"].get("skill_loading") == "rolling" else

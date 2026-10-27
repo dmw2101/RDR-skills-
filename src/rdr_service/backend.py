@@ -58,6 +58,8 @@ class RDRBackend:
         SkillBundle.load(directory)  # Fail before copying stale or incomplete bundles.
         names = ["initial.md", "compiled/manifest.json", "compiled/ir.json",
                  "compiled/fragments.json", "compiled/tree.json"]
+        if (directory / "compiled/learned.json").exists():
+            names.append("compiled/learned.json")
         contents = {name: (directory / name).read_bytes() for name in names}
         hashes = {name: hashlib.sha256(data).hexdigest() for name, data in contents.items()}
         info = {"skill_id": directory.name, "files": hashes, "resolver_revision": self.revision,
@@ -120,5 +122,11 @@ class RDRBackend:
             "trace": [{"node_id": step.node_id, "matched": step.matched, "depth": step.depth}
                       for step in rendered.trace],
         }
+        learned = directory / "compiled/learned.json"
+        if learned.exists():
+            # Definitions for the caller's feature judge; values arrive back through context.
+            features = json.loads(learned.read_text(encoding="utf-8"))["features"]
+            if features:
+                metadata["learned_features"] = features
         return ResolvedSkill(rendered.markdown, request.artifact_id, info["source_fingerprint"],
                              self.revision, metadata, capabilities=skill_capabilities(directory))
