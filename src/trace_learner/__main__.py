@@ -24,6 +24,7 @@ def main(argv=None):
         "learn": "All stages; incremental mode runs the worker batch by batch on the tree learned so far",
         "status": "Summarize diagnoses, proposals and accepted versions (no model calls)",
         "report": "Write report.md/report.json: failures, rules, decisions and cost (no model calls)",
+        "redo-last-round": "incremental mode: reopen the last finished round so learn repeats it (no model calls)",
     }
     for name, text in help_text.items():
         sub = commands.add_parser(name, help=text)
@@ -45,7 +46,11 @@ def run(parser, args):
         learner = IncrementalLearner(config)
         if args.command == "learn":
             asyncio.run(learner.learn())
+        elif args.command == "redo-last-round":
+            learner.redo_last_round()
     else:
+        if args.command == "redo-last-round":
+            parser.error("'redo-last-round' is for incremental mode")
         learner = Learner(config)
         if args.command in (*BATCH_STAGES, "learn"):
             stage = {"init": learner.initialize, "verify": learner.verify, "consolidate": learner.consolidate,

@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import sys
 import tempfile
 import threading
 import unittest
@@ -298,6 +299,48 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state["round"], 4)
         self.assertEqual([list(learner.rounds()[str(i)]["passed"].values()) for i in range(4)],
                          [[False], [True], [True], [True]])
+
+    async def test_redo_last_round_rediagnoses_a_crashed_inspector_and_reuses_the_worker_attempt(self):
+        with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]):
+            # As earlier versions saved it: a refused inspector call stored as the verdict.
+            VerifierModel.refuse_next = True
+            with patch("trace_learner.incremental.was_interrupted", return_value=False):
+                await self.learner().learn()
+            learner = self.learner()
+            self.assertEqual(learner.rounds()["1"]["accepted"], [])
+            [episode] = (learner.round_dir(1) / "run" / "episodes").glob("*.json")
+            attempt = episode.read_bytes()
+
+            learner.redo_last_round()
+            self.assertEqual((learner.state()["round"], learner.state()["current_version"]), (1, 1))
+            self.assertEqual(list((learner.round_dir(1) / "diagnoses").glob("*.json")), [])
+            state = await self.learner().learn()
+            item = learner.rounds()["1"]
+            self.assertEqual((state["round"], item["accepted"], item["version_before"], item["version_after"]),
+                             (2, [0], 1, 2))
+            self.assertEqual(VerifierModel.episodes, 2)
+            self.assertEqual(episode.read_bytes(), attempt)  # The worker's attempt was reused, not repeated.
+            self.assertEqual(len(list((learner.round_dir(1) / "run" / "episodes").glob("*.json"))), 1)
+
+    async def test_redo_last_round_undoes_its_version_and_examples(self):
+        learner = self.learner()
+        await learner.learn()
+        def mentions_totals():
+            return any("totals|reduced|0" in sources
+                       for sources in read_json(learner.root / "cornerstones.json").values())
+        self.assertTrue(mentions_totals())
+        learner.redo_last_round()
+        self.assertEqual((learner.state()["round"], learner.state()["current_version"]), (3, 3))
+        self.assertFalse(learner.version_dir(4).exists())
+        self.assertFalse(mentions_totals())
+        with patch.object(AgentModel, "complete", side_effect=AssertionError("worker called")):
+            state = await self.learner().learn()
+        self.assertEqual((state["round"], state["current_version"]), (4, 4))
+        self.assertTrue(mentions_totals())
+
+    def test_redo_needs_a_finished_round(self):
+        with self.assertRaisesRegex(ValueError, "no finished round"):
+            self.learner().redo_last_round()
 
     async def test_one_learner_per_output_folder(self):
         folder = self.root / "learning"

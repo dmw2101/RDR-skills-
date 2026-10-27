@@ -156,6 +156,8 @@ Use the held-out split and a new `output_dir`, then `summarize` as usual. The ju
 
 A model call still refused after the client's retries (rate limits, server or network errors) says nothing about the worker, the inspector or the skill, so learning never records it. If it hits the worker or the checker's re-runs, that attempt is removed; if it hits the inspector, its result is not saved. `learn` then stops with `INTERRUPTED`, and rerunning it continues where it stopped, repeating only the refused step.
 
+To redo the last finished round (for example one whose inspector result an earlier version saved after a refused call), run `trace_learner redo-last-round --config ...` and then `learn`. It reopens that round on the tree it started from: the scored worker run and saved verdicts are reused, interrupted inspector results, proposals and checker re-runs are removed, as is the tree version the round created.
+
 ## Limits
 
 - Failed traces only. Trace2Skill's success analyst is not implemented. Cornerstones come only from passing reduced-arm episodes, at most `cornerstones_per_episode` evenly spaced views each.

@@ -111,6 +111,9 @@ class IncrementalLearner:
             "base_url": self.validation["service_url"], "judge_model": self.validation["judge_model"]}}
         config["run"].update({"output_dir": str(directory / "run"), "task_ids": [task["id"] for task in tasks],
                               "conditions": ["reduced"], "limit": None})
+        outcomes_path = directory / "outcomes.json"
+        if outcomes_path.exists():  # Finished and scored: reuse it, even if the code changed since.
+            return load_run(directory / "run")[1], read_json(outcomes_path)
         await run_experiment(config, resume=(directory / "run" / "manifest.json").exists())
         _, records = load_run(directory / "run")
         interrupted = [record for record in records if was_interrupted(record)]
@@ -120,9 +123,7 @@ class IncrementalLearner:
                     record["task_id"], record["condition"], record["replicate"])).unlink(missing_ok=True)
             raise Interrupted(f"the worker's run of {', '.join(sorted({r['task_id'] for r in interrupted}))} "
                               f"was refused ({interrupted[0]['error']}); run learn again to continue")
-        outcomes_path = directory / "outcomes.json"
-        if not outcomes_path.exists():
-            write_json(outcomes_path, self.hooks.outcomes(records, directory / "scores"))
+        write_json(outcomes_path, self.hooks.outcomes(records, directory / "scores"))
         return records, read_json(outcomes_path)
 
     async def _add_cornerstones(self, directory, records, passed, version):
@@ -320,6 +321,51 @@ class IncrementalLearner:
                     shutil.rmtree(self.round_dir(index) / name, ignore_errors=True)
             while state["round"] < len(self.batches):
                 state = await self._round(state["round"], state)
+            return state
+        finally:
+            lock.unlink(missing_ok=True)
+
+    def redo_last_round(self):
+        """Reopen the last finished round so the next learn repeats it.
+
+        Keeps its scored worker run and every saved inspector verdict; removes inspector
+        results that were interrupted (refused calls, e.g. saved by earlier versions), its
+        proposals, checker re-runs and the tree version it created. Safe to repeat.
+        """
+        self.root.mkdir(parents=True, exist_ok=True)
+        lock = self.root / ".learning"
+        _acquire(lock)
+        try:
+            state, rounds = self.state(), self.rounds()
+            if not state or state["round"] == 0:
+                raise ValueError("no finished round to redo")
+            index = state["round"] - 1
+            item = rounds[str(index)]
+            if item["version_after"] != state["current_version"]:
+                raise ValueError("state.json and rounds.json disagree; not changing anything")
+            directory = self.round_dir(index)
+            removed = []
+            for path in sorted((directory / "diagnoses").glob("*.json")):
+                if was_interrupted(read_json(path)):
+                    path.unlink()
+                    removed.append(path.stem)
+            for name in ("work.json", "proposals.json", "ledger.json"):
+                (directory / name).unlink(missing_ok=True)
+            for name in ("work", "candidates", "validation"):
+                shutil.rmtree(directory / name, ignore_errors=True)
+            if item["version_after"] != item["version_before"]:
+                shutil.rmtree(self.version_dir(item["version_after"]).parent, ignore_errors=True)
+            episodes = set(item["passed"])
+            origins = {context: [s for s in sources if s not in episodes]
+                       for context, sources in read_json(self.root / "cornerstones.json").items()}
+            write_json(self.root / "cornerstones.json", {c: s for c, s in origins.items() if s})
+            del rounds[str(index)]
+            write_json(self.root / "rounds.json", rounds)
+            state = {**state, "round": index, "current_version": item["version_before"]}
+            write_json(self.root / "state.json", state)
+            print(f"round {index + 1} ({', '.join(item['tasks'])}) reopened on v{item['version_before']}; "
+                  f"interrupted inspector results removed: {len(removed)}. Run learn to redo it; its worker "
+                  "run and saved verdicts are reused.", flush=True)
             return state
         finally:
             lock.unlink(missing_ok=True)
