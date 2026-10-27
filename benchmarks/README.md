@@ -6,6 +6,9 @@ benchmark implementations and splits. `skillopt/` is a pinned snapshot of
 `79124b37e9a6371e13b753f8bcd7adb1e493ade1`. It contains the evaluation
 code, configurations, and **lightweight ID/path split manifests**, not the raw
 benchmark payloads. Exact source locations and revisions are in `sources.json`.
+The snapshot is trimmed to the research package (`skillopt/`), `scripts/`,
+`configs/`, `data/`, `ckpt/` and packaging files. Its website, docs, plugins,
+web UI, Sleep tool and own tests are removed (listed in `sources.json`).
 
 | Skill | Benchmark | Train / val / test | Published manifest |
 |---|---|---:|---|

@@ -3,7 +3,12 @@
     "repository": "https://github.com/microsoft/SkillOpt",
     "commit": "79124b37e9a6371e13b753f8bcd7adb1e493ade1",
     "local_path": "benchmarks/skillopt",
-    "license": "MIT"
+    "license": "MIT",
+    "removed_from_snapshot": [
+      ".cursor-plugin", ".github", "blog", "docs", "plugins", "skillopt-assets", "skillopt.html", "index.html",
+      "mkdocs.yml", "skillopt_webui", "skillopt_sleep", "tests", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md",
+      "scripts/smoke_superpowers.sh"
+    ]
   },
   "benchmarks": [
     {
