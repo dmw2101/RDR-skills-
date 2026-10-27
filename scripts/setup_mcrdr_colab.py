@@ -12,8 +12,9 @@ the skill snapshot are reused when already present. Nothing is ever deleted, and
 existing results directory is only reused with --resume. Generated configs, snapshots,
 logs and results live under <workdir>/experiments/, which Git ignores.
 
-With --learn it also writes a trace_learner config that learns from this run's failed
-reduced-arm episodes (outputs in <workdir>/experiments/learning/<run-name>):
+With --learn it also writes a trace_learner config that learns from these documents batch by
+batch (--batch-size, default 1): the learner runs the worker on each batch with the tree learned
+so far (outputs in <workdir>/experiments/learning/<run-name>):
 
     %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --heldout-batch 30 --conditions reduced \
         --run-name learn-heldout30 --learn
@@ -75,7 +76,7 @@ EXPERIMENTS = {
 API_ONLY_OPTIONS = ("model", "base_url", "provider", "max_input_price", "max_output_price")
 # Learner models and settings (OpenRouter); --learn fills in this run's paths.
 LEARNER_BASE = "examples/learning/varex.learner.json"
-LEARNER_STAGES = ("init", "verify", "consolidate", "insert")
+LEARNER_STAGES = ("learn",)
 
 
 class SetupError(RuntimeError):
@@ -319,11 +320,19 @@ def needs_service(config: dict) -> bool:
 
 
 def build_learner_config(base: dict, options: argparse.Namespace, paths: Paths, run_config: dict) -> dict:
-    """Learner config for this run's reduced arm: the example's models with this host's paths and service."""
+    """Incremental learner config for this run's documents: the example's models, this host's paths.
+
+    The learner runs the worker itself, batch by batch (options.batch_size documents) on the tree
+    learned so far, using the run config written beside it for the model, data and limits.
+    """
     if "reduced" not in (run_config["run"].get("conditions") or ("none", "full", "reduced")):
         raise SetupError("--learn needs the reduced condition in the run (e.g. --conditions reduced)")
+    if type(options.batch_size) is not int or options.batch_size < 1:
+        raise SetupError("--batch-size must be a positive number of documents")
     config = copy.deepcopy(base)
-    config.update(name=options.run_name, collect_run=run_config["run"]["output_dir"],
+    config.pop("collect_run", None)
+    config.update(name=options.run_name, mode="incremental", batch_size=options.batch_size,
+                  run_config=str(paths.configs / f"{options.run_name}.json"),
                   skill_dir=str(paths.workdir / "skills" / "pdf"),
                   output_dir=str(paths.learning / options.run_name))
     config["validation"].update(service_url=f"http://127.0.0.1:{options.service_port}",
@@ -515,6 +524,8 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
     config = build_config(read_base(paths, options.experiment), options, paths, judge_model)
     learner = (build_learner_config(read_example(paths, LEARNER_BASE), options, paths, config)
                if options.learn else None)
+    if learner is not None and options.run:
+        raise SetupError("with --learn the learner runs the worker itself, batch by batch; remove --run")
     placeholders = [key for key, value in config["model"]["options"].items()
                     if isinstance(value, str) and "YOUR-" in value]
     if placeholders:
@@ -559,19 +570,20 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
         if receipt_path(options, paths).exists() and needs_service(config):
             receipt = json.loads(receipt_path(options, paths).read_text(encoding="utf-8"))
             runner.note(f"resolver revision {receipt['resolver_revision']}")
-    if options.run:
+    if learner is not None:
+        runner.note(f"learn batch by batch ({options.batch_size} document(s) at a time) on the tree learned so "
+                    "far; learn makes model calls and resumes after an interruption, report and status do not "
+                    "(see docs/verifier-learning.md):")
+        for stage in (*LEARNER_STAGES, "report"):
+            runner.out("!" + shlex.join([str(paths.python), "-m", "trace_learner", stage,
+                                         "--config", str(learner_path)]))
+    elif options.run:
         for command in commands:
             runner.run(command, cwd=paths.workdir)
     else:
         runner.note("run these from any cell (they use absolute paths):")
         for command in commands:
             runner.out("!" + shlex.join(str(part) for part in command))
-    if learner is not None:
-        runner.note("then learn from the failed reduced episodes, one paid stage at a time "
-                    "(see docs/verifier-learning.md); report and status make no model calls:")
-        for stage in (*LEARNER_STAGES, "report"):
-            runner.out("!" + shlex.join([str(paths.python), "-m", "trace_learner", stage,
-                                         "--config", str(learner_path)]))
     runner.note("after all runs are summarized, compare them (see docs/agent-commands.md, step 9):")
     runner.out("!" + shlex.join([str(paths.python), "-m", "skill_agent", "report",
                                  "--spec", str(paths.experiments / "report-spec.json")]))
@@ -606,7 +618,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true", help="Continue an existing run directory")
     parser.add_argument("--dry-run", action="store_true", help="Print every step without executing")
     parser.add_argument("--learn", action="store_true",
-                        help="Also write a trace_learner config that learns from this run's failures")
+                        help="Write a trace_learner config that learns from these documents, batch by batch")
+    parser.add_argument("--batch-size", type=int, default=1,
+                        help="Documents per learning round with --learn (default 1: one at a time)")
     options = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", options.run_name):
         parser.error("--run-name may only contain letters, digits, '.', '_' and '-'")

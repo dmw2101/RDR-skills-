@@ -211,7 +211,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("lf_form_fields (new)", rule["conditions"])
         self.assertEqual(report["costs"]["1 collect (worker)"]["model_calls"], 6)
         self.assertEqual(report["costs"]["2 verify (inspector)"]["model_calls"], 3)
-        self.assertEqual(report["costs"]["5 validate (worker + checker)"]["model_calls"], 12)
+        self.assertEqual(report["costs"]["5 checker re-runs (worker + judge)"]["model_calls"], 12)
         self.assertEqual(report["total_known_cost_usd"], 0.0)
         markdown = (self.root / "learning/report.md").read_text(encoding="utf-8")
         self.assertIn("| forms | 0 | completed | skill_missing |", markdown)

@@ -123,7 +123,14 @@ class ColabSetupConfigTests(unittest.TestCase):
         run_config = colab.build_config(base(opts.experiment), opts, self.paths)
         example = json.loads((ROOT / colab.LEARNER_BASE).read_text(encoding="utf-8"))
         learner = colab.build_learner_config(example, opts, self.paths, run_config)
-        self.assertEqual(learner["collect_run"], run_config["run"]["output_dir"])
+        # Incremental by default: one document at a time, the worker run by the learner itself.
+        self.assertEqual((learner["mode"], learner["batch_size"]), ("incremental", 1))
+        self.assertEqual(learner["run_config"], str(self.paths.configs / "mcrdr-test.json"))
+        self.assertNotIn("collect_run", learner)
+        self.assertEqual(colab.build_learner_config(example, options("--learn", "--batch-size", "5"), self.paths,
+                                                    run_config)["batch_size"], 5)
+        with self.assertRaisesRegex(colab.SetupError, "batch-size"):
+            colab.build_learner_config(example, options("--learn", "--batch-size", "0"), self.paths, run_config)
         self.assertEqual(learner["skill_dir"], str(self.paths.workdir / "skills" / "pdf"))
         self.assertEqual(learner["output_dir"], str(self.paths.learning / "mcrdr-test"))
         self.assertEqual(learner["validation"]["service_url"], "http://127.0.0.1:8766")
@@ -252,9 +259,12 @@ class ColabSetupDryRunTests(unittest.TestCase):
         self.assertIn("--dev-limit 10", next(text for kind, text in runner.records
                                              if kind == "run" and "skill_agent prepare" in text))
         printed = [line for line in lines if isinstance(line, str) and "-m trace_learner" in line]
-        self.assertEqual([line.split("-m trace_learner ")[1].split()[0] for line in printed],
-                         ["init", "verify", "consolidate", "insert", "report"])
+        self.assertEqual([line.split("-m trace_learner ")[1].split()[0] for line in printed], ["learn", "report"])
         self.assertTrue(all(str(learner_path) in line for line in printed))
+        # The learner runs the worker itself, so setup neither offers nor runs a whole-batch run.
+        self.assertFalse(any("skill_agent run" in str(line) for line in lines))
+        with self.assertRaisesRegex(colab.SetupError, "remove --run"):
+            self.dry_run("--limit", "10", "--conditions", "reduced", "--learn", "--run")
         records, _ = self.dry_run()
         self.assertFalse(any("learner.json" in text for _, text in records))
 

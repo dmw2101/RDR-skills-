@@ -20,13 +20,31 @@ from .validate import validate_candidate
 from .verifier import verify_episode
 from .workspace import SkillWorkspace, copy_bundle
 
-CONFIG_KEYS = {"version", "name", "collect_run", "skill_dir", "output_dir", "condition", "hooks",
-               "verifier", "judge", "merge", "cornerstones_per_episode", "validation"}
+CONFIG_KEYS = {"version", "name", "mode", "collect_run", "run_config", "batch_size", "skill_dir", "output_dir",
+               "condition", "hooks", "verifier", "judge", "merge", "cornerstones_per_episode", "validation"}
+MODES = {
+    # Learn once from a finished run of the original tree.
+    "batch": {"collect_run"},
+    # Run the worker in batches with the current tree and learn after each batch (see incremental.py).
+    "incremental": {"run_config"},
+}
+
+
+def sample_views(views, limit):
+    """At most ``limit`` views as cornerstones: evenly spaced turns, always including the first."""
+    if limit and len(views) > limit:
+        views = [views[round(i * (len(views) - 1) / (limit - 1))] if limit > 1 else views[0]
+                 for i in range(limit)]
+    return views
 
 
 def load_learner_config(path):
     config = read_json(path)
-    missing = {"version", "collect_run", "skill_dir", "output_dir", "hooks", "verifier", "judge"} - set(config)
+    mode = config.setdefault("mode", "batch")
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {sorted(MODES)}")
+    required = {"version", "skill_dir", "output_dir", "hooks", "verifier", "judge"} | MODES[mode]
+    missing = required - set(config)
     if config.get("version") != 1 or missing or set(config) - CONFIG_KEYS:
         raise ValueError(f"expected a v1 learner config; missing {sorted(missing)}, "
                          f"unknown {sorted(set(config) - CONFIG_KEYS)}")
@@ -34,7 +52,12 @@ def load_learner_config(path):
     config.setdefault("merge", None)
     config.setdefault("cornerstones_per_episode", 6)
     config.setdefault("validation", {"enabled": False})
-    if config["validation"].get("enabled"):
+    if mode == "incremental":
+        batch_size = config.setdefault("batch_size", 1)
+        if type(batch_size) is not int or batch_size < 1:
+            raise ValueError("batch_size must be a positive integer")
+    # Incremental learning runs the worker itself, so it always needs the service and store.
+    if config["validation"].get("enabled") or mode == "incremental":
         for name in ("service_url", "store"):
             if name not in config["validation"]:
                 raise ValueError(f"validation needs {name}")
@@ -104,11 +127,8 @@ class Learner:
         for record in self.condition_records():
             if not passed[episode_key(record)]:
                 continue
-            views = skill_views(record["events"], self.materials(record["task_id"]))
-            limit = self.config["cornerstones_per_episode"]
-            if limit and len(views) > limit:  # Evenly spaced turns, always including the first.
-                views = [views[round(i * (len(views) - 1) / (limit - 1))] if limit > 1 else views[0]
-                         for i in range(limit)]
+            views = sample_views(skill_views(record["events"], self.materials(record["task_id"])),
+                                 self.config["cornerstones_per_episode"])
             for view in views:
                 if view["case"] is None:
                     continue

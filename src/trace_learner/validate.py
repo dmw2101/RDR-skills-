@@ -37,7 +37,8 @@ async def validate_candidate(*, skill_dir, base_config, hooks, fixed_tasks, prot
         "max_calls": settings.get("max_calls", config["run"]["max_calls"]),
         "timeout_seconds": settings.get("timeout_seconds", config["run"]["timeout_seconds"]),
     })
-    await run_experiment(config)
+    # An interrupted validation resumes its finished episodes instead of refusing the folder.
+    await run_experiment(config, resume=(workdir / "run" / "manifest.json").exists())
     _, records = load_run(workdir / "run")
     outcomes = hooks.outcomes(records, workdir / "scores")
     passes = {}

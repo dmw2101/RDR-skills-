@@ -78,7 +78,9 @@ class LearningNotebookTests(unittest.TestCase):
         options = script.parse_args(["--experiment", settings["EXPERIMENT"],
                                      "--heldout-batch", str(settings["LEARN_DOCUMENTS"]),
                                      "--replicates", str(settings["LEARN_REPLICATES"]), "--conditions", "reduced",
-                                     "--run-name", settings["RUN_NAME"], "--learn"])
+                                     "--run-name", settings["RUN_NAME"], "--learn",
+                                     "--batch-size", str(settings["BATCH_SIZE"])])
+        self.assertEqual(options.batch_size, 1)  # One document at a time by default.
         # Learning uses held-out documents only; the 30 dev documents are kept for testing.
         self.assertEqual(script.data_selection(options.experiment, None, options.heldout_batch)[1],
                          ["--heldout-limit", str(settings["LEARN_DOCUMENTS"])])

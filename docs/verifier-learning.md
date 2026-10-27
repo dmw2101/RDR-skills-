@@ -4,8 +4,17 @@
 
 ## Pipeline
 
+Two modes share the same verifier, insertion and validation:
+
+- **Incremental** (`"mode": "incremental"`, used by the Colab notebook): the learner runs the worker itself, `batch_size` documents per round (default 1), each round on the tree learned so far. Passing attempts become cornerstones, failures are diagnosed and turned into rules, and the result is the next version, which the next round runs on. A failure an earlier rule already fixes never reaches the verifier, as in case-by-case RDR knowledge acquisition. `batch_size` equal to the number of documents learns from all of them at once.
+- **Batch** (`"mode": "batch"`, the default): learn once from a finished run of the original tree, in the stages below.
+
 ```
-collected run (reduced arm, official scores)
+round k (incremental): run the worker on the next batch with version vN, score it
+  └─ passing attempts → cornerstones; failed attempts → verify → consolidate → insert (as below)
+  └─ the result is v(N+1), used by round k+1; every step is saved, so an interruption resumes
+
+collected run (batch mode: reduced arm, official scores)
   └─ init         passing episodes' skill views become cornerstone cases            (no model calls)
   └─ verify       one agentic verifier per failed episode → validated diagnosis      (verifier model)
   └─ consolidate  diagnoses aimed at the same node are merged by an LLM              (optional merge model)
@@ -59,10 +68,10 @@ The original `initial.md` and its compiled fragments are never changed. `skill_t
 
 ## Colab trial
 
-[`notebooks/verifier_learning_colab.ipynb`](../notebooks/verifier_learning_colab.ipynb) learns from one batch of documents and tests the result on different documents. Open it in VS Code with the Google Colab extension (Select Kernel → Colab). It:
-1. collects a reduced-arm run on a **learning batch**: the first `LEARN_DOCUMENTS` held-out documents (default 30), never the 30 dev documents;
-2. runs each learner stage in its own cell, with every paid cell marked, and shows the `report` table;
-3. runs the newest accepted version on the **30 dev documents** for `TEST_RUNS` runs (default 1), and optionally re-runs the original tree alongside (`RERUN_BASE`);
+[`notebooks/verifier_learning_colab.ipynb`](../notebooks/verifier_learning_colab.ipynb) learns from one set of documents and tests the result on different documents. Open it in VS Code with the Google Colab extension (Select Kernel → Colab). It:
+1. sets everything up without model calls;
+2. learns incrementally from the **learning set**, the first `LEARN_DOCUMENTS` held-out documents (default 30, never the 30 dev documents), `BATCH_SIZE` documents per round (default 1), and shows the `report` tables: every learning attempt in order, the rules, and cost;
+3. runs the final learned tree on the **30 dev documents** for `TEST_RUNS` runs (default 1), and optionally re-runs the original tree alongside (`RERUN_BASE`);
 4. compares the learned tree with the pilot deck's numbers for the original tree on those same documents (3 runs, same worker settings; the MCRDR tree gives the same advice as the deck's single-classification tree, see [agent evaluation](agent-evaluation.md#mcrdr-runs)), plus a `skill_agent report` of the new runs;
 5. downloads a zip.
 
@@ -70,7 +79,7 @@ The deck has only totals, so without `RERUN_BASE` the comparison is on totals, n
 
 It uses [`scripts/setup_mcrdr_colab.py`](../scripts/setup_mcrdr_colab.py) (see [Colab setup](agent-commands.md#colab-in-repo-setup-script)):
 - `--heldout-batch N` prepares and runs the first N held-out documents (`skill_agent prepare --heldout-limit N`).
-- `--learn` writes `experiments/configs/<run-name>.learner.json` from the example config below, using the run's paths, the service on port 8766 and its snapshot store.
+- `--learn` writes `experiments/configs/<run-name>.learner.json`: an incremental learner config from the example config below, with `--batch-size` (default 1), the run config written beside it, the service on port 8766 and its snapshot store. The learner then runs the worker itself, so `--run` is refused.
 - `--skill-version <versions/vN/pdf>` snapshots a learned version under its own receipt and serves it through `LearnedFeatureResolver`, with the example config's judge model. The full arm stays the original skill.
 
 Models, all on OpenRouter (provider `alibaba`):
@@ -99,7 +108,7 @@ Keys come from environment variables, as for the agent:
 $env:MODEL_API_KEY = "YOUR_API_KEY"
 ```
 
-**3. Run the stages.** Each stage saves its output and resumes after an interruption. `learn` runs all of them. **Every stage except `init`, `status` and `report` makes paid model calls.** Validation re-runs agent episodes, so keep the skill service running against the configured `store`.
+**3. Run the stages.** In batch mode each stage saves its output and resumes after an interruption, and `learn` runs all of them. In incremental mode use `learn` (it runs the worker round by round and resumes after an interruption), then `status` or `report`; the batch-only stages are refused. **Every stage except `init`, `status` and `report` makes paid model calls.** Validation re-runs agent episodes, so keep the skill service running against the configured `store`.
 
 ```powershell
 .\.venv\Scripts\python.exe -m trace_learner init --config examples/learning/varex.learner.json
@@ -138,6 +147,8 @@ Use the held-out split and a new `output_dir`, then `summarize` as usual. The ju
 | `proposals.json` | Merged proposals and their source episodes |
 | `ledger.json` | Each proposal's insertion result, validation passes/regressions and decision |
 | `report.md`, `report.json` | Tables of failures, rules, decisions and cost (`report`) |
+| `rounds/rNNN/` | Incremental mode: one round's worker run, scores, diagnoses, proposals, ledger and validation runs |
+| `rounds.json`, `state.json` | Incremental mode: per round, the documents, results, rules kept and tree version; progress for resuming |
 | `versions/vN/<skill>/` | Immutable accepted versions; `v0` is the original skill plus cornerstones |
 | `validation/cN/` | Snapshot receipts and validation runs |
 

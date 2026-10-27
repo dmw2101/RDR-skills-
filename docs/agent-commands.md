@@ -237,7 +237,7 @@ The pilot and skill-requests configs contain provider placeholders, so the scrip
 
 `--heldout-batch N` prepares and runs the first N held-out documents instead of dev documents (`skill_agent prepare --heldout-limit N`), so learning can avoid the dev documents used for evaluation. It replaces `--limit`.
 
-`--learn` also writes `experiments/configs/<run-name>.learner.json` for [verifier-driven learning](verifier-learning.md#colab-trial) from the run's failed reduced episodes, and prints its stage commands. It needs the reduced condition in the run.
+`--learn` also writes `experiments/configs/<run-name>.learner.json` for incremental [verifier-driven learning](verifier-learning.md#colab-trial) on the run's documents, `--batch-size` documents per round (default 1), and prints the `trace_learner learn` and `report` commands. The learner runs the worker itself, so `--run` is refused; it needs the reduced condition in the run.
 
 `--skill-version PATH` serves a learned tree (a `versions/vN/pdf` folder from learning) in the reduced arm, with its own snapshot receipt and the feature judge from `examples/learning/varex.learner.json`.
 
