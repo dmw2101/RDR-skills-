@@ -12,12 +12,13 @@ from unittest.mock import patch
 from rdr_service.backend import RDRBackend
 from rdr_service.server import make_server
 from skill_agent.experiments import episode_filename
+from skill_agent.http import HTTPStatusError
 from skill_agent.learned_features import judge_context
 from skill_agent.models import ModelResponse
 from skill_agent.storage import read_json, write_json
 from trace_learner.incremental import IncrementalLearner
 from trace_learner.pipeline import load_learner_config
-from trace_learner.records import episode_key
+from trace_learner.records import Interrupted, episode_key
 from trace_learner.report import incremental_report
 from trace_learner.workspace import SkillWorkspace
 
@@ -106,7 +107,12 @@ class Hooks:
 class AgentModel:
     """The worker: reports whether the learned guidance was in its prompt, then finishes."""
 
+    calls, refuse_at = 0, None  # Call number (counted across instances) that the provider refuses.
+
     async def complete(self, messages, tools):
+        AgentModel.calls += 1
+        if AgentModel.calls == AgentModel.refuse_at:
+            raise HTTPStatusError(429, "openrouter.ai")
         if messages[-1]["role"] == "tool":
             return ModelResponse({"role": "assistant", "content": "done"}, dict(USAGE), {})
         return ModelResponse(call("answer", {"saw_guidance": MARKER in messages[0]["content"]}), dict(USAGE), {})
@@ -115,7 +121,7 @@ class AgentModel:
 class VerifierModel:
     """The inspector: one instance per diagnosed episode."""
 
-    episodes = 0
+    episodes, refuse_next = 0, False
     script = [
         call("compare_with_ground_truth", {}),
         call("rescore", {"prediction": {"saw_guidance": True}}),
@@ -132,6 +138,9 @@ class VerifierModel:
         self.turn = 0
 
     async def complete(self, messages, tools):
+        if VerifierModel.refuse_next:
+            VerifierModel.refuse_next = False
+            raise HTTPStatusError(429, "openrouter.ai")
         self.turn += 1
         return ModelResponse(self.script[min(self.turn, len(self.script)) - 1], dict(USAGE), {})
 
@@ -179,7 +188,8 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             "verifier": {"model": {"factory": f"{__name__}:VerifierModel"}, "max_calls": 6},
             "judge": {"model": {"factory": f"{__name__}:JudgeModel"}},
             "validation": {"enabled": True, "service_url": url, "store": str(store), "replicates": 2}})
-        VerifierModel.episodes = 0
+        VerifierModel.episodes, VerifierModel.refuse_next = 0, False
+        AgentModel.calls, AgentModel.refuse_at = 0, None
 
     def learner(self):
         return IncrementalLearner(load_learner_config(self.root / "learner.json"))
@@ -249,6 +259,45 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
         state = await self.learner().learn()
         self.assertEqual(VerifierModel.episodes, 1)  # The saved diagnosis was reused.
         self.assertEqual(state["round"], 4)
+
+    async def test_refused_inspector_and_checker_calls_are_retried_not_recorded(self):
+        # 1. The inspector's call is refused: no verdict is saved and the round stays open.
+        VerifierModel.refuse_next = True
+        with self.assertRaisesRegex(Interrupted, "inspector"):
+            await self.learner().learn()
+        learner = self.learner()
+        self.assertEqual(list((learner.round_dir(0) / "diagnoses").glob("*.json")), [])
+        self.assertEqual(learner.state()["round"], 0)
+        self.assertFalse((learner.root / ".learning").exists())
+        # 2. The rerun diagnoses again; then the checker's first re-run (the worker's next call) is refused.
+        AgentModel.refuse_at = AgentModel.calls + 1
+        with self.assertRaisesRegex(Interrupted, "checker"):
+            await self.learner().learn()
+        self.assertEqual(VerifierModel.episodes, 2)
+        self.assertFalse((learner.round_dir(0) / "ledger.json").exists())  # No decision was recorded.
+        # 3. The rerun repeats only the refused re-run, keeps the rule and finishes every round.
+        state = await self.learner().learn()
+        self.assertEqual(VerifierModel.episodes, 2)
+        self.assertEqual(state["round"], 4)
+        rounds = learner.rounds()
+        self.assertEqual(rounds["0"]["accepted"], [0])
+        [diagnosis] = (learner.round_dir(0) / "diagnoses").glob("*.json")
+        self.assertEqual(read_json(diagnosis)["diagnosis"]["attribution"], "skill_missing")
+        [entry] = read_json(learner.round_dir(0) / "ledger.json")
+        self.assertEqual((entry["decision"], entry["validation"]["fixed"]), ("accepted", {"forms_a": True}))
+
+    async def test_a_refused_worker_attempt_is_repeated_not_counted_as_a_failure(self):
+        AgentModel.refuse_at = 1  # The very first worker call (round 1).
+        with self.assertRaisesRegex(Interrupted, "worker"):
+            await self.learner().learn()
+        learner = self.learner()
+        self.assertEqual(list((learner.round_dir(0) / "run" / "episodes").glob("*.json")), [])
+        self.assertFalse((learner.round_dir(0) / "outcomes.json").exists())
+        self.assertEqual(VerifierModel.episodes, 0)  # The refusal never reached the inspector.
+        state = await self.learner().learn()
+        self.assertEqual(state["round"], 4)
+        self.assertEqual([list(learner.rounds()[str(i)]["passed"].values()) for i in range(4)],
+                         [[False], [True], [True], [True]])
 
     async def test_one_learner_per_output_folder(self):
         folder = self.root / "learning"

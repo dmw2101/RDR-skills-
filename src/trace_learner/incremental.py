@@ -21,7 +21,7 @@ from urllib.parse import quote
 
 from rdr_engine.learned import CONTEXT_KEY
 from rdr_service.backend import RDRBackend
-from skill_agent.experiments import factory, load_config, load_run, run_experiment, select_tasks
+from skill_agent.experiments import episode_filename, factory, load_config, load_run, run_experiment, select_tasks
 from skill_agent.learned_features import FeatureJudge
 from skill_agent.storage import read_json, write_json
 
@@ -29,7 +29,7 @@ from . import __version__
 from .consolidate import consolidate
 from .pipeline import sample_views
 from .proposals import Proposal
-from .records import episode_key, skill_views, view_at
+from .records import Interrupted, episode_key, skill_views, view_at, was_interrupted
 from .validate import validate_candidate
 from .verifier import verify_episode
 from .workspace import SkillWorkspace, copy_bundle
@@ -113,6 +113,13 @@ class IncrementalLearner:
                               "conditions": ["reduced"], "limit": None})
         await run_experiment(config, resume=(directory / "run" / "manifest.json").exists())
         _, records = load_run(directory / "run")
+        interrupted = [record for record in records if was_interrupted(record)]
+        if interrupted:  # Forget those attempts so the rerun repeats only them.
+            for record in interrupted:
+                (directory / "run" / "episodes" / episode_filename(
+                    record["task_id"], record["condition"], record["replicate"])).unlink(missing_ok=True)
+            raise Interrupted(f"the worker's run of {', '.join(sorted({r['task_id'] for r in interrupted}))} "
+                              f"was refused ({interrupted[0]['error']}); run learn again to continue")
         outcomes_path = directory / "outcomes.json"
         if not outcomes_path.exists():
             write_json(outcomes_path, self.hooks.outcomes(records, directory / "scores"))
@@ -163,13 +170,23 @@ class IncrementalLearner:
                     model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                     workspace=workspace, max_calls=settings.get("max_calls", 30),
                     timeout_seconds=settings.get("timeout_seconds", 900))
+            if was_interrupted(outcome):  # Not a verdict: leave it unsaved so the rerun diagnoses again.
+                print(f"  inspector on {record['task_id']} rep={record['replicate']}: interrupted "
+                      f"({outcome['error']}); not saved", flush=True)
+                return outcome
             write_json(path, outcome)
             print(f"  inspector on {record['task_id']} rep={record['replicate']}: {outcome['status']}, "
                   f"{(outcome.get('diagnosis') or {}).get('attribution')}, eligible={outcome['eligible']}",
                   flush=True)
             return outcome
 
-        return await asyncio.gather(*(one(record) for record in failed))
+        outcomes = await asyncio.gather(*(one(record) for record in failed))
+        interrupted = [outcome for outcome in outcomes if was_interrupted(outcome)]
+        if interrupted:
+            raise Interrupted(f"the inspector's model calls were refused for "
+                              f"{', '.join(sorted({o['task_id'] for o in interrupted}))} "
+                              f"({interrupted[0]['error']}); run learn again to continue")
+        return outcomes
 
     async def _proposals(self, directory, outcomes):
         path = directory / "proposals.json"

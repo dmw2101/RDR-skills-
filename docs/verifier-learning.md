@@ -152,6 +152,10 @@ Use the held-out split and a new `output_dir`, then `summarize` as usual. The ju
 | `versions/vN/<skill>/` | Immutable accepted versions; `v0` is the original skill plus cornerstones |
 | `validation/cN/` | Snapshot receipts and validation runs |
 
+## Refused calls
+
+A model call still refused after the client's retries (rate limits, server or network errors) says nothing about the worker, the inspector or the skill, so learning never records it. If it hits the worker or the checker's re-runs, that attempt is removed; if it hits the inspector, its result is not saved. `learn` then stops with `INTERRUPTED`, and rerunning it continues where it stopped, repeating only the refused step.
+
 ## Limits
 
 - Failed traces only. Trace2Skill's success analyst is not implemented. Cornerstones come only from passing reduced-arm episodes, at most `cornerstones_per_episode` evenly spaced views each.

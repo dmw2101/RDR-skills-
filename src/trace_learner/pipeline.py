@@ -15,7 +15,7 @@ from skill_agent.storage import read_json, write_json
 from . import __version__
 from .consolidate import consolidate
 from .proposals import Proposal
-from .records import episode_key, skill_views, view_at
+from .records import Interrupted, episode_key, skill_views, view_at, was_interrupted
 from .validate import validate_candidate
 from .verifier import verify_episode
 from .workspace import SkillWorkspace, copy_bundle
@@ -164,12 +164,22 @@ class Learner:
                     model=factory(settings["model"]), task=self.tasks[record["task_id"]], record=record,
                     hooks=self.hooks, workspace=workspace, max_calls=settings.get("max_calls", 30),
                     timeout_seconds=settings.get("timeout_seconds", 900))
+            if was_interrupted(outcome):  # Not a verdict: leave it unsaved so the rerun diagnoses again.
+                print(f"verifying {record['task_id']} rep={record['replicate']} was interrupted "
+                      f"({outcome['error']}); not saved", flush=True)
+                return outcome
             write_json(path, outcome)
             print(f"verified {record['task_id']} rep={record['replicate']}: {outcome['status']}, "
                   f"{outcome.get('diagnosis', {}).get('attribution')}, eligible={outcome['eligible']}", flush=True)
             return outcome
 
-        return await asyncio.gather(*(one(record) for record in failed))
+        outcomes = await asyncio.gather(*(one(record) for record in failed))
+        interrupted = [outcome for outcome in outcomes if was_interrupted(outcome)]
+        if interrupted:
+            raise Interrupted(f"the verifier's model calls were refused for "
+                              f"{', '.join(sorted({o['task_id'] for o in interrupted}))} "
+                              f"({interrupted[0]['error']}); run the same stage again to continue")
+        return outcomes
 
     # -- stage 3: consolidation ----------------------------------------------------------------
     async def consolidate(self):

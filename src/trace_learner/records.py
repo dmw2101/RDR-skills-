@@ -1,8 +1,25 @@
 """Read skill views and visible contexts back out of saved episode records."""
 
 import json
+import re
 
 from skill_agent.learned_features import judge_context
+
+# Provider refusals and network failures that outlasted the model client's retries. Such an
+# attempt says nothing about the worker, the inspector or the skill, so it is retried, never kept.
+INTERRUPTION = re.compile(r"HTTP (429|5\d\d) from |URLError|Connection\w*Error|RemoteDisconnected|"
+                          r"IncompleteRead|TimeoutError")
+
+
+class Interrupted(RuntimeError):
+    """A model call was refused or lost; rerunning the same command continues where it stopped."""
+
+
+def was_interrupted(outcome):
+    """True for an episode that failed on a refused or lost call, not on its own behaviour or budget."""
+    error = outcome.get("error") or ""
+    return (outcome.get("status") == "failed" and not error.startswith("cleanup failed")
+            and INTERRUPTION.search(error) is not None)
 
 
 def skill_views(events, materials=None):

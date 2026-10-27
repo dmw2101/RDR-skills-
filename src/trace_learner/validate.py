@@ -4,10 +4,10 @@ import copy
 from pathlib import Path
 
 from rdr_service.backend import RDRBackend
-from skill_agent.experiments import load_run, run_experiment
+from skill_agent.experiments import episode_filename, load_run, run_experiment
 from skill_agent.storage import write_json
 
-from .records import episode_key
+from .records import Interrupted, episode_key, was_interrupted
 
 
 def majority(values):
@@ -40,6 +40,13 @@ async def validate_candidate(*, skill_dir, base_config, hooks, fixed_tasks, prot
     # An interrupted validation resumes its finished episodes instead of refusing the folder.
     await run_experiment(config, resume=(workdir / "run" / "manifest.json").exists())
     _, records = load_run(workdir / "run")
+    interrupted = [record for record in records if was_interrupted(record)]
+    if interrupted:  # Forget those attempts so the rerun repeats only them.
+        for record in interrupted:
+            (workdir / "run" / "episodes" / episode_filename(
+                record["task_id"], record["condition"], record["replicate"])).unlink(missing_ok=True)
+        raise Interrupted(f"the checker's re-run of {', '.join(sorted({r['task_id'] for r in interrupted}))} "
+                          f"was refused ({interrupted[0]['error']}); run learn again to continue")
     outcomes = hooks.outcomes(records, workdir / "scores")
     passes = {}
     for record in records:

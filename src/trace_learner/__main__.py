@@ -6,6 +6,7 @@ import json
 
 from .incremental import IncrementalLearner
 from .pipeline import Learner, load_learner_config
+from .records import Interrupted
 from .report import incremental_report, learning_report
 
 BATCH_STAGES = ("init", "verify", "consolidate", "insert")
@@ -28,6 +29,15 @@ def main(argv=None):
         sub = commands.add_parser(name, help=text)
         sub.add_argument("--config", required=True)
     args = parser.parse_args(argv)
+    try:
+        run(parser, args)
+    except Interrupted as exc:
+        print(f"\nINTERRUPTED: {exc}\nNothing unfinished was saved; rerunning the same command continues "
+              "where it stopped.", flush=True)
+        raise SystemExit(3) from None
+
+
+def run(parser, args):
     config = load_learner_config(args.config)
     if config["mode"] == "incremental":
         if args.command in BATCH_STAGES:
