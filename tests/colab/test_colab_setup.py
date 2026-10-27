@@ -140,6 +140,45 @@ class ColabSetupConfigTests(unittest.TestCase):
             colab.build_learner_config(example, blind, self.paths,
                                        colab.build_config(base(blind.experiment), blind, self.paths))
 
+    def test_heldout_batch_runs_only_held_out_documents(self):
+        config = self.build("--heldout-batch", "30", "--conditions", "reduced")
+        self.assertEqual((config["run"]["split"], config["run"]["limit"]), ("heldout", None))
+        self.assertEqual(config["benchmark"]["options"]["data_dir"],
+                         str(self.paths.workdir / "benchmarks/local-data/varex-heldout-30"))
+        self.assertEqual(colab.data_selection("qwen-dev30", 30, 30),
+                         ("benchmarks/local-data/varex-heldout-30", ["--heldout-limit", "30"]))
+        self.assertLoads(config)
+        with self.assertRaisesRegex(colab.SetupError, "remove --limit"):
+            self.build("--heldout-batch", "30", "--limit", "10")
+        with self.assertRaisesRegex(colab.SetupError, "skill-requests"):
+            self.build("--experiment", "skill-requests", "--heldout-batch", "5")
+        with self.assertRaisesRegex(colab.SetupError, "positive"):
+            colab.data_selection("qwen-dev30", None, 0)
+
+    def test_skill_version_serves_the_learned_tree_with_the_judge(self):
+        version = "experiments/learning/learn/versions/v1/pdf"
+        judge = {"factory": "skill_agent.models:OpenAICompatibleClient", "options": {"model": "judge"}}
+        opts = options("--conditions", "reduced", "--skill-version", version)
+        config = colab.build_config(base(opts.experiment), opts, self.paths, judge)
+        skill = config["skill"]
+        self.assertEqual(skill["receipt"], str(self.paths.experiments / "pdf-snapshot-mcrdr-test.json"))
+        self.assertEqual(skill["full_markdown"], str(self.paths.workdir / "skills/pdf/initial.md"))
+        self.assertEqual(skill["resolver"], {
+            "factory": "skill_agent.learned_features:LearnedFeatureResolver",
+            "options": {"base_url": "http://127.0.0.1:8766", "judge_model": judge}})
+        self.assertEqual(colab.skill_source(opts, self.paths), self.paths.workdir / version)
+        self.assertLoads(config)
+        with self.assertRaisesRegex(colab.SetupError, "judge"):
+            colab.build_config(base(opts.experiment), opts, self.paths)
+        with self.assertRaisesRegex(colab.SetupError, "versions/vN/pdf"):
+            wrong = options("--skill-version", "experiments/learning/learn/versions/v1")
+            colab.build_config(base(wrong.experiment), wrong, self.paths, judge)
+        with self.assertRaisesRegex(colab.SetupError, "skill condition"):
+            blind = options("--conditions", "none", "--skill-version", version)
+            colab.build_config(base(blind.experiment), blind, self.paths, judge)
+        default = options()
+        self.assertEqual(colab.receipt_path(default, self.paths), self.paths.receipt)
+
     def test_run_names_cannot_be_paths(self):
         for name in ("../escape", "a/b", ""):
             with self.subTest(name=name), self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
@@ -218,6 +257,18 @@ class ColabSetupDryRunTests(unittest.TestCase):
         self.assertTrue(all(str(learner_path) in line for line in printed))
         records, _ = self.dry_run()
         self.assertFalse(any("learner.json" in text for _, text in records))
+
+    def test_learned_version_dry_run_snapshots_that_version_with_the_example_judge(self):
+        version = self.workdir.resolve() / "experiments/learning/learn/versions/v1/pdf"
+        records, config = self.dry_run("--conditions", "reduced", "--skill-version", str(version))
+        prepare = next(text for kind, text in records if kind == "run" and "rdr_service prepare" in text)
+        self.assertIn(str(version), prepare)
+        self.assertIn("pdf-snapshot-mcrdr-test.json", prepare)
+        example = json.loads((ROOT / colab.LEARNER_BASE).read_text(encoding="utf-8"))
+        self.assertEqual(config["skill"]["resolver"]["options"]["judge_model"], example["judge"]["model"])
+        records, _ = self.dry_run("--heldout-batch", "30", "--conditions", "reduced", "--learn")
+        prepare = next(text for kind, text in records if kind == "run" and "skill_agent prepare" in text)
+        self.assertIn("--heldout-limit 30", prepare)
 
     def test_skill_blind_dry_run_starts_no_service(self):
         records, _ = self.dry_run("--conditions", "none")

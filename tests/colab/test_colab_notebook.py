@@ -75,12 +75,29 @@ class LearningNotebookTests(unittest.TestCase):
         sys.modules[spec.name] = script
         spec.loader.exec_module(script)
         self.assertEqual((settings["BRANCH"], settings["WORKDIR"]), (script.BRANCH, script.WORKDIR))
-        options = script.parse_args(["--experiment", settings["EXPERIMENT"], "--limit", str(settings["DOCUMENTS"]),
-                                     "--conditions", "reduced", "--run-name", settings["RUN_NAME"], "--learn"])
-        self.assertEqual(script.data_selection(options.experiment, options.limit)[1],
-                         ["--dev-limit", str(settings["DOCUMENTS"])])
+        options = script.parse_args(["--experiment", settings["EXPERIMENT"],
+                                     "--heldout-batch", str(settings["LEARN_DOCUMENTS"]),
+                                     "--replicates", str(settings["LEARN_REPLICATES"]), "--conditions", "reduced",
+                                     "--run-name", settings["RUN_NAME"], "--learn"])
+        # Learning uses held-out documents only; the 30 dev documents are kept for testing.
+        self.assertEqual(script.data_selection(options.experiment, None, options.heldout_batch)[1],
+                         ["--heldout-limit", str(settings["LEARN_DOCUMENTS"])])
+        self.assertEqual(script.EXPERIMENTS[settings["EXPERIMENT"]]["selection"], "dev")
         stages = [line for source in self.code for line in source.splitlines() if line.startswith("learn(")]
         self.assertEqual(stages, [f'learn("{stage}")' for stage in (*script.LEARNER_STAGES, "report")])
+
+    def test_deck_baseline_matches_the_pilot_notebook(self):
+        cell = ast.parse(next(source for source in self.code if "DECK_REDUCED = " in source))
+        mine = next(ast.literal_eval(node.value) for node in cell.body
+                    if isinstance(node, ast.Assign) and node.targets[0].id == "DECK_REDUCED")
+        deck = {}
+        exec(cell_defining("DECK"), deck)
+        deck = deck["DECK"]
+        for run in ("Run 1", "Run 2", "Run 3", "Pooled"):
+            self.assertEqual(mine["field_exact_match"][run], deck["field_exact_match"][run]["reduced"])
+        for key in ("fields_correct", "completed", "perfect_documents"):
+            self.assertEqual(mine[key], deck[key]["reduced"])
+        self.assertEqual((mine["fields_total"], mine["episodes"]), (deck["fields_total"], deck["episodes"]))
 
 
 if __name__ == "__main__":

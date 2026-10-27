@@ -59,13 +59,19 @@ The original `initial.md` and its compiled fragments are never changed. `skill_t
 
 ## Colab trial
 
-[`notebooks/verifier_learning_colab.ipynb`](../notebooks/verifier_learning_colab.ipynb) runs one small trial end to end on Colab: open it in VS Code with the Google Colab extension (Select Kernel → Colab). It:
-1. collects a reduced-arm run on the first 10 dev documents;
-2. runs each learner stage in its own cell, with every paid cell marked;
-3. shows the `report` table;
-4. downloads a zip.
+[`notebooks/verifier_learning_colab.ipynb`](../notebooks/verifier_learning_colab.ipynb) learns from one batch of documents and tests the result on different documents. Open it in VS Code with the Google Colab extension (Select Kernel → Colab). It:
+1. collects a reduced-arm run on a **learning batch**: the first `LEARN_DOCUMENTS` held-out documents (default 30), never the 30 dev documents;
+2. runs each learner stage in its own cell, with every paid cell marked, and shows the `report` table;
+3. runs the newest accepted version on the **30 dev documents** for `TEST_RUNS` runs (default 1), and optionally re-runs the original tree alongside (`RERUN_BASE`);
+4. compares the learned tree with the pilot deck's numbers for the original tree on those same documents (3 runs, same worker settings; the MCRDR tree gives the same advice as the deck's single-classification tree, see [agent evaluation](agent-evaluation.md#mcrdr-runs)), plus a `skill_agent report` of the new runs;
+5. downloads a zip.
 
-It uses [`scripts/setup_mcrdr_colab.py`](../scripts/setup_mcrdr_colab.py) with `--learn` (see [Colab setup](agent-commands.md#colab-in-repo-setup-script)). That option writes `experiments/configs/<run-name>.learner.json` from the example config below, using the run's paths, the service on port 8766 and its snapshot store.
+The deck has only totals, so without `RERUN_BASE` the comparison is on totals, not document by document. One run is noisy: the deck's own runs ranged from 85.7% to 94.0% exact-match fields.
+
+It uses [`scripts/setup_mcrdr_colab.py`](../scripts/setup_mcrdr_colab.py) (see [Colab setup](agent-commands.md#colab-in-repo-setup-script)):
+- `--heldout-batch N` prepares and runs the first N held-out documents (`skill_agent prepare --heldout-limit N`).
+- `--learn` writes `experiments/configs/<run-name>.learner.json` from the example config below, using the run's paths, the service on port 8766 and its snapshot store.
+- `--skill-version <versions/vN/pdf>` snapshots a learned version under its own receipt and serves it through `LearnedFeatureResolver`, with the example config's judge model. The full arm stays the original skill.
 
 Models, all on OpenRouter (provider `alibaba`):
 

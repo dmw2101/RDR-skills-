@@ -114,6 +114,23 @@ class ReportFormulaTests(unittest.TestCase):
         ci = scrdr["pooled"]["paired_bootstrap"]["normalized_field_em:reduced_minus_full"]
         self.assertEqual(ci["documents"], 3)
 
+    def test_reduced_only_series_compare_original_and_learned_trees(self):
+        # The learning notebook's comparison: reduced-arm runs only, original tree first.
+        ok = "completed"
+        make_run(self.root / "base", ["reduced"], arms([(ok, 9, 50, .01), (ok, 8, 60, .01), (ok, 10, 70, .01)],
+                                                       "reduced"), engine="mcrdr", revision="rev-m")
+        make_run(self.root / "learned", ["reduced"], arms([(ok, 10, 55, .01), (ok, 9, 60, .01), (ok, 10, 75, .01)],
+                                                          "reduced"), engine="mcrdr", view="view-2", revision="rev-l")
+        report = self.report({"series": {"Original": {"Run 1": ["base"]}, "Learned": {"Run 1": ["learned"]}}})
+        learned = report["series"]["Learned"]
+        self.assertEqual(learned["conditions"], ["reduced"])
+        self.assertAlmostEqual(learned["pooled"]["conditions"]["reduced"]["field_exact_match"], 29 / 30)
+        self.assertEqual(learned["runs"]["Run 1"]["conditions"]["reduced"]["perfect_documents"], 2)
+        change = report["series_comparison"]["Learned_vs_Original"]["reduced"]
+        self.assertAlmostEqual(change["field_exact_match"], 2 / 30)
+        self.assertEqual(change["perfect_documents"], 1)
+        self.assertIn("Learned", render_markdown(report))
+
     def test_usage_percentiles_cost_and_outliers(self):
         scrdr = self.report()["series"]["SCRDR"]
         full, reduced = (scrdr["pooled"]["conditions"][c] for c in ("full", "reduced"))

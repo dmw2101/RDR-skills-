@@ -15,8 +15,16 @@ logs and results live under <workdir>/experiments/, which Git ignores.
 With --learn it also writes a trace_learner config that learns from this run's failed
 reduced-arm episodes (outputs in <workdir>/experiments/learning/<run-name>):
 
-    %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --limit 10 --conditions reduced \
-        --run-name learn-dev10 --learn
+    %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --heldout-batch 30 --conditions reduced \
+        --run-name learn-heldout30 --learn
+
+--heldout-batch N runs on the first N held-out documents instead of dev documents, so learning
+never sees the dev documents used for evaluation. --skill-version runs a learned tree (e.g.
+<workdir>/experiments/learning/<run-name>/versions/v1/pdf) with the feature judge:
+
+    %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --conditions reduced \
+        --skill-version /content/rdr-skills-mcrdr/experiments/learning/learn-heldout30/versions/v1/pdf \
+        --run-name learned-v1-dev30-run1
 
 This is an independent script for the MCRDR branches, not a copy of the external
 setup_rdr_colab.py used for the single-classification runs.
@@ -194,8 +202,15 @@ class Runner:
 # --------------------------------------------------------------------------- #
 
 
-def data_selection(experiment: str, limit: int | None) -> tuple[str, list[str]]:
+def data_selection(experiment: str, limit: int | None, heldout_batch: int | None = None) -> tuple[str, list[str]]:
     """Return the data directory (relative to the repo) and `skill_agent prepare` arguments."""
+    if heldout_batch is not None:
+        if EXPERIMENTS[experiment]["selection"] != "dev":
+            raise SetupError(f"--heldout-batch cannot be used with the {experiment} experiment")
+        if type(heldout_batch) is not int or heldout_batch < 1:
+            raise SetupError("--heldout-batch must be a positive number of documents")
+        # The first N held-out documents of the same deterministic order; never a dev document.
+        return f"benchmarks/local-data/varex-heldout-{heldout_batch}", ["--heldout-limit", str(heldout_batch)]
     if EXPERIMENTS[experiment]["selection"] == "task_ids":
         return "benchmarks/local-data/varex-skill-requests", ["--task-ids", *SKILL_REQUEST_IDS]
     if type(limit) is not int or not 1 <= limit <= 30:
@@ -205,8 +220,28 @@ def data_selection(experiment: str, limit: int | None) -> tuple[str, list[str]]:
     return f"benchmarks/local-data/varex-dev-{limit}", ["--dev-limit", str(limit)]
 
 
-def build_config(base: dict, options: argparse.Namespace, paths: Paths) -> dict:
-    """Base MCRDR experiment config plus overrides, with absolute paths."""
+def receipt_path(options: argparse.Namespace, paths: Paths) -> Path:
+    if options.skill_version is None:
+        return paths.receipt
+    return paths.experiments / f"pdf-snapshot-{options.run_name}.json"
+
+
+def skill_source(options: argparse.Namespace, paths: Paths) -> Path:
+    """The skill folder to snapshot: the original PDF skill or a learned version of it."""
+    if options.skill_version is None:
+        return paths.workdir / "skills" / "pdf"
+    source = Path(options.skill_version)
+    source = source if source.is_absolute() else paths.workdir / source
+    if source.name != "pdf":  # The service derives the skill (and its case heuristics) from this name.
+        raise SetupError(f"--skill-version must be a versions/vN/pdf folder, not {source}")
+    return source
+
+
+def build_config(base: dict, options: argparse.Namespace, paths: Paths, judge_model: dict | None = None) -> dict:
+    """Base MCRDR experiment config plus overrides, with absolute paths.
+
+    judge_model is required with --skill-version: learned features are judged on every refresh.
+    """
     config = copy.deepcopy(base)
     run = config["run"]
     if options.backend == "local":
@@ -253,16 +288,29 @@ def build_config(base: dict, options: argparse.Namespace, paths: Paths) -> dict:
     if options.skill_loading is not None:
         run["skill_loading"] = options.skill_loading
     run["output_dir"] = str(paths.results / options.run_name)
+    if options.heldout_batch is not None:
+        if options.limit is not None:
+            raise SetupError("--heldout-batch already chooses the documents; remove --limit")
+        run["split"], run["limit"] = "heldout", None
 
-    data_dir, _ = data_selection(options.experiment, run.get("limit"))
+    data_dir, _ = data_selection(options.experiment, run.get("limit"), options.heldout_batch)
     config["benchmark"]["options"]["data_dir"] = str(paths.workdir / data_dir)
     if list(run.get("conditions") or ()) == ["none"]:
+        if options.skill_version is not None:
+            raise SetupError("--skill-version needs a skill condition (e.g. --conditions reduced)")
         config["skill"] = {}  # Skill-blind: no snapshot, service, catalog or guidance.
     else:
         skill = config["skill"]
-        skill["full_markdown"] = str(paths.workdir / skill["full_markdown"])
-        skill["receipt"] = str(paths.receipt)
+        skill["full_markdown"] = str(paths.workdir / skill["full_markdown"])  # Full arm: always the original.
+        skill["receipt"] = str(receipt_path(options, paths))
         skill["resolver"]["options"]["base_url"] = f"http://127.0.0.1:{options.service_port}"
+        if options.skill_version is not None:
+            skill_source(options, paths)
+            if judge_model is None:
+                raise SetupError("--skill-version needs the feature judge model")
+            skill["resolver"] = {"factory": "skill_agent.learned_features:LearnedFeatureResolver",
+                                 "options": {"base_url": f"http://127.0.0.1:{options.service_port}",
+                                             "judge_model": copy.deepcopy(judge_model)}}
     return config
 
 
@@ -380,7 +428,7 @@ def ensure_venv(options, paths: Paths, runner: Runner) -> None:
 
 
 def ensure_data(options, run_limit, paths: Paths, runner: Runner) -> None:
-    relative, arguments = data_selection(options.experiment, run_limit)
+    relative, arguments = data_selection(options.experiment, run_limit, options.heldout_batch)
     target = paths.workdir / relative
     runner.step(f"VAREX data: {relative}")
     if (target / "provenance.json").exists():
@@ -394,8 +442,12 @@ def ensure_data(options, run_limit, paths: Paths, runner: Runner) -> None:
 
 def ensure_service(options, paths: Paths, runner: Runner) -> None:
     runner.step(f"MCRDR skill service on port {options.service_port}")
-    runner.run([paths.python, "-m", "rdr_service", "prepare", "skills/pdf",
-                "--store", paths.snapshots, "--output", paths.receipt], cwd=paths.workdir)
+    source = skill_source(options, paths)
+    if not runner.dry_run and not (source / "compiled" / "manifest.json").is_file():
+        raise SetupError(f"{source} is not a compiled skill folder")
+    runner.note(f"skill snapshot from {source}")
+    runner.run([paths.python, "-m", "rdr_service", "prepare", source,
+                "--store", paths.snapshots, "--output", receipt_path(options, paths)], cwd=paths.workdir)
     pid_file = paths.logs / "rdr_service.pid"
     stop_own_process(pid_file, "rdr_service", runner)
     health = f"http://127.0.0.1:{options.service_port}/health"
@@ -458,7 +510,9 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
     ensure_repo(options, paths, runner)
     ensure_venv(options, paths, runner)
 
-    config = build_config(read_base(paths, options.experiment), options, paths)
+    judge_model = (read_example(paths, LEARNER_BASE)["judge"]["model"]
+                   if options.skill_version is not None else None)
+    config = build_config(read_base(paths, options.experiment), options, paths, judge_model)
     learner = (build_learner_config(read_example(paths, LEARNER_BASE), options, paths, config)
                if options.learn else None)
     placeholders = [key for key, value in config["model"]["options"].items()
@@ -502,8 +556,8 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
     if not runner.dry_run:
         commit = runner.run(["git", "-C", paths.workdir, "rev-parse", "--short", "HEAD"], capture=True)
         runner.note(f"branch {options.branch} at {commit.stdout.strip()}")
-        if paths.receipt.exists() and needs_service(config):
-            receipt = json.loads(paths.receipt.read_text(encoding="utf-8"))
+        if receipt_path(options, paths).exists() and needs_service(config):
+            receipt = json.loads(receipt_path(options, paths).read_text(encoding="utf-8"))
             runner.note(f"resolver revision {receipt['resolver_revision']}")
     if options.run:
         for command in commands:
@@ -539,6 +593,10 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--max-output-price", type=float, help="USD per million completion tokens")
     parser.add_argument("--max-tokens", type=int)
     parser.add_argument("--limit", type=int, help="Number of dev documents (1-30)")
+    parser.add_argument("--heldout-batch", type=int,
+                        help="Use the first N held-out documents instead of dev documents (e.g. to learn from)")
+    parser.add_argument("--skill-version",
+                        help="Learned skill folder to serve in the reduced arm, e.g. .../versions/v1/pdf")
     parser.add_argument("--replicates", type=int)
     parser.add_argument("--concurrency", type=int)
     parser.add_argument("--conditions", nargs="+", choices=("none", "full", "reduced"))

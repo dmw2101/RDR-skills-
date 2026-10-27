@@ -66,6 +66,8 @@ def main(argv=None):
     selection = prepare.add_mutually_exclusive_group()
     selection.add_argument("--dev-limit", type=int, help="Prepare only the first N deterministic dev PDFs (1-30)")
     selection.add_argument("--task-ids", nargs="+", help="Download only these exact document IDs from the dev split")
+    selection.add_argument("--heldout-limit", type=int,
+                           help="Prepare only the first N held-out PDFs and no dev PDFs (e.g. a learning batch)")
     for command in ("doctor", "run"):
         sub = commands.add_parser(command)
         sub.add_argument("--config", required=True)
@@ -83,7 +85,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
-            result = prepare_varex(args.output, dev_limit=args.dev_limit, task_ids=args.task_ids)
+            result = prepare_varex(args.output, dev_limit=args.dev_limit, task_ids=args.task_ids,
+                                   heldout_limit=args.heldout_limit)
         elif args.command == "summarize":
             result = summarize(args.run_dir)
         elif args.command == "rename-episodes":

@@ -235,7 +235,11 @@ Add `--run` to execute them as well. `--dry-run` prints every step and the gener
 
 The pilot and skill-requests configs contain provider placeholders, so the script requires `--base-url` and `--model` for them. With no overrides, a run uses exactly the settings of its `varex.mcrdr.*` config. `--limit N` selects the first N dev documents (1–30) and prepares a matching `varex-dev-N` folder.
 
+`--heldout-batch N` prepares and runs the first N held-out documents instead of dev documents (`skill_agent prepare --heldout-limit N`), so learning can avoid the dev documents used for evaluation. It replaces `--limit`.
+
 `--learn` also writes `experiments/configs/<run-name>.learner.json` for [verifier-driven learning](verifier-learning.md#colab-trial) from the run's failed reduced episodes, and prints its stage commands. It needs the reduced condition in the run.
+
+`--skill-version PATH` serves a learned tree (a `versions/vN/pdf` folder from learning) in the reduced arm, with its own snapshot receipt and the feature judge from `examples/learning/varex.learner.json`.
 
 Overrides use the same flags as the external script:
 - `--model`, `--base-url`

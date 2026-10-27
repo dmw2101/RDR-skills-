@@ -44,13 +44,20 @@ def download_scorer(scoring):
         (scoring / name).write_bytes(base64.b64decode(item["content"]))
 
 
-def prepare_varex(destination, *, dev_limit=None, task_ids=None):
-    """Explicit opt-in download; all data and executable scorer remain local/ignored."""
+def prepare_varex(destination, *, dev_limit=None, task_ids=None, heldout_limit=None):
+    """Explicit opt-in download; all data and executable scorer remain local/ignored.
+
+    heldout_limit prepares only the first N held-out documents (no dev documents), e.g. as a
+    learning batch that never overlaps the dev documents used for evaluation.
+    """
     from datasets import load_dataset
     from huggingface_hub import hf_hub_download
 
     if dev_limit is not None and (type(dev_limit) is not int or not 1 <= dev_limit <= 30):
         raise ValueError("dev_limit must be between 1 and 30, or omitted for the full dataset")
+    if heldout_limit is not None and (type(heldout_limit) is not int or heldout_limit < 1
+                                      or dev_limit is not None or task_ids is not None):
+        raise ValueError("heldout_limit must be a positive integer and cannot be combined with dev_limit or task_ids")
     if task_ids is not None:
         if (dev_limit is not None or not isinstance(task_ids, list) or not task_ids
                 or any(not isinstance(value, str) or not value.strip() for value in task_ids)
@@ -101,6 +108,10 @@ def prepare_varex(destination, *, dev_limit=None, task_ids=None):
             dev_ids, heldout_ids = list(task_ids), []
         elif dev_limit is not None:
             dev_ids, heldout_ids = dev_ids[:dev_limit], []
+        elif heldout_limit is not None:
+            if heldout_limit > len(heldout_ids):
+                raise ValueError(f"heldout_limit {heldout_limit} exceeds the {len(heldout_ids)} held-out documents")
+            dev_ids, heldout_ids = [], heldout_ids[:heldout_limit]
         selected = dev_ids + heldout_ids
         print(f"Found {len(ids)} Flat documents; downloading {len(selected)} PDFs.", flush=True)
         tasks = []
@@ -122,11 +133,13 @@ def prepare_varex(destination, *, dev_limit=None, task_ids=None):
         write_json(staging / "splits.json", {"seed": 42, "dev": dev_ids, "heldout": heldout_ids})
         files = {str(p.relative_to(staging)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest()
                  for p in staging.rglob("*") if p.is_file()}
+        selection = {"dev_limit": dev_limit, "flat_population": len(ids), "task_ids": task_ids,
+                     "population_sha256": fingerprint(sorted(ids))}
+        if heldout_limit is not None:  # Absent otherwise, so earlier provenance stays byte-identical.
+            selection["heldout_limit"] = heldout_limit
         write_json(staging / "provenance.json", {"dataset": "ibm-research/VAREX",
             "data_revision": DATA_REVISION, "scorer_revision": SCORER_REVISION, "files": files,
-            "selection": {"dev_limit": dev_limit, "flat_population": len(ids),
-                          "task_ids": task_ids,
-                          "population_sha256": fingerprint(sorted(ids))},
+            "selection": selection,
             "protocol": "project-raw-pdf-agent-v1", "split_note": "Project split, not official train/test"})
         staging.rename(destination)
     return {"path": str(destination), "dev": len(dev_ids), "heldout": len(heldout_ids)}

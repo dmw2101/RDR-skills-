@@ -53,6 +53,21 @@ class VarexPreparationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "snapshot changed"):
                 VarexAdapter(data_dir=target)
 
+            # A learning batch: the first held-out documents only, never a dev document.
+            batch = Path(temporary) / "batch"
+            with patch.dict("sys.modules", {"datasets": ds, "huggingface_hub": hf}), patch(
+                "skill_agent.benchmarks.varex.download_scorer", side_effect=fake_scorer):
+                receipt = prepare_varex(batch, heldout_limit=2)
+                with self.assertRaisesRegex(ValueError, "exceeds the 3 held-out"):
+                    prepare_varex(Path(temporary) / "too-many", heldout_limit=4)
+                with self.assertRaisesRegex(ValueError, "cannot be combined"):
+                    prepare_varex(Path(temporary) / "mixed", heldout_limit=1, dev_limit=5)
+            self.assertEqual((receipt["dev"], receipt["heldout"]), (0, 2))
+            self.assertEqual(read_json(batch / "splits.json"), {"seed": 42, "dev": [], "heldout": ids[30:32]})
+            self.assertEqual([t["id"] for t in VarexAdapter(data_dir=batch).tasks("heldout")], ids[30:32])
+            self.assertEqual(read_json(batch / "provenance.json")["selection"]["heldout_limit"], 2)
+            self.assertNotIn("heldout_limit", read_json(target / "provenance.json")["selection"])
+
 
 @unittest.skipUnless(os.environ.get("SKILL_AGENT_NETWORK_TESTS") == "1", "opt-in network/scorer dependencies")
 class OfficialScorerParityTests(unittest.TestCase):
