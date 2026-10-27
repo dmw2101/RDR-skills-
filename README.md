@@ -4,13 +4,24 @@ This research prototype represents procedural skills as Multiple Classification 
 
 ## What is here
 
-- `src/rdr_engine/`: standalone MCRDR engine, skill compiler, and skill renderer.
-- `src/rdr_service/`: versioned HTTP skill-resolution service, isolating RDR internals.
-- `src/skill_agent/`: independent model/tool runner and three-arm PDF evaluation pipeline.
-- `src/trace_learner/`: verifier-driven learning that turns validated failure diagnoses into MCRDR exceptions.
-- `skills/`: seed skills, source metadata, feature schemas, and compiled examples.
-- `benchmarks/`: benchmark setup and data-preparation notes. Large datasets are not stored here.
-- `tests/`: automated tests for the engine and skill pipeline.
+```
+src/                  the code (four Python packages)
+  rdr_engine/           MCRDR engine, skill compiler and renderer, learned-rule layer
+  rdr_service/          HTTP service that serves frozen skill trees to the agent
+  skill_agent/          agent runner, experiments, scoring and benchmark adapters (VAREX, SOPBench Bank)
+  trace_learner/        verifier-driven learning: failed traces -> new MCRDR rules
+skills/               one folder per skill: initial.md (the skill) and, once compiled, compiled/ (its tree)
+examples/
+  agent/                run settings for agent experiments
+  learning/             settings for the learner (models, validation)
+notebooks/            Colab notebooks: MCRDR pilot runs, learning trial
+scripts/              Colab setup, SOPBench Bank build, tree visualiser
+benchmarks/           benchmark preparation; skillopt/ is a trimmed copy of Microsoft SkillOpt
+tests/                one folder per package: engine, service, agent, learner, colab, benchmark_prep
+docs/                 documentation; see docs/README.md for an index
+```
+
+Large datasets and run outputs are not stored here: `benchmarks/local-data/` and `experiments/` are ignored by Git. Run all tests with `python -m unittest discover -s tests -p "test_*.py"`.
 
 The current skill pipeline extracts rules from a Markdown skill, compiles them into fragments and a flat MCRDR tree (one unconditional general-guidance rule plus one rule per condition, with no rule limit), then renders the fragments of every terminal conclusion for a task. Multiple task categories in one natural-language query are supported; membership conditions select all matching guidance. The agent harness compares no skill, full skill, and selected skill through a stable HTTP boundary. PDF/VAREX runs use a Python venv on Windows or Linux/Colab. Current pilot configurations automatically refresh guidance before every model call using the task initially and the last three assistant turns thereafter (`run.skill_loading="rolling"`); the original model-initiated mode remains selectable. The `varex.mcrdr.*` configurations rerun the same experiments with the MCRDR engine serving the reduced arm. See [agent evaluation](docs/agent-evaluation.md) for accounting and limitations. [Verifier-driven learning](docs/verifier-learning.md) diagnoses failed episodes with an agentic verifier (after Trace2Skill), adds validated exceptions and alternatives to the skill's MCRDR, and keeps a candidate tree only after re-running the affected tasks; it has been tested offline and against the pinned VAREX scorer, not yet in a live model run. A [Colab notebook](notebooks/verifier_learning_colab.ipynb) runs a 10-document learning trial on OpenRouter models.
 
@@ -30,6 +41,7 @@ For a Colab T4 without provider rate limits, use the optional [local Qwen3.5-4B 
 
 ## Further documentation
 
+- [Documentation index](docs/README.md)
 - [RDR engine overview](docs/rdr-engine.md)
 - [Base-skill-to-RDR implementation plan (archived)](docs/archive/base-skill-to-rdr-plan.md)
 - [Skills and benchmark inventory](benchmarks/README.md)
