@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from skill_agent.experiments import load_config
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("setup_mcrdr_colab", ROOT / "scripts" / "setup_mcrdr_colab.py")
 colab = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = colab  # dataclasses resolve annotations through sys.modules

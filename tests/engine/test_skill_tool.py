@@ -13,7 +13,7 @@ from rdr_engine.skill_compiler import FeatureSchema, SkillBundle
 from rdr_engine.skill_tool import main
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class SkillToolTests(unittest.TestCase):

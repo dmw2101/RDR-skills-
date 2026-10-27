@@ -5,7 +5,7 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK = json.loads((ROOT / "notebooks" / "mcrdr_varex_colab.ipynb").read_text(encoding="utf-8"))
 CODE = ["".join(cell["source"]) for cell in NOTEBOOK["cells"] if cell["cell_type"] == "code"]
 

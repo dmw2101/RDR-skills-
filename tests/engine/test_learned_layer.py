@@ -12,7 +12,7 @@ from rdr_engine.skill_renderer import SkillRenderer
 from rdr_service.backend import RDRBackend
 from skill_agent.contracts import ResolveSkillRequest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class FlagAuthor:

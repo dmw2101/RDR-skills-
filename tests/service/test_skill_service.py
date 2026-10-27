@@ -13,7 +13,7 @@ from skill_agent.resolvers import HttpSkillResolver
 from rdr_service.backend import RDRBackend
 from rdr_service.server import make_server
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class ServiceTests(unittest.TestCase):

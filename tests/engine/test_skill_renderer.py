@@ -12,7 +12,7 @@ from rdr_engine.skill_compiler import (
 from rdr_engine.skill_renderer import SkillRenderer
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class MembershipAuthor:

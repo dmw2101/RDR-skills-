@@ -4,20 +4,25 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-import materialize_remote
-import materialize_small
-import prepare_alfworld
+ROOT = Path(__file__).resolve().parents[2]
+# The preparation scripts are standalone files in benchmarks/, not a package.
+sys.path.insert(0, str(ROOT / "benchmarks"))
+
+import materialize_remote  # noqa: E402
+import materialize_small  # noqa: E402
+import prepare_alfworld  # noqa: E402
 
 
 class PreparationTests(unittest.TestCase):
     def test_source_manifest_matches_published_split_counts(self) -> None:
-        root = Path(__file__).resolve().parent
+        root = ROOT / "benchmarks"
         sources = json.loads((root / "sources.json").read_text(encoding="utf-8"))
         self.assertEqual(len(sources["benchmarks"]), 5)
         for benchmark in sources["benchmarks"]:

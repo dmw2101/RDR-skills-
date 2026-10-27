@@ -7,7 +7,7 @@ from rdr_engine.skill_compiler import SkillBundle
 from trace_learner.proposals import Diagnosis, Proposal
 from trace_learner.workspace import SkillWorkspace, copy_bundle
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 EXTRACT = {"operation": ["extract_content"], "source_kind": "unknown"}
 
 

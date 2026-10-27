@@ -10,7 +10,7 @@ from trace_learner.records import skill_views, trace_steps, view_at
 from trace_learner.verifier import verify_episode
 from trace_learner.workspace import SkillWorkspace, copy_bundle
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 USAGE = {"input_tokens": 5, "output_tokens": 1, "cached_input_tokens": 0, "cost_usd": 0.001}
 
 

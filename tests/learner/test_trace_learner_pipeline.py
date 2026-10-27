@@ -17,7 +17,7 @@ from trace_learner.records import episode_key
 from trace_learner.report import learning_report
 from trace_learner.workspace import SkillWorkspace
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MARKER = "Always list AcroForm fields with pypdf get_fields() first."
 USAGE = {"input_tokens": 3, "output_tokens": 1, "cached_input_tokens": 0, "cost_usd": 0.0}
 TASKS = {"forms": "Extract the form fields from this PDF", "totals": "Extract the totals table",

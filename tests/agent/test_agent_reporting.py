@@ -198,7 +198,7 @@ class ReportTemplateTests(unittest.TestCase):
     def test_template_spec_is_valid_and_mirrors_the_pilot(self):
         from skill_agent.reporting import load_spec
 
-        series, options = load_spec(Path(__file__).resolve().parents[1] / "examples/agent/report.template.json")
+        series, options = load_spec(Path(__file__).resolve().parents[2] / "examples/agent/report.template.json")
         self.assertEqual(list(series), ["SCRDR", "MCRDR"])
         self.assertTrue(all(len(runs) == 3 and all(len(f) == 2 for f in runs.values()) for runs in series.values()))
         self.assertEqual(options, {"outliers": 5, "top_documents": 5, "bootstrap_samples": 2000})
