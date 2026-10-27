@@ -205,7 +205,7 @@ def main() -> int:
     tree, catalog = SkillBundle.build(SKILL, ir_path=ir_path, feature_schema=schema, model_id=args.model, force=True)
     print(f"Compiled {len(ir.rules)} rules, {len(catalog.fragments)} fragments, {len(tree.nodes)} MCRDR nodes.", flush=True)
     subprocess.run([
-        sys.executable, str(ROOT / "skills/visualise_tree.py"), str(SKILL / "compiled/tree.json"),
+        sys.executable, str(ROOT / "scripts/visualise_tree.py"), str(SKILL / "compiled/tree.json"),
         "--title", "SOPBench Bank: shared 34-case policy (MCRDR)",
     ], check=True)
     return 0

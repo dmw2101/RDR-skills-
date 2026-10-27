@@ -100,7 +100,7 @@ Like ALFWorld, this uses word-pattern heuristics and runs offline. All recognize
 Generate a readable view of the ALFWorld tree:
 
 ```powershell
-py -3.12 skills/visualise_tree.py skills/alfworld/compiled/tree.json
+py -3.12 scripts/visualise_tree.py skills/alfworld/compiled/tree.json
 ```
 
 Open the generated page in your default browser:

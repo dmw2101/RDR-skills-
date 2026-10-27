@@ -1,8 +1,8 @@
 """Render an RDR tree.json as a self-contained, interactive HTML page.
 
 Usage:
-    python visualise_tree.py alfworld/compiled/tree.json
-    python visualise_tree.py TREE [-o OUT.html] [--fragments FRAGMENTS.json]
+    python scripts/visualise_tree.py skills/alfworld/compiled/tree.json
+    python scripts/visualise_tree.py TREE [-o OUT.html] [--fragments FRAGMENTS.json]
                              [--schema SCHEMA.json] [--hide-unreachable]
 
 The input is the engine's schema-2 MCRDR payload (``root_id`` plus a ``nodes``

@@ -74,7 +74,7 @@ class MembershipTests(unittest.TestCase):
                 self.assertIn("invalid_feature_operator", [issue.code for issue in issues])
 
     def test_viewer_distinguishes_compatible_labels_and_real_conflicts(self) -> None:
-        viewer = runpy.run_path(str(ROOT / "skills" / "visualise_tree.py"))
+        viewer = runpy.run_path(str(ROOT / "scripts" / "visualise_tree.py"))
 
         def node(node_id: int, condition: tuple | None, *children: int, stopping: bool = False) -> dict:
             conditions = [] if condition is None else [

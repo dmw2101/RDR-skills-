@@ -30,7 +30,7 @@ After exporting the policy, these are the same extraction, offline compilation a
 ```powershell
 py -3.12 -m rdr_engine.skill_compiler skills/sopbench_bank_fixed_policy/initial.md --features skills/sopbench_bank_fixed_policy/feature_schema.json --model gemini-3.1-flash-lite --output skills/sopbench_bank_fixed_policy/compiled/ir.generated.json
 py -3.12 -m rdr_engine.skill_tool compile skills/sopbench_bank_fixed_policy --ir skills/sopbench_bank_fixed_policy/compiled/ir.generated.json --features skills/sopbench_bank_fixed_policy/feature_schema.json --model-id gemini-3.1-flash-lite --force
-py -3.12 skills/visualise_tree.py skills/sopbench_bank_fixed_policy/compiled/tree.json
+py -3.12 scripts/visualise_tree.py skills/sopbench_bank_fixed_policy/compiled/tree.json
 ```
 
 Open the interactive diagram; click a node to inspect its conditions and actual fragments:
