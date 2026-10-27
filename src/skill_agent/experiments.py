@@ -237,10 +237,13 @@ async def run_experiment(config, *, resume=False):
                 # New model and environment instances prevent state shared across arms.
                 context = None
                 if condition != "none":
+                    materials = None
+                    if getattr(resolvers[condition], "uses_materials", False) and hasattr(adapter, "judge_materials"):
+                        materials = await asyncio.to_thread(adapter.judge_materials, task)
                     context = SessionContext(config["skill"]["id"], receipt["artifact_id"], task["task"],
                                              resolvers[condition], receipt["source_fingerprint"],
                                              expected_revision=receipt["resolver_revision"] if condition == "reduced" else None,
-                                             capabilities=probe.capabilities)
+                                             capabilities=probe.capabilities, materials=materials)
                 started = time.monotonic()
                 try:
                     model = factory(config["model"])

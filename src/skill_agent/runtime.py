@@ -130,6 +130,8 @@ class SessionContext:
     active_skills: dict = field(default_factory=dict)
     events: list = field(default_factory=list)
     capabilities: list[dict[str, str]] = field(default_factory=list)
+    # The worker's starting materials as text, for resolvers that judge learned features.
+    materials: str | None = None
 
     def catalog_text(self):
         lines = [f"Available skill: {self.skill_id}"]
@@ -150,7 +152,10 @@ class SessionContext:
         audit = {"selection": selection} if selection is not None else {}
         self.events.append({"type": "skill_request", "request": request.to_dict(), **audit})
         try:
-            result = await self.resolver.resolve(request)
+            if self.materials is not None:
+                result = await self.resolver.resolve(request, materials=self.materials)
+            else:
+                result = await self.resolver.resolve(request)
         except Exception as exc:
             event = {"type": "skill_error", "error": type(exc).__name__,
                      "seconds": time.monotonic() - started}

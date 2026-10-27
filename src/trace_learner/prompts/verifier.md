@@ -33,10 +33,14 @@ Proposing an MCRDR change (skill_missing / skill_misleading only):
 - kind "stop": target a rendered node whose guidance should be withheld when the conditions hold.
 - conditions: a conjunction. Reuse existing features from show_tree where they distinguish the
   situation; otherwise define a new_feature (name lf_<snake_case>) with a precise definition,
-  examples and counterexamples. Conditions must be OBSERVABLE in the visible context before the
-  failing decision (the task, recent agent reasoning, and tool outputs), never the gold answer, the
-  verdict, the eventual failure, or a task identifier. A new feature is judged later by a separate
-  model from the visible context at the failing turn; it must be judged true there.
+  examples and counterexamples. A new feature is answered true/false/unknown by a separate judge
+  model before every agent step. The judge sees ONLY (1) the agent's starting materials: the task,
+  the requested output, and the input documents as text (a PDF's text layer, which is empty for
+  scanned PDFs; long materials are cut after their start), and (2) the agent's last three messages.
+  It does not see later tool outputs. Conditions must be OBSERVABLE in that text before the failing
+  decision, never the gold answer, the verdict, the eventual failure, or a task identifier.
+  Properties of the input (its fields, tables, forms, layout words) are best, since they are
+  visible from the first step. The new feature must be judged true at the failing turn.
 - guidance_text: a short, general procedure (a few sentences or bullets of Markdown) that would avoid
   this class of failure on other tasks, not this task's answer or values. Optionally anchor it after
   a related fragment with anchor_fragment_id.

@@ -15,7 +15,6 @@ from rdr_engine.learned import (
 from rdr_engine.skill_cases import SkillConditionEvaluator
 from rdr_engine.skill_compiler import FeatureSchema, SkillBundle
 from rdr_engine.skill_renderer import SkillRenderer
-from skill_agent.learned_features import visible_text
 
 from .proposals import Proposal
 
@@ -77,7 +76,7 @@ class SkillWorkspace:
         Learned values judged at run time (present in the observed case) are recorded
         as judgments for that context; features never judged there read "unknown".
         """
-        context_id = self.layer.add_context(visible_text(context_text))
+        context_id = self.layer.add_context(context_text)  # Already the judge's bounded text.
         for name in self.layer.features:
             if observed_case is not None and observed_case.get(name) in ("true", "false", "unknown"):
                 self.layer.judgments.setdefault(context_id, {}).setdefault(name, observed_case[name])

@@ -4,7 +4,8 @@ import unittest
 from pathlib import Path
 
 from skill_agent.contracts import ResolveSkillRequest, ResolvedSkill
-from skill_agent.learned_features import JudgeError, LearnedFeatureResolver
+from skill_agent.learned_features import (MAX_JUDGE_CHARS, MAX_MATERIAL_CHARS, JudgeError,
+                                          LearnedFeatureResolver, judge_context)
 from skill_agent.models import ModelResponse
 from trace_learner.records import skill_views, trace_steps, view_at
 from trace_learner.verifier import verify_episode
@@ -140,6 +141,7 @@ class JudgeModel:
 
     async def complete(self, messages, tools):
         self.calls += 1
+        self.seen = messages[1]["content"]
         assert "has tables" in messages[1]["content"]
         return ModelResponse(self.reply or call("report_features", {"lf_tables": "true"}), dict(USAGE), {"model": "j"})
 
@@ -169,6 +171,25 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.metadata["feature_judge"]["values"], {"lf_tables": "true"})
         await resolver.resolve(ResolveSkillRequest("pdf", "again", {}, "artifact"))
         self.assertEqual(judge.calls, 2)
+
+    async def test_starting_materials_reach_the_judge(self):
+        judge = JudgeModel()
+        resolver = self.resolver({"lf_tables": {"description": "The PDF has tables."}}, judge)
+        self.assertTrue(resolver.uses_materials)
+        result = await resolver.resolve(ResolveSkillRequest("pdf", "worker: reading page 1", {}, "artifact"),
+                                        materials="Task: extract\nPDF text layer:\nTotals table")
+        self.assertIn("<starting_materials>\nTask: extract\nPDF text layer:\nTotals table\n</starting_materials>",
+                      judge.seen)
+        self.assertIn("<recent_activity>\nworker: reading page 1\n</recent_activity>", judge.seen)
+        self.assertIsNotNone(result.metadata["feature_judge"]["materials_sha256"])
+
+    def test_judge_context_keeps_the_start_of_materials_and_the_end_of_recent_text(self):
+        self.assertEqual(judge_context("recent"), "recent")  # Without materials: unchanged from before.
+        text = judge_context("r" * (MAX_JUDGE_CHARS + 5) + "END", "BEGIN" + "m" * MAX_MATERIAL_CHARS)
+        self.assertIn("<starting_materials>\nBEGIN", text)
+        self.assertIn("[... 5 more characters not shown]", text)
+        self.assertTrue(text.endswith("END\n</recent_activity>"))
+        self.assertLess(len(text), MAX_JUDGE_CHARS + MAX_MATERIAL_CHARS + 200)
 
     async def test_unusable_judgment_keeps_its_cost(self):
         resolver = self.resolver({"lf_tables": {"description": "The PDF has tables."}},

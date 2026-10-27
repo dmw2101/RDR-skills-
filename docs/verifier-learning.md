@@ -34,7 +34,7 @@ It follows the paper's workflow: find what is wrong, trace it to a decision, val
 | `add` | `Add(parent)`: an alternative rule | New guidance where the conditions hold (usually under the root) |
 | `stop` | `Stop(node)` | That node's guidance is withheld where the conditions hold |
 
-- **Conditions** reuse existing feature predicates or define **learned features** (`lf_<name>`). A learned feature is a yes/no definition judged true/false/unknown by a separate judge model from the same visible text the resolver sees: the task at first, then the last three assistant turns. Only `true` fires a rule.
+- **Conditions** reuse existing feature predicates or define **learned features** (`lf_<name>`). A learned feature is a yes/no definition judged true/false/unknown by a separate **judge** model before every worker step. The judge reads (1) the worker's starting materials, from the benchmark's `judge_materials(task)`: for VAREX the task, the requested schema and the PDF's text layer (first 12,000 characters; a scanned PDF shows as having no text layer), and (2) the resolver query: the task at first, then the worker's last three messages. It does not see later tool outputs. Learning builds the same text for every stored and failing moment, so a feature is judged the same way during learning and at test time. Only `true` fires a rule; the original tree's regex features still read only the resolver query.
 - **Before inserting**, the learner judges the new feature on the failing context and on every cornerstone reaching the parent node. The judge must say `true` on the failing context.
 - **The engine then requires** that the conjunction holds on the failing case, excludes every cornerstone, and leaves every stored case's output unchanged. Otherwise nothing changes.
 
@@ -78,7 +78,7 @@ Models, all on OpenRouter (provider `alibaba`):
 | Role | Model |
 |---|---|
 | Worker | `qwen/qwen3.7-flash`, from the run config |
-| Feature judge (checker) | `qwen/qwen3.7-flash` |
+| Feature judge | `qwen/qwen3.7-flash` |
 | Verifier (inspector) and merge | `qwen/qwen3.7-plus` |
 
 The notebook has not yet been run on Colab, so its cost and pass rates are unmeasured.
@@ -147,4 +147,4 @@ Use the held-out split and a new `output_dir`, then `summarize` as usual. The ju
 - Learned features depend on the judge model. Noisy judgments can block valid rules, and an `unknown` never fires. Learned text is fixed guidance written by the verifier, not checked against the upstream skill.
 - Validation majority over a few replicates is weak evidence. Only the reduced arm is re-run. The full arm stays the original skill.
 - Proposals are inserted one at a time in order. Later proposals are checked against earlier accepted rules, and a proposal the earlier rules make redundant is usually rejected by the engine.
-- VAREX is the first adapter (`trace_learner.benchmarks.varex:VarexHooks`). SpreadsheetBench, the benchmark Trace2Skill, SkillOpt and WikiSkill all use, still needs an agent adapter and verifier hooks. A new benchmark needs `outcomes`, `ground_truth`, `rescore` and `open_inspection` (see `trace_learner/hooks.py`).
+- VAREX is the first adapter (`trace_learner.benchmarks.varex:VarexHooks`). SpreadsheetBench, the benchmark Trace2Skill, SkillOpt and WikiSkill all use, still needs an agent adapter and verifier hooks. A new benchmark needs `outcomes`, `ground_truth`, `rescore` and `open_inspection` (see `trace_learner/hooks.py`), and its adapter should provide `judge_materials(task)`: the worker's starting inputs as text (e.g. a spreadsheet dumped as text). Without it the judge sees only the resolver query.

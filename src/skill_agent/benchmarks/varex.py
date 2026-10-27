@@ -44,6 +44,31 @@ def download_scorer(scoring):
         (scoring / name).write_bytes(base64.b64decode(item["content"]))
 
 
+PDF_TEXT_SCRIPT = (
+    "import sys\n"
+    "import pypdf\n"
+    "pages = pypdf.PdfReader(sys.argv[1]).pages\n"
+    "sys.stdout.write('\\n'.join(f'--- page {i} ---\\n' + (page.extract_text() or '').strip()\n"
+    "                            for i, page in enumerate(pages, 1)))\n"
+)
+
+
+def pdf_text(python_executable, pdf, timeout=60):
+    """The PDF's text layer, or a fixed note when there is none or it cannot be read."""
+    try:
+        completed = subprocess.run([str(python_executable), "-X", "utf8", "-c", PDF_TEXT_SCRIPT, str(pdf)],
+                                   capture_output=True, timeout=timeout, encoding="utf-8", errors="replace")
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"(text layer unavailable: {type(exc).__name__})"
+    if completed.returncode:
+        lines = (completed.stderr or "").strip().splitlines()
+        return f"(text layer unavailable: {lines[-1] if lines else 'exit ' + str(completed.returncode)})"
+    text = completed.stdout
+    if not re.sub(r"--- page \d+ ---", "", text).strip():
+        return "(no text layer: the PDF may be scanned images)"
+    return text
+
+
 def prepare_varex(destination, *, dev_limit=None, task_ids=None, heldout_limit=None):
     """Explicit opt-in download; all data and executable scorer remain local/ignored.
 
@@ -169,6 +194,21 @@ class VarexAdapter:
         by_id = {t["id"]: t for t in read_json(self.root / "tasks.json")}
         ids = splits[split]
         return [by_id[i] for i in (ids if limit is None else ids[:limit])]
+
+    def judge_materials(self, task):
+        """What the worker starts with, as text, for the learned-feature judge.
+
+        The task, the requested output schema and the PDF's text layer (pypdf in the
+        worker's venv). Public inputs only; gold labels are never read. Host-independent,
+        so learning and evaluation judge the same text.
+        """
+        cache = self.__dict__.setdefault("_materials", {})
+        if task["id"] not in cache:
+            public = self.root / "public" / task["id"]
+            schema = json.dumps(read_json(public / "schema.json"), ensure_ascii=False)
+            cache[task["id"]] = (f"Task: {task['task']}\n\nRequested JSON schema:\n{schema}\n\n"
+                                 f"PDF text layer:\n{pdf_text(self.python_executable, public / 'document.pdf')}")
+        return cache[task["id"]]
 
     async def open_session(self, task):
         public = self.root / "public" / task["id"]

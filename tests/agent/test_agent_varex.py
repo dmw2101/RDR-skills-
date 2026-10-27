@@ -3,13 +3,14 @@ import importlib.util
 import json
 import os
 import random
+import sys
 import tempfile
 import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from skill_agent.benchmarks.varex import VarexAdapter, download_scorer, prepare_varex
+from skill_agent.benchmarks.varex import VarexAdapter, download_scorer, pdf_text, prepare_varex
 from skill_agent.storage import read_json, write_json
 
 
@@ -67,6 +68,57 @@ class VarexPreparationTests(unittest.TestCase):
             self.assertEqual([t["id"] for t in VarexAdapter(data_dir=batch).tasks("heldout")], ids[30:32])
             self.assertEqual(read_json(batch / "provenance.json")["selection"]["heldout_limit"], 2)
             self.assertNotIn("heldout_limit", read_json(target / "provenance.json")["selection"])
+
+
+class JudgeMaterialsTests(unittest.TestCase):
+    """The judge's view of what the worker starts with: task, schema and PDF text layer."""
+
+    def adapter(self, root):
+        adapter = VarexAdapter.__new__(VarexAdapter)
+        adapter.root, adapter.python_executable = root, sys.executable
+        return adapter
+
+    def write_task(self, root, pdf_bytes=None):
+        public = root / "public" / "doc1"
+        public.mkdir(parents=True)
+        write_json(public / "schema.json", {"type": "object", "properties": {"invoice_total": {"type": "string"}}})
+        write_json(root / "private" / "doc1.json", {"invoice_total": "GOLD-ANSWER"})
+        if pdf_bytes is not None:
+            (public / "document.pdf").write_bytes(pdf_bytes)
+        return public / "document.pdf"
+
+    def test_unreadable_pdf_gives_a_fixed_note_and_never_gold_labels(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.write_task(root, b"%PDF-FAKE")
+            adapter = self.adapter(root)
+            materials = adapter.judge_materials({"id": "doc1", "task": "Extract the fields."})
+            self.assertTrue(materials.startswith("Task: Extract the fields.\n\nRequested JSON schema:\n"))
+            self.assertIn('"invoice_total"', materials)
+            self.assertIn("PDF text layer:\n(text layer unavailable:", materials)
+            self.assertNotIn("GOLD-ANSWER", materials)
+            (root / "public/doc1/schema.json").write_text("{}")  # Cached per task: computed once.
+            self.assertIs(adapter.judge_materials({"id": "doc1", "task": "Extract the fields."}), materials)
+
+    @unittest.skipUnless(importlib.util.find_spec("reportlab") and importlib.util.find_spec("pypdf"),
+                         "install the pdf-runtime extra for PDF integration")
+    def test_text_layer_is_read_and_scanned_pdfs_are_marked(self):
+        from reportlab.pdfgen.canvas import Canvas
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pdf = self.write_task(root)
+            canvas = Canvas(str(pdf))
+            canvas.drawString(40, 750, "Form field: Invoice total")
+            canvas.showPage()
+            canvas.save()
+            materials = self.adapter(root).judge_materials({"id": "doc1", "task": "Extract."})
+            self.assertIn("PDF text layer:\n--- page 1 ---\nForm field: Invoice total", materials)
+            blank = Path(temporary) / "blank.pdf"
+            canvas = Canvas(str(blank))
+            canvas.showPage()
+            canvas.save()
+            self.assertEqual(pdf_text(sys.executable, blank), "(no text layer: the PDF may be scanned images)")
 
 
 @unittest.skipUnless(os.environ.get("SKILL_AGENT_NETWORK_TESTS") == "1", "opt-in network/scorer dependencies")

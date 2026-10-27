@@ -51,6 +51,7 @@ class Learner:
         if adapter.snapshot_fingerprint != self.manifest["benchmark_fingerprint"]:
             raise ValueError("benchmark changed since the collected run")
         self.hooks = factory(config["hooks"], adapter=adapter)
+        self.adapter, self._materials = adapter, {}
         self.tasks = {task["id"]: task for task in self.manifest["tasks"]}
         skill_dir = Path(config["skill_dir"]).resolve()
         self.skill_name = skill_dir.name
@@ -71,6 +72,14 @@ class Learner:
         if saved["collect_run"] != self.manifest["run_id"]:
             raise ValueError("output_dir belongs to a different collected run")
         return saved["passed"]
+
+    def materials(self, task_id):
+        """The worker's starting materials, built exactly as runs build them for the judge."""
+        if not hasattr(self.adapter, "judge_materials"):
+            return None
+        if task_id not in self._materials:
+            self._materials[task_id] = self.adapter.judge_materials(self.tasks[task_id])
+        return self._materials[task_id]
 
     def condition_records(self):
         return [r for r in self.records if r["condition"] == self.config["condition"]]
@@ -95,7 +104,7 @@ class Learner:
         for record in self.condition_records():
             if not passed[episode_key(record)]:
                 continue
-            views = skill_views(record["events"])
+            views = skill_views(record["events"], self.materials(record["task_id"]))
             limit = self.config["cornerstones_per_episode"]
             if limit and len(views) > limit:  # Evenly spaced turns, always including the first.
                 views = [views[round(i * (len(views) - 1) / (limit - 1))] if limit > 1 else views[0]
@@ -161,7 +170,7 @@ class Learner:
     def _failing_view(self, source):
         record = next(r for r in self.records if episode_key(r) == source)
         diagnosis = read_json(self.root / "diagnoses" / (quote(source, safe="") + ".json"))["diagnosis"]
-        return record, view_at(record["events"], diagnosis["failing_turn"])
+        return record, view_at(record["events"], diagnosis["failing_turn"], self.materials(record["task_id"]))
 
     def _protected(self, workspace, parent_id, exclude):
         origins = read_json(self.root / "cornerstones.json")

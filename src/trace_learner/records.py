@@ -2,11 +2,14 @@
 
 import json
 
-from skill_agent.learned_features import visible_text
+from skill_agent.learned_features import judge_context
 
 
-def skill_views(events):
+def skill_views(events, materials=None):
     """Every resolved view with the model turn it was first shown on.
+
+    context is the text the judge reads: the worker's starting materials (when the
+    benchmark provides them) and the resolver query of that view.
 
     A view applies to the next model request, both for rolling refreshes (made
     before the request) and for model-initiated requests (made during a turn).
@@ -19,7 +22,7 @@ def skill_views(events):
             metadata = event["response"].get("metadata", {})
             views.append({
                 "turn": turn,
-                "context": visible_text(event["request"]["task"]),
+                "context": judge_context(event["request"]["task"], materials),
                 "case": metadata.get("case"),
                 "fragment_ids": metadata.get("fragment_ids", []),
                 "terminal_ids": metadata.get("terminal_ids", []),
@@ -28,9 +31,9 @@ def skill_views(events):
     return views
 
 
-def view_at(events, turn):
+def view_at(events, turn, materials=None):
     """The view active when the model produced ``turn`` (zero-based)."""
-    active = [view for view in skill_views(events) if view["turn"] <= turn]
+    active = [view for view in skill_views(events, materials) if view["turn"] <= turn]
     return active[-1] if active else None
 
 

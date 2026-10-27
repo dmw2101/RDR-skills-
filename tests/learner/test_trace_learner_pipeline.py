@@ -10,6 +10,7 @@ from pathlib import Path
 from rdr_service.backend import RDRBackend
 from rdr_service.server import make_server
 from skill_agent.experiments import run_experiment
+from skill_agent.learned_features import judge_context
 from skill_agent.models import ModelResponse
 from skill_agent.storage import read_json, write_json
 from trace_learner.pipeline import Learner, load_learner_config
@@ -20,8 +21,11 @@ from trace_learner.workspace import SkillWorkspace
 ROOT = Path(__file__).resolve().parents[2]
 MARKER = "Always list AcroForm fields with pypdf get_fields() first."
 USAGE = {"input_tokens": 3, "output_tokens": 1, "cached_input_tokens": 0, "cost_usd": 0.0}
-TASKS = {"forms": "Extract the form fields from this PDF", "totals": "Extract the totals table",
-         "names": "Extract the names listed on page one"}
+# As in VAREX, every task has the same sentence; only the starting materials (the PDF) differ,
+# so the learned rule can be judged true for the form only through the materials.
+TASKS = {name: "Extract the requested information from this PDF" for name in ("forms", "totals", "names")}
+MATERIALS = {"forms": "PDF text layer: an application with form fields Name and Date",
+             "totals": "PDF text layer: a totals table", "names": "PDF text layer: a list of names"}
 
 
 def call(name, arguments):
@@ -66,6 +70,9 @@ class Adapter:
     async def open_session(self, task):
         return Session(task)
 
+    def judge_materials(self, task):
+        return MATERIALS[task["id"]]
+
     def score(self, records, output_dir):
         return {"summaries": [], "document_metrics": []}
 
@@ -109,7 +116,7 @@ class VerifierModel:
             "attribution": "skill_missing", "failing_turn": 0, "root_cause": "form fields were never read",
             "proposal": {"kind": "replace", "target_node_id": 2, "guidance_text": MARKER,
                          "conditions": [{"new_feature": {
-                             "name": "lf_form_fields", "description": "The task or tools mention form fields."}}],
+                             "name": "lf_form_fields", "description": "The input document has form fields."}}],
                          "rationale": "Form PDFs need field extraction."}}}),
     ]
 
@@ -185,8 +192,11 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
 
         learned = SkillWorkspace(status["current_skill"])
         base = {"operation": ["extract_content"], "source_kind": "unknown"}
-        self.assertIn(MARKER, learned.render(learned.case_for(base, TASKS["forms"])).markdown)
-        self.assertNotIn(MARKER, learned.render(learned.case_for(base, TASKS["totals"])).markdown)
+        forms, totals = (judge_context(TASKS[name], MATERIALS[name]) for name in ("forms", "totals"))
+        self.assertIn(MARKER, learned.render(learned.case_for(base, forms)).markdown)
+        self.assertNotIn(MARKER, learned.render(learned.case_for(base, totals)).markdown)
+        # The same task sentence alone was never judged, so it cannot fire the rule.
+        self.assertNotIn(MARKER, learned.render(learned.case_for(base, TASKS["forms"])).markdown)
         # The original skill is untouched; versions are separate copies.
         self.assertFalse((self.skill / "compiled/learned.json").exists())
 
