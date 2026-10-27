@@ -46,7 +46,7 @@ async def validate_candidate(*, skill_dir, base_config, hooks, fixed_tasks, prot
             (workdir / "run" / "episodes" / episode_filename(
                 record["task_id"], record["condition"], record["replicate"])).unlink(missing_ok=True)
         raise Interrupted(f"the checker's re-run of {', '.join(sorted({r['task_id'] for r in interrupted}))} "
-                          f"was refused ({interrupted[0]['error']}); run learn again to continue")
+                          f"was interrupted ({interrupted[0]['error']}); run learn again to continue")
     outcomes = hooks.outcomes(records, workdir / "scores")
     passes = {}
     for record in records:

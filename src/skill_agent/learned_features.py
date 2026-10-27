@@ -82,8 +82,12 @@ class FeatureJudge:
                                         "<visible_context>\n" + text + "\n</visible_context>"},
         ], [tool])
         try:
-            if response.metadata.get("finish_reason") in ("length", "content_filter"):
-                raise ValueError("judge response was truncated or blocked")
+            reason = response.metadata.get("finish_reason")
+            if reason == "length":
+                raise ValueError("judge response was cut off: it ran out of output tokens "
+                                 "(raise the judge model's max_tokens)")
+            if reason == "content_filter":
+                raise ValueError("judge response was blocked by the provider's content filter")
             calls = response.message.get("tool_calls") or []
             if calls:
                 if len(calls) != 1 or calls[0].get("function", {}).get("name") != "report_features":

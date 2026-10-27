@@ -176,7 +176,7 @@ class Learner:
         outcomes = await asyncio.gather(*(one(record) for record in failed))
         interrupted = [outcome for outcome in outcomes if was_interrupted(outcome)]
         if interrupted:
-            raise Interrupted(f"the verifier's model calls were refused for "
+            raise Interrupted(f"the verifier was interrupted for "
                               f"{', '.join(sorted({o['task_id'] for o in interrupted}))} "
                               f"({interrupted[0]['error']}); run the same stage again to continue")
         return outcomes

@@ -15,6 +15,7 @@ from rdr_engine.learned import (
 from rdr_engine.skill_cases import SkillConditionEvaluator
 from rdr_engine.skill_compiler import FeatureSchema, SkillBundle
 from rdr_engine.skill_renderer import SkillRenderer
+from skill_agent.learned_features import JudgeError
 
 from .proposals import Proposal
 
@@ -179,14 +180,19 @@ class SkillWorkspace:
     async def apply(self, proposal: Proposal, observed_case, context_text, judge, provenance):
         """Insert one proposal for the failing case; leave everything unchanged unless revised."""
         saved = (self.engine.to_dict(), self.layer.model_copy(deep=True), self.schema, self.catalog)
+        failure = None
         try:
             result = await self._apply(proposal, observed_case, context_text, judge, provenance)
+        except JudgeError as exc:  # Not a verdict on the proposal: the caller stops and retries later.
+            result, failure = InsertResult("unresolved", f"JudgeError: {exc}"), exc
         except Exception as exc:
             result = InsertResult("unresolved", f"{type(exc).__name__}: {exc}")
         if result.status != "revised":
             # Roll back everything, judgments included: stored evidence must match them.
             data, self.layer, self.schema, self.catalog = saved
             self.engine = RDREngine.from_dict(data, evaluator=SkillConditionEvaluator(self.schema))
+        if failure is not None:
+            raise failure
         return result
 
     async def _apply(self, proposal, observed_case, context_text, judge, provenance):

@@ -154,7 +154,7 @@ Use the held-out split and a new `output_dir`, then `summarize` as usual. The ju
 
 ## Refused calls
 
-A model call still refused after the client's retries (rate limits, server or network errors) says nothing about the worker, the inspector or the skill, so learning never records it. If it hits the worker or the checker's re-runs, that attempt is removed; if it hits the inspector, its result is not saved. `learn` then stops with `INTERRUPTED`, and rerunning it continues where it stopped, repeating only the refused step.
+A model call still refused after the client's retries (rate limits, server or network errors), or a judge answer that cannot be used (cut off at its output limit, blocked, or malformed), says nothing about the worker, the inspector, the skill or a proposed rule, so learning never records it: a judge failure while inserting a rule is not a rejection. The judge's `max_tokens` (4,096 in the example config) must leave room for reasoning models to think before answering. If it hits the worker or the checker's re-runs, that attempt is removed; if it hits the inspector, its result is not saved. `learn` then stops with `INTERRUPTED`, and rerunning it continues where it stopped, repeating only the refused step.
 
 To redo the last finished round (for example one whose inspector result an earlier version saved after a refused call), run `trace_learner redo-last-round --config ...` and then `learn`. It reopens that round on the tree it started from: the scored worker run and saved verdicts are reused, interrupted inspector results, proposals and checker re-runs are removed, as is the tree version the round created.
 

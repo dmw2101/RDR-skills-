@@ -14,12 +14,12 @@ from rdr_service.backend import RDRBackend
 from rdr_service.server import make_server
 from skill_agent.experiments import episode_filename
 from skill_agent.http import HTTPStatusError
-from skill_agent.learned_features import judge_context
+from skill_agent.learned_features import JudgeError, judge_context
 from skill_agent.models import ModelResponse
 from skill_agent.storage import read_json, write_json
 from trace_learner.incremental import IncrementalLearner
 from trace_learner.pipeline import load_learner_config
-from trace_learner.records import Interrupted, episode_key
+from trace_learner.records import Interrupted, episode_key, was_interrupted
 from trace_learner.report import incremental_report
 from trace_learner.workspace import SkillWorkspace
 
@@ -147,7 +147,13 @@ class VerifierModel:
 
 
 class JudgeModel:
+    cut_off_next = False  # Answer once as if it ran out of output tokens.
+
     async def complete(self, messages, tools):
+        if JudgeModel.cut_off_next:
+            JudgeModel.cut_off_next = False
+            return ModelResponse({"role": "assistant", "content": "Let me think"}, dict(USAGE),
+                                 {"finish_reason": "length"})
         names = tools[0]["function"]["parameters"]["required"]
         visible = messages[1]["content"].split("<visible_context>")[1]
         return ModelResponse(call("report_features", {
@@ -191,6 +197,7 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             "validation": {"enabled": True, "service_url": url, "store": str(store), "replicates": 2}})
         VerifierModel.episodes, VerifierModel.refuse_next = 0, False
         AgentModel.calls, AgentModel.refuse_at = 0, None
+        JudgeModel.cut_off_next = False
 
     def learner(self):
         return IncrementalLearner(load_learner_config(self.root / "learner.json"))
@@ -299,6 +306,31 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state["round"], 4)
         self.assertEqual([list(learner.rounds()[str(i)]["passed"].values()) for i in range(4)],
                          [[False], [True], [True], [True]])
+
+    async def test_an_unusable_judge_answer_stops_learning_instead_of_rejecting_the_rule(self):
+        # Round 1's tree has no learned features yet, so the first judge call is the rule's insertion.
+        JudgeModel.cut_off_next = True
+        with self.assertRaisesRegex(JudgeError, "ran out of output tokens"):
+            await self.learner().learn()
+        learner = self.learner()
+        self.assertFalse((learner.round_dir(0) / "ledger.json").exists())  # No rejection was recorded.
+        self.assertEqual(learner.state()["round"], 0)
+        self.assertFalse((learner.root / ".learning").exists())
+        state = await self.learner().learn()
+        self.assertEqual((state["round"], learner.rounds()["0"]["accepted"]), (4, [0]))
+        self.assertEqual(VerifierModel.episodes, 1)  # The saved diagnosis was reused.
+
+    def test_what_counts_as_interrupted(self):
+        for error in ("HTTPStatusError: HTTP 429 from openrouter.ai", "RuntimeError: HTTP 503 from x",
+                      "JudgeError: judge response was cut off", "URLError: <urlopen error timed out>",
+                      "ConnectionResetError: reset", "TimeoutError: read timed out"):
+            self.assertTrue(was_interrupted({"status": "failed", "error": error}), error)
+        for outcome in ({"status": "failed", "error": None},  # The model simply never finished.
+                        {"status": "budget_exhausted", "error": "TimeoutError: "},  # The episode's own budget.
+                        {"status": "failed", "error": "cleanup failed: ConnectionResetError: x"},
+                        {"status": "failed", "error": "HTTPStatusError: HTTP 400 from openrouter.ai"},
+                        {"status": "completed", "error": None}):
+            self.assertFalse(was_interrupted(outcome), outcome)
 
     async def test_redo_last_round_rediagnoses_a_crashed_inspector_and_reuses_the_worker_attempt(self):
         with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]):

@@ -146,6 +146,10 @@ class JudgeModel:
         return ModelResponse(self.reply or call("report_features", {"lf_tables": "true"}), dict(USAGE), {"model": "j"})
 
 
+async def _response(finish_reason):
+    return ModelResponse({"role": "assistant", "content": "thinking"}, dict(USAGE), {"finish_reason": finish_reason})
+
+
 class ResolverTests(unittest.IsolatedAsyncioTestCase):
     def resolver(self, learned, judge):
         resolver = LearnedFeatureResolver(base_url="http://127.0.0.1:1", judge_model={
@@ -190,6 +194,14 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("[... 5 more characters not shown]", text)
         self.assertTrue(text.endswith("END\n</recent_activity>"))
         self.assertLess(len(text), MAX_JUDGE_CHARS + MAX_MATERIAL_CHARS + 200)
+
+    async def test_cut_off_or_blocked_judge_answers_say_why(self):
+        for reason, message in (("length", "ran out of output tokens"), ("content_filter", "content filter")):
+            judge = JudgeModel()
+            judge.complete = lambda messages, tools, reason=reason: _response(reason)
+            resolver = self.resolver({"lf_tables": {"description": "The PDF has tables."}}, judge)
+            with self.subTest(reason=reason), self.assertRaisesRegex(JudgeError, message):
+                await resolver.resolve(ResolveSkillRequest("pdf", "x", {}, "artifact"))
 
     async def test_unusable_judgment_keeps_its_cost(self):
         resolver = self.resolver({"lf_tables": {"description": "The PDF has tables."}},

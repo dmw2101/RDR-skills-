@@ -5,14 +5,18 @@ import re
 
 from skill_agent.learned_features import judge_context
 
-# Provider refusals and network failures that outlasted the model client's retries. Such an
-# attempt says nothing about the worker, the inspector or the skill, so it is retried, never kept.
+# Provider refusals and network failures that outlasted the model client's retries, and judge
+# answers that could not be used. Such an attempt says nothing about the worker, the inspector or
+# the skill, so it is retried, never kept.
 INTERRUPTION = re.compile(r"HTTP (429|5\d\d) from |URLError|Connection\w*Error|RemoteDisconnected|"
-                          r"IncompleteRead|TimeoutError")
+                          r"IncompleteRead|TimeoutError|JudgeError")
 
 
 class Interrupted(RuntimeError):
-    """A model call was refused or lost; rerunning the same command continues where it stopped."""
+    """A model call was refused or lost, or a judge answer was unusable.
+
+    Rerunning the same command continues where it stopped.
+    """
 
 
 def was_interrupted(outcome):

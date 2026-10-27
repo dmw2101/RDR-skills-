@@ -4,6 +4,8 @@ import argparse
 import asyncio
 import json
 
+from skill_agent.learned_features import JudgeError
+
 from .incremental import IncrementalLearner
 from .pipeline import Learner, load_learner_config
 from .records import Interrupted
@@ -32,8 +34,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         run(parser, args)
-    except Interrupted as exc:
-        print(f"\nINTERRUPTED: {exc}\nNothing unfinished was saved; rerunning the same command continues "
+    except (Interrupted, JudgeError) as exc:
+        detail = f"the judge's answer could not be used: {exc}" if isinstance(exc, JudgeError) else str(exc)
+        print(f"\nINTERRUPTED: {detail}\nNothing unfinished was saved; rerunning the same command continues "
               "where it stopped.", flush=True)
         raise SystemExit(3) from None
 

@@ -122,7 +122,7 @@ class IncrementalLearner:
                 (directory / "run" / "episodes" / episode_filename(
                     record["task_id"], record["condition"], record["replicate"])).unlink(missing_ok=True)
             raise Interrupted(f"the worker's run of {', '.join(sorted({r['task_id'] for r in interrupted}))} "
-                              f"was refused ({interrupted[0]['error']}); run learn again to continue")
+                              f"was interrupted ({interrupted[0]['error']}); run learn again to continue")
         write_json(outcomes_path, self.hooks.outcomes(records, directory / "scores"))
         return records, read_json(outcomes_path)
 
@@ -184,7 +184,7 @@ class IncrementalLearner:
         outcomes = await asyncio.gather(*(one(record) for record in failed))
         interrupted = [outcome for outcome in outcomes if was_interrupted(outcome)]
         if interrupted:
-            raise Interrupted(f"the inspector's model calls were refused for "
+            raise Interrupted(f"the inspector was interrupted for "
                               f"{', '.join(sorted({o['task_id'] for o in interrupted}))} "
                               f"({interrupted[0]['error']}); run learn again to continue")
         return outcomes
