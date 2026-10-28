@@ -29,7 +29,8 @@ Proposing an MCRDR change (skill_missing / skill_misleading only):
   fragments are kept, minus remove_fragment_ids, plus your guidance_text, but only in situations
   matching your conditions.
 - kind "add" (alternative): target node 0 (root) or another fired node that already has a fired
-  child; adds a new sibling rule carrying guidance_text when the conditions hold.
+  child; adds a new sibling rule carrying guidance_text when the conditions hold. To give a rendered
+  node's guidance PLUS extra guidance, use "replace" with no remove_fragment_ids, not "add".
 - kind "stop": target a rendered node whose guidance should be withheld when the conditions hold.
 - conditions: a conjunction. Reuse existing features from show_tree where they distinguish the
   situation; otherwise define a new_feature (name lf_<snake_case>) with a precise definition,

@@ -97,11 +97,21 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_invalid_targets_are_rejected_without_changes(self):
         for bad in (proposal(target_node_id=5),  # Did not fire for an extraction case.
-                    proposal(remove_fragment_ids=["frag_missing"]),
-                    proposal(kind="add", target_node_id=2)):  # Engine: use Replace under a terminal.
+                    proposal(remove_fragment_ids=["frag_missing"])):
             result = await self.workspace.apply(bad, EXTRACT, "12 form fields", self.judge, {})
             self.assertEqual(result.status, "unresolved", bad)
         self.assertEqual(len(self.workspace.engine.nodes), 8)
+
+    async def test_add_under_a_terminal_node_keeps_its_guidance_as_a_replace(self):
+        # The engine refuses Add here (it would replace node 2's guidance); the intent is kept.
+        result = await self.workspace.apply(proposal(kind="add", target_node_id=2), EXTRACT,
+                                            "The tool listed 12 form fields", self.judge, {})
+        self.assertEqual(result.status, "revised", result.reason)
+        self.assertIn("applied as replace", result.note)
+        with_rule = self.text(EXTRACT, "The tool listed 12 form fields")
+        self.assertIn("get_fields()", with_rule)
+        self.assertIn("pdfplumber", with_rule)  # Node 2's own guidance is still there.
+        self.assertNotIn("get_fields()", self.text(EXTRACT, "Extract totals from invoice 0"))
 
     async def test_accept_judges_unjudged_learned_features(self):
         await self.workspace.apply(proposal(), EXTRACT, "12 form fields", self.judge, {})

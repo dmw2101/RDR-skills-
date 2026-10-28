@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import shutil
 from dataclasses import dataclass, field
@@ -19,6 +20,7 @@ from skill_agent.learned_features import JudgeError
 
 from .proposals import Proposal
 
+JUDGE_CONCURRENCY = 4  # Judge calls in flight while a new feature is judged on stored cases.
 BUNDLE_FILES = ("initial.md", "compiled/manifest.json", "compiled/ir.json", "compiled/fragments.json",
                 "compiled/tree.json", "compiled/learned.json")
 
@@ -44,6 +46,7 @@ class InsertResult:
     fragment_id: str | None = None
     parent_id: int | None = None
     judge_calls: int = 0
+    note: str | None = None
 
     def to_dict(self):
         return dict(self.__dict__)
@@ -149,16 +152,24 @@ class SkillWorkspace:
 
     async def _ensure_judged(self, context_ids, names, judge):
         """Judge missing (context, feature) pairs and refresh stored evidence with the values."""
-        calls = 0
         definitions = {name: self.layer.features[name].model_dump() for name in names}
-        for context_id in context_ids:
-            missing = [n for n in names if n not in self.layer.judgments.get(context_id, {})]
-            if not missing:
-                continue
-            values, _ = await judge.judge({n: definitions[n] for n in missing},
-                                          self.layer.contexts[context_id])
-            calls += 1
+        todo = [(context_id, [n for n in names if n not in self.layer.judgments.get(context_id, {})])
+                for context_id in context_ids]
+        todo = [(context_id, missing) for context_id, missing in todo if missing]
+        semaphore, done = asyncio.Semaphore(JUDGE_CONCURRENCY), 0
+
+        async def one(context_id, missing):
+            nonlocal done
+            async with semaphore:
+                values, _ = await judge.judge({n: definitions[n] for n in missing}, self.layer.contexts[context_id])
+            done += 1
+            if len(todo) > 5 and (done % 10 == 0 or done == len(todo)):
+                print(f"  judge: {done}/{len(todo)} situations answered", flush=True)
+            return context_id, values
+
+        for context_id, values in await asyncio.gather(*(one(c, m) for c, m in todo)):
             self.layer.judgments.setdefault(context_id, {}).update(values)
+        calls = len(todo)
         if calls:
             def outputs():
                 return [[item.conclusion for item in self.engine.predict(case).conclusions]
@@ -229,9 +240,17 @@ class SkillWorkspace:
                                               self.catalog.ir, tuple(self.layer.fragments))
         self._rebuild(author=ProposalAuthor(conditions))
         prediction = self.engine.predict(case)
-        if proposal.kind == "add":
+        kind, note = proposal.kind, None
+        node = self.engine.nodes[parent]
+        if (kind == "add" and parent != 0 and not node.stopping
+                and not any(child in prediction.fired for child in node.children)):
+            # The engine refuses a child under a node with no fired child: it would replace the
+            # node's guidance. The intent, the node's guidance plus the new one where the
+            # conditions hold, is a replace that keeps every fragment.
+            kind, note = "replace", "add under a terminal node applied as replace (its guidance is kept)"
+        if kind == "add":
             change = Add({"fragments": [fragment_id]}, parent)
-        elif proposal.kind == "stop":
+        elif kind == "stop":
             change = Stop(parent)
         else:
             current = self.engine.nodes[parent].conclusion
@@ -253,7 +272,7 @@ class SkillWorkspace:
         if fragment_id is not None and fragment_id not in self.render(case).selected_ids:
             return InsertResult("unresolved", "the new guidance does not render for the failing case",
                                 judge_calls=calls)
-        return InsertResult("revised", None, list(update.new_node_ids), fragment_id, parent, calls)
+        return InsertResult("revised", None, list(update.new_node_ids), fragment_id, parent, calls, note)
 
     def _default_anchor(self, proposal, node_id):
         """Place guidance after the target's last fragment, or at the end for the root."""
