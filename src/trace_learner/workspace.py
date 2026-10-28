@@ -47,6 +47,7 @@ class InsertResult:
     parent_id: int | None = None
     judge_calls: int = 0
     note: str | None = None
+    conflicts: list[str] = field(default_factory=list)  # Cornerstone contexts the conditions also matched.
 
     def to_dict(self):
         return dict(self.__dict__)
@@ -268,11 +269,20 @@ class SkillWorkspace:
         finally:
             self._rebuild()  # Drop the per-proposal author.
         if update.status != "revised":
-            return InsertResult("unresolved", update.reason, judge_calls=calls)
+            return InsertResult("unresolved", update.reason, judge_calls=calls,
+                                conflicts=self._matching_cornerstones(conditions, parent))
         if fragment_id is not None and fragment_id not in self.render(case).selected_ids:
             return InsertResult("unresolved", "the new guidance does not render for the failing case",
                                 judge_calls=calls)
         return InsertResult("revised", None, list(update.new_node_ids), fragment_id, parent, calls, note)
+
+    def _matching_cornerstones(self, conditions, parent):
+        """Context IDs of stored cases reaching the parent where every condition holds."""
+        evaluator = SkillConditionEvaluator(self.schema)
+        return list(dict.fromkeys(
+            example[CONTEXT_KEY] for example in self.stored_cases()
+            if CONTEXT_KEY in example and parent in self.engine.predict(example).fired
+            and all(evaluator.evaluate(condition, example) for condition in conditions)))
 
     def _default_anchor(self, proposal, node_id):
         """Place guidance after the target's last fragment, or at the end for the root."""

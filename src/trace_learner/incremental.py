@@ -211,15 +211,67 @@ class IncrementalLearner:
         tasks = [task for task in dict.fromkeys(tasks) if task not in exclude]
         return tasks[: self.validation.get("protected_limit", 3)]
 
-    async def _insert(self, directory, index, proposals, records, work, origins):
-        """Insert and check each proposal in order; returns the folder of the resulting tree."""
+    def _feedback(self, item, entry, origins, workspace):
+        """Why a proposal was rejected, with the passing situations its conditions also matched."""
+        lines = [f"Your proposal {json.dumps(item['proposal'], ensure_ascii=False)} was rejected by the tree "
+                 f"engine: {entry['reason']}."]
+        documents = {}
+        for context in (entry.get("insert") or {}).get("conflicts") or []:
+            for episode in origins.get(context, []):
+                documents.setdefault(episode.split("|")[0], context)
+        if documents:
+            lines.append("Its conditions were also judged true in situations from documents the tree already "
+                         "handles correctly, so the rule would change their advice:")
+            for document, context in list(documents.items())[:3]:
+                text = " ".join(workspace.layer.contexts.get(context, "")[:600].split())
+                lines.append(f"- document {document}: {text}")
+        lines.append("Propose a rule whose conditions are judged true for THIS failing document's visible text "
+                     "but false for those situations: a more specific property this document has and they lack. "
+                     "Call rescore again with your corrected prediction, then submit_diagnosis.")
+        return "\n".join(lines)
+
+    async def _retry(self, directory, version, record, task, item, entry, origins, workspace):
+        """One more inspector run with the rejection as feedback; returns a new proposal item or None."""
+        source = item["sources"][0]
+        path = directory / "diagnoses" / (quote(source, safe="") + ".retry.json")
+        if path.exists():
+            outcome = read_json(path)
+        else:
+            settings = self.config["verifier"]
+            print(f"  inspector retry on {record['task_id']}: asking for a more specific condition", flush=True)
+            outcome = await verify_episode(
+                model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
+                workspace=SkillWorkspace(self.version_dir(version)), max_calls=settings.get("max_calls", 30),
+                timeout_seconds=settings.get("timeout_seconds", 900),
+                feedback=self._feedback(item, entry, origins, workspace))
+            if was_interrupted(outcome):
+                raise Interrupted(f"the inspector's retry on {record['task_id']} was interrupted "
+                                  f"({outcome['error']}); run learn again to continue")
+            write_json(path, outcome)
+            print(f"  inspector retry on {record['task_id']}: {outcome['status']}, "
+                  f"{(outcome.get('diagnosis') or {}).get('attribution')}, eligible={outcome['eligible']}",
+                  flush=True)
+        if not outcome["eligible"]:
+            return None
+        return {"sources": item["sources"], "proposal": outcome["diagnosis"]["proposal"], "retry": 1,
+                "diagnosis_file": path.name}
+
+    async def _insert(self, directory, index, proposals, records, work, origins, version):
+        """Insert and check each proposal in order; returns the folder of the resulting tree.
+
+        A proposal the engine rejects because its conditions are too broad (they match passing
+        cornerstones) or not true for the failing case gets one inspector retry with that feedback.
+        """
         ledger_path = directory / "ledger.json"
         ledger = read_json(ledger_path) if ledger_path.exists() else []
         current = work
         for entry in ledger:  # Resume: continue from the last accepted candidate.
             if entry["decision"] == "accepted":
                 current = Path(entry["candidate"])
-        for number, item in enumerate(proposals):
+        number = -1
+        while number + 1 < len(proposals):
+            number += 1
+            item = proposals[number]
             if number < len(ledger):
                 continue
             candidate = directory / "candidates" / f"c{number}" / self.skill_name
@@ -230,7 +282,8 @@ class IncrementalLearner:
             source = item["sources"][0]
             record = next(r for r in records if episode_key(r) == source)
             task = next(task for task in self.tasks if task["id"] == record["task_id"])
-            diagnosis = read_json(directory / "diagnoses" / (quote(source, safe="") + ".json"))["diagnosis"]
+            diagnosis_file = item.get("diagnosis_file") or quote(source, safe="") + ".json"
+            diagnosis = read_json(directory / "diagnoses" / diagnosis_file)["diagnosis"]
             view = view_at(record["events"], diagnosis["failing_turn"], self.materials(task))
             entry = {"round": index, "proposal_index": number, "sources": item["sources"],
                      "proposal": item["proposal"]}
@@ -264,6 +317,15 @@ class IncrementalLearner:
                 current = candidate
             else:
                 shutil.rmtree(candidate.parent, ignore_errors=True)
+                result = entry.get("insert") or {}
+                retryable = result.get("conflicts") or "not true for the failing" in (result.get("reason") or "")
+                already = any(p.get("retry") and p["sources"] == item["sources"] for p in proposals)
+                if retryable and not item.get("retry") and len(item["sources"]) == 1 and not already:
+                    retry = await self._retry(directory, version, record, task, item, entry, origins, workspace)
+                    if retry is not None:  # Saved before the ledger entry, so a resume finds it.
+                        proposals.append(retry)
+                        saved = read_json(directory / "proposals.json")
+                        write_json(directory / "proposals.json", {**saved, "proposals": proposals})
             ledger.append(entry)
             write_json(ledger_path, ledger)
             print(f"  rule {index + 1}.{number + 1} ({proposal.kind} at node {proposal.target_node_id}): "
@@ -283,7 +345,7 @@ class IncrementalLearner:
         origins = {**read_json(self.root / "cornerstones.json")}
         for context, sources in cornerstones["origins"].items():
             origins[context] = list(dict.fromkeys(origins.get(context, []) + sources))
-        final, ledger = await self._insert(directory, index, proposals, records, work, origins)
+        final, ledger = await self._insert(directory, index, proposals, records, work, origins, version)
 
         accepted = [entry["proposal_index"] for entry in ledger if entry["decision"] == "accepted"]
         changed = bool(cornerstones["stored_views"] or accepted)

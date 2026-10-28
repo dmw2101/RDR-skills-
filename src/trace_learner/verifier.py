@@ -162,10 +162,15 @@ def eligibility(outcome):
     return True, None
 
 
-async def verify_episode(*, model, task, record, hooks, workspace, max_calls=30, timeout_seconds=900):
+async def verify_episode(*, model, task, record, hooks, workspace, max_calls=30, timeout_seconds=900,
+                         feedback=None):
+    """feedback: why an earlier proposal for this episode was rejected, for one retry."""
     session = VerifierSession(task=task, record=record, hooks=hooks, workspace=workspace)
+    prompt = verifier_prompt(hooks.benchmark)
+    if feedback:
+        prompt += "\n\nPREVIOUS ATTEMPT (rejected)\n" + feedback
     result = await run_episode(model=model, session=session, skill_context=None,
-                               system_prompt=verifier_prompt(hooks.benchmark), policy=NoSkillPolicy(),
+                               system_prompt=prompt, policy=NoSkillPolicy(),
                                max_calls=max_calls, timeout_seconds=timeout_seconds)
     eligible, reason = eligibility(result.prediction)
     return {"task_id": record["task_id"], "condition": record["condition"], "replicate": record["replicate"],

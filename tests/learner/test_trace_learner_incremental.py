@@ -146,6 +146,26 @@ class VerifierModel:
         return ModelResponse(self.script[min(self.turn, len(self.script)) - 1], dict(USAGE), {})
 
 
+class BroadThenNarrowVerifier(VerifierModel):
+    """First proposes a condition true for every PDF; told it matched a passing document, a narrower one."""
+
+    prompts = []
+
+    async def complete(self, messages, tools):
+        response = await super().complete(messages, tools)
+        if self.turn == 1:
+            BroadThenNarrowVerifier.prompts.append(messages[0]["content"])
+        retry = "PREVIOUS ATTEMPT" in messages[0]["content"]
+        if self.turn >= len(self.script) and not retry:
+            broad = json.loads(json.dumps(self.script[-1]))
+            arguments = json.loads(broad["tool_calls"][0]["function"]["arguments"])
+            arguments["diagnosis"]["proposal"]["conditions"] = [
+                {"new_feature": {"name": "lf_is_pdf", "description": "The input is a PDF."}}]
+            broad["tool_calls"][0]["function"]["arguments"] = json.dumps(arguments)
+            return ModelResponse(broad, dict(USAGE), {})
+        return response
+
+
 class JudgeModel:
     cut_off_next = False  # Answer once as if it ran out of output tokens.
 
@@ -157,7 +177,8 @@ class JudgeModel:
         names = tools[0]["function"]["parameters"]["required"]
         visible = messages[1]["content"].split("<visible_context>")[1]
         return ModelResponse(call("report_features", {
-            name: "true" if "form fields" in visible else "false" for name in names}), dict(USAGE), {})
+            name: "true" if name == "lf_is_pdf" or "form fields" in visible else "false" for name in names}),
+            dict(USAGE), {})
 
 
 class IncrementalTests(unittest.IsolatedAsyncioTestCase):
@@ -331,6 +352,27 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
                         {"status": "failed", "error": "HTTPStatusError: HTTP 400 from openrouter.ai"},
                         {"status": "completed", "error": None}):
             self.assertFalse(was_interrupted(outcome), outcome)
+
+    async def test_a_too_broad_rule_gets_one_inspector_retry_naming_the_conflicting_document(self):
+        config = read_json(self.root / "learner.json")
+        config["verifier"]["model"]["factory"] = f"{__name__}:BroadThenNarrowVerifier"
+        write_json(self.root / "learner.json", config)
+        BroadThenNarrowVerifier.prompts = []
+        with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]):
+            state = await self.learner().learn()
+            learner = self.learner()
+            ledger = read_json(learner.round_dir(1) / "ledger.json")
+            self.assertEqual([e["decision"] for e in ledger], ["rejected", "accepted"])
+            self.assertIn("cornerstone", ledger[0]["reason"])
+            self.assertTrue(ledger[0]["insert"]["conflicts"])
+            self.assertEqual(ledger[1]["proposal"]["conditions"][0]["new_feature"]["name"], "lf_form_fields")
+            self.assertEqual(len(BroadThenNarrowVerifier.prompts), 2)
+            self.assertIn("- document names:", BroadThenNarrowVerifier.prompts[1])  # The clash is named.
+            self.assertEqual((state["round"], learner.rounds()["1"]["accepted"]), (2, [1]))
+            self.assertEqual(len(list((learner.round_dir(1) / "diagnoses").glob("*.retry.json"))), 1)
+            # Rerunning reuses everything, including the retry.
+            self.assertEqual(await self.learner().learn(), state)
+            self.assertEqual(len(BroadThenNarrowVerifier.prompts), 2)
 
     async def test_redo_last_round_rediagnoses_a_crashed_inspector_and_reuses_the_worker_attempt(self):
         with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]):
