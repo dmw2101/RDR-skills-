@@ -22,11 +22,12 @@ from urllib.parse import quote
 from rdr_engine.learned import CONTEXT_KEY
 from rdr_service.backend import RDRBackend
 from skill_agent.experiments import episode_filename, factory, load_config, load_run, run_experiment, select_tasks
-from skill_agent.learned_features import FeatureJudge
+from skill_agent.learned_features import FeatureJudge, JudgeError
 from skill_agent.storage import read_json, write_json
 
 from . import __version__
 from .consolidate import consolidate
+from .passing import PassingTraces, affected_tasks, saved_passing_records
 from .pipeline import sample_views
 from .proposals import Proposal
 from .records import Interrupted, episode_key, skill_views, view_at, was_interrupted
@@ -153,7 +154,19 @@ class IncrementalLearner:
         write_json(marker, summary)
         return work, summary
 
-    async def _diagnose(self, directory, records, passed, version):
+    def _passing_traces(self, index, version, records, passed):
+        traces = PassingTraces()
+        tasks = {task["id"]: task for task in self.tasks}
+        for previous in sorted(self.rounds().values(), key=lambda item: item["round"]):
+            number = previous["round"]
+            if number < index:
+                historical = saved_passing_records(self.round_dir(number), previous["passed"])
+                traces.add_round(number, previous["version_before"], historical, previous["passed"],
+                                 tasks, self.materials)
+        traces.add_round(index, version, records, passed, tasks, self.materials)
+        return traces
+
+    async def _diagnose(self, directory, records, passed, version, passing_traces):
         failed = [record for record in records if not passed[episode_key(record)]]
         folder = directory / "diagnoses"
         folder.mkdir(parents=True, exist_ok=True)
@@ -170,7 +183,7 @@ class IncrementalLearner:
                 outcome = await verify_episode(
                     model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                     workspace=workspace, max_calls=settings.get("max_calls", 30),
-                    timeout_seconds=settings.get("timeout_seconds", 900))
+                    timeout_seconds=settings.get("timeout_seconds", 900), passing_traces=passing_traces)
             if was_interrupted(outcome):  # Not a verdict: leave it unsaved so the rerun diagnoses again.
                 print(f"  inspector on {record['task_id']} rep={record['replicate']}: interrupted "
                       f"({outcome['error']}); not saved", flush=True)
@@ -230,7 +243,7 @@ class IncrementalLearner:
                      "Call rescore again with your corrected prediction, then submit_diagnosis.")
         return "\n".join(lines)
 
-    async def _retry(self, directory, version, record, task, item, entry, origins, workspace):
+    async def _retry(self, directory, version, record, task, item, entry, origins, workspace, passing_traces):
         """One more inspector run with the rejection as feedback; returns a new proposal item or None."""
         source = item["sources"][0]
         path = directory / "diagnoses" / (quote(source, safe="") + ".retry.json")
@@ -243,7 +256,7 @@ class IncrementalLearner:
                 model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                 workspace=SkillWorkspace(self.version_dir(version)), max_calls=settings.get("max_calls", 30),
                 timeout_seconds=settings.get("timeout_seconds", 900),
-                feedback=self._feedback(item, entry, origins, workspace))
+                feedback=self._feedback(item, entry, origins, workspace), passing_traces=passing_traces)
             if was_interrupted(outcome):
                 raise Interrupted(f"the inspector's retry on {record['task_id']} was interrupted "
                                   f"({outcome['error']}); run learn again to continue")
@@ -256,7 +269,7 @@ class IncrementalLearner:
         return {"sources": item["sources"], "proposal": outcome["diagnosis"]["proposal"], "retry": 1,
                 "diagnosis_file": path.name}
 
-    async def _insert(self, directory, index, proposals, records, work, origins, version):
+    async def _insert(self, directory, index, proposals, records, work, origins, version, passing_traces):
         """Insert and check each proposal in order; returns the folder of the resulting tree.
 
         A proposal the engine rejects because its conditions are too broad (they match passing
@@ -300,8 +313,21 @@ class IncrementalLearner:
                     entry["tree"] = workspace.summary()
                     if self.validation.get("enabled"):
                         fixed = list(dict.fromkeys(s.split("|")[0] for s in item["sources"]))
-                        protected = self._protected(workspace, result.parent_id, set(fixed), origins)
                         workdir = directory / "validation" / f"c{number}"
+                        selection_path = workdir / "selection.json"
+                        if selection_path.exists():
+                            selection = read_json(selection_path)
+                        else:
+                            try:
+                                impacted = await affected_tasks(passing_traces, SkillWorkspace(current),
+                                                                workspace, self.judge, set(fixed))
+                            except JudgeError as exc:
+                                raise Interrupted(f"candidate impact check interrupted: {exc}") from exc
+                            protected = impacted or self._protected(workspace, result.parent_id, set(fixed), origins)
+                            selection = {"fixed": fixed, "protected": protected, "impact_based": bool(impacted)}
+                            selection_path.parent.mkdir(parents=True, exist_ok=True)
+                            write_json(selection_path, selection)
+                        protected = selection["protected"]
                         (workdir / "run" / ".running").unlink(missing_ok=True)  # We hold the learner lock.
                         report = await validate_candidate(
                             skill_dir=candidate, base_config=self.run_config, hooks=self.hooks,
@@ -321,7 +347,7 @@ class IncrementalLearner:
                 retryable = result.get("conflicts") or "not true for the failing" in (result.get("reason") or "")
                 already = any(p.get("retry") and p["sources"] == item["sources"] for p in proposals)
                 if retryable and not item.get("retry") and len(item["sources"]) == 1 and not already:
-                    retry = await self._retry(directory, version, record, task, item, entry, origins, workspace)
+                    retry = await self._retry(directory, version, record, task, item, entry, origins, workspace, passing_traces)
                     if retry is not None:  # Saved before the ledger entry, so a resume finds it.
                         proposals.append(retry)
                         saved = read_json(directory / "proposals.json")
@@ -340,12 +366,14 @@ class IncrementalLearner:
         print(f"round {index + 1}/{len(self.batches)}: {', '.join(t['id'] for t in tasks)} on v{version}", flush=True)
         records, passed = await self._run_worker(directory, tasks, version)
         work, cornerstones = await self._add_cornerstones(directory, records, passed, version)
-        outcomes = await self._diagnose(directory, records, passed, version)
+        passing_traces = (PassingTraces() if all(passed.values()) else
+                          self._passing_traces(index, version, records, passed))
+        outcomes = await self._diagnose(directory, records, passed, version, passing_traces)
         proposals = await self._proposals(directory, outcomes)
         origins = {**read_json(self.root / "cornerstones.json")}
         for context, sources in cornerstones["origins"].items():
             origins[context] = list(dict.fromkeys(origins.get(context, []) + sources))
-        final, ledger = await self._insert(directory, index, proposals, records, work, origins, version)
+        final, ledger = await self._insert(directory, index, proposals, records, work, origins, version, passing_traces)
 
         accepted = [entry["proposal_index"] for entry in ledger if entry["decision"] == "accepted"]
         changed = bool(cornerstones["stored_views"] or accepted)

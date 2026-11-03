@@ -8,7 +8,8 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from rdr_service.backend import RDRBackend
 from rdr_service.server import make_server
@@ -18,9 +19,11 @@ from skill_agent.learned_features import JudgeError, judge_context
 from skill_agent.models import ModelResponse
 from skill_agent.storage import read_json, write_json
 from trace_learner.incremental import IncrementalLearner
+from trace_learner.passing import PassingTraces, affected_tasks
 from trace_learner.pipeline import load_learner_config
 from trace_learner.records import Interrupted, episode_key, was_interrupted
 from trace_learner.report import incremental_report
+from trace_learner.verifier import VerifierSession
 from trace_learner.workspace import SkillWorkspace
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -223,6 +226,51 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
     def learner(self):
         return IncrementalLearner(load_learner_config(self.root / "learner.json"))
 
+    async def test_passing_examples_and_impact_selection(self):
+        tasks = {str(i): {"id": str(i), "task": "Read a PDF"} for i in range(10)}
+        records = []
+        for task in tasks:
+            node = 3 if task == "8" else 2
+            for replicate in range(2):
+                records.append({"task_id": task, "condition": "reduced", "replicate": replicate,
+                                "status": "completed", "events": [
+                    {"type": "skill", "request": {"task": f"context {task}"},
+                     "response": {"markdown": "Prior advice", "metadata": {
+                         "case": {"operation": "read"}, "terminal_ids": [node]}}},
+                ]})
+        traces = PassingTraces()
+        traces.add_round(0, 0, records, {episode_key(r): r["task_id"] != "9" for r in records},
+                         tasks, lambda task: None)
+        session = VerifierSession(task=tasks["9"], record=records[-1], hooks=None, workspace=None,
+                                  passing_traces=traces)
+        tool = session.tools["passing_examples"]
+        self.assertEqual([item["task_id"] for item in (await tool.execute({"node_id": 2}))["examples"]],
+                         ["7", "6", "5", "4", "3", "2"])
+        self.assertEqual(await tool.execute({"node_id": 99}), {"examples": []})
+
+        baseline = SimpleNamespace(schema=SimpleNamespace(features=["operation"]),
+                                   render=lambda case: SimpleNamespace(markdown="Prior advice"))
+        replay = AsyncMock(side_effect=lambda case, context, judge: {
+            **case, "changed": context in {"context 7", "context 8"}})
+        candidate = SimpleNamespace(replay_case=replay, render=lambda case: SimpleNamespace(
+            markdown="New advice" if case["changed"] else "Prior advice"))
+        self.assertEqual(await affected_tasks(traces, baseline, candidate, None, {"8"}), ["7"])
+        self.assertEqual(replay.await_count, 8)  # Identical replicates are replayed once per task.
+
+    async def test_impact_selected_regression_blocks_candidate(self):
+        learner = self.learner()
+        learner.batches = learner.batches[:1]
+        impacted = AsyncMock(return_value=["names", "totals"])
+        validate = AsyncMock(return_value={"fixed": {"forms_a": True}, "regressions": ["names"],
+                                           "passes": {}, "accepted": False})
+        learner.validation["protected_limit"] = 1
+        with patch("trace_learner.incremental.affected_tasks", impacted), patch(
+                "trace_learner.incremental.validate_candidate", validate):
+            await learner.learn()
+        self.assertEqual(validate.call_args.kwargs["fixed_tasks"], ["forms_a"])
+        self.assertEqual(validate.call_args.kwargs["protected_tasks"], ["names", "totals"])
+        self.assertEqual(learner.rounds()["0"]["accepted"], [])
+
     async def test_a_later_document_is_passed_by_an_earlier_rule_without_the_inspector(self):
         learner = self.learner()
         state = await learner.learn()
@@ -241,6 +289,17 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
         judged = [e["response"]["metadata"]["feature_judge"]["values"] for e in forms_b["events"]
                   if e["type"] == "skill"]
         self.assertEqual(judged[0], {"lf_form_fields": "true"})  # From the materials, at the first step.
+
+        # A fresh learner can reconstruct the examples from completed rounds.
+        resumed = self.learner()
+        traces = resumed._passing_traces(4, state["current_version"], [], {})
+        node = next(node for node, examples in traces.by_node.items() if "forms_b" in examples)
+        result = traces.examples(node, "forms_a")
+        self.assertIn("forms_b", {example["task_id"] for example in result})
+        example = next(example for example in result if example["task_id"] == "forms_b")
+        self.assertTrue(example["guidance"])
+        self.assertEqual(example["tree_version"], 2)
+        self.assertEqual(example["round"], 3)
 
         status = learner.status()
         self.assertEqual((status["attempts"], status["passed"], status["diagnoses"], status["accepted"]),
@@ -369,6 +428,9 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(BroadThenNarrowVerifier.prompts), 2)
             self.assertIn("- document names:", BroadThenNarrowVerifier.prompts[1])  # The clash is named.
             self.assertEqual((state["round"], learner.rounds()["1"]["accepted"]), (2, [1]))
+            selection = read_json(learner.round_dir(1) / "validation" / "c1" / "selection.json")
+            self.assertEqual(selection, {"fixed": ["forms_a"], "protected": ["names"],
+                                         "impact_based": False})
             self.assertEqual(len(list((learner.round_dir(1) / "diagnoses").glob("*.retry.json"))), 1)
             # Rerunning reuses everything, including the retry.
             self.assertEqual(await self.learner().learn(), state)

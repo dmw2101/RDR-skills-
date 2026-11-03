@@ -98,6 +98,18 @@ class SkillWorkspace:
         SkillConditionEvaluator(self.schema).validate_case({k: v for k, v in case.items() if k != CONTEXT_KEY})
         return case
 
+    async def replay_case(self, observed_case, context_text, judge):
+        """Resolve a saved view without modifying the engine or its cornerstone evidence."""
+        case = self.case_for(observed_case, context_text)
+        judgments = self.layer.judgments.setdefault(case[CONTEXT_KEY], {})
+        missing = {name: feature.model_dump() for name, feature in self.layer.features.items()
+                   if name not in judgments}
+        if missing:
+            values, _ = await judge.judge(missing, context_text)
+            judgments.update(values)
+            case.update(values)
+        return case
+
     def stored_cases(self):
         seen, cases = set(), []
         for node in self.engine.nodes:

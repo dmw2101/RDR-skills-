@@ -35,6 +35,11 @@ It follows the paper's workflow: find what is wrong, trace it to a decision, val
 
 **A diagnosis is eligible only when a `rescore` call the verifier made actually passed.** This is recorded by code, not taken from the model's own claim. Diagnoses not attributed to the skill are logged and dropped.
 
+In incremental mode the inspector can call `passing_examples` with the proposed target node.
+It gets up to six distinct scored successes whose saved skill views show that node supplying
+guidance. It uses these examples to narrow the proposed condition. The existing single retry
+still gives feedback when the engine rejects a condition.
+
 ### What a proposal becomes
 
 | kind | MCRDR change | Effect on guidance |
@@ -51,6 +56,9 @@ It follows the paper's workflow: find what is wrong, trace it to a decision, val
 
 1. The candidate is snapshotted with `rdr_service prepare` into the configured store.
 2. The original run configuration is re-run for the fixed tasks plus up to `protected_limit` passing tasks whose cornerstones reach the changed node. It uses the reduced arm only, for `replicates` replicates, with `LearnedFeatureResolver` judging learned features each refresh.
+   In incremental mode, the checker first compares the current and candidate guidance on saved
+   passing views. It reruns every passing task with a changed view. The capped parent sample is
+   used when no saved view changes.
 3. The candidate is accepted when every fixed task passes in a majority of replicates and no protected task stops passing.
 4. Accepted candidates become the next immutable version.
 
