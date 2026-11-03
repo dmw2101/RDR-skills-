@@ -3,6 +3,7 @@ import json
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from rdr_service.server import make_server
@@ -151,6 +152,46 @@ class ExperimentTests(unittest.IsolatedAsyncioTestCase):
         await run_experiment(self.config)
         with self.assertRaises(ValueError):
             await run_experiment(self.config)
+
+    async def test_transient_failure_retries_in_fresh_session(self):
+        self.config["skill"] = {}
+        self.config["run"].update(conditions=["none"], limit=1, episode_retries=1,
+                                  episode_retry_delay_seconds=0)
+        calls = 0
+        async def flaky(model, messages, tools):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise TimeoutError("provider timed out")
+            return ModelResponse({"role": "assistant", "content": "done"},
+                                 {"input_tokens": 2, "output_tokens": 1, "cost_usd": None}, {})
+        with patch.object(TinyModel, "complete", flaky):
+            result = await run_experiment(self.config)
+        self.assertEqual(result["episodes"], 1)
+        self.assertEqual(TinySession.closed, 2)
+        record = read_json(next((self.root / "run/episodes").glob("*.json")))
+        self.assertEqual(record["status"], "completed")
+        self.assertEqual(record["prior_attempts"][0]["category"], "timeout_or_connection_error")
+        self.assertFalse(record["prior_attempts"][0]["usage_complete"])
+
+    async def test_exhausted_retries_leave_no_episode_to_score(self):
+        self.config["skill"] = {}
+        self.config["run"].update(conditions=["none"], limit=1, episode_retries=1,
+                                  episode_retry_delay_seconds=0)
+        async def unavailable(model, messages, tools):
+            raise TimeoutError("provider timed out")
+        with patch.object(TinyModel, "complete", unavailable):
+            with self.assertRaisesRegex(RuntimeError, "episodes incomplete"):
+                await run_experiment(self.config)
+        self.assertEqual(list((self.root / "run/episodes").glob("*.json")), [])
+        diagnostic = read_json(next((self.root / "run/diagnostics").glob("*.json")))
+        self.assertEqual(len(diagnostic["attempts"]), 2)
+        self.assertTrue(all(a["category"] == "timeout_or_connection_error" for a in diagnostic["attempts"]))
+        accounting = read_json(self.root / "run/execution-summary.json")
+        self.assertEqual(accounting["incomplete_episodes"], 1)
+        self.assertEqual(accounting["completed_episodes"], 0)
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            summarize(self.root / "run")
 
     async def test_no_skill_only_needs_no_skill_files_or_service(self):
         from skill_agent.__main__ import doctor

@@ -43,6 +43,10 @@ async def doctor(config):
         results["skill_service"] = "ok"
         results["skill_capabilities"] = resolved.capabilities
         results["skill_loading"] = (
+            "one automatic initial selection; request_skill omitted"
+            if config["run"].get("skill_loading") == "initial_only" else
+            "one automatic initial selection; real follow-up requests use visible execution trace"
+            if config["run"].get("skill_loading") == "initial_with_requests" else
             "automatic Bank guidance each turn; original visible request and recent conversation; "
             "classifier usage included; request_skill only acknowledges requests"
             if hasattr(resolver, "provenance") and config["run"].get("skill_loading") == "rolling" else

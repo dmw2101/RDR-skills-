@@ -106,9 +106,24 @@ class RDRBackend:
         schema = FeatureSchema.model_validate(manifest["feature_schema"])
         # Public observed facts can contain other keys; only this adapter interprets them.
         visible = {k: v for k, v in request.context.items() if k in schema.features}
-        case = build_case(request.skill_id, request.task, visible, schema)
-        engine, catalog = SkillBundle.load(directory, SkillConditionEvaluator(schema))
-        rendered = SkillRenderer().render(engine.predict(case), engine, catalog)
+        rule_catalog = None
+        if request.condition_evaluations is not None:
+            from .conditions import build_catalog, validate_results, LookupConditionEvaluator, UnknownCondition
+            from rdr_engine.types import EvaluationError
+            tree, _ = SkillBundle.load(directory)
+            rule_catalog = build_catalog(tree, request.artifact_id)
+            evaluator = LookupConditionEvaluator(validate_results(rule_catalog, request.condition_evaluations))
+            case = {"selection_input": request.selection_input or {"task": request.task}}
+        else:
+            evaluator = SkillConditionEvaluator(schema)
+            case = build_case(request.skill_id, request.task, visible, schema)
+        engine, catalog = SkillBundle.load(directory, evaluator)
+        try:
+            rendered = SkillRenderer().render(engine.predict(case), engine, catalog)
+        except Exception as exc:
+            if rule_catalog is not None and isinstance(exc, EvaluationError) and isinstance(exc.__cause__, UnknownCondition):
+                raise ValueError(str(exc.__cause__)) from exc
+            raise
         # Opaque diagnostics: every evaluated node, and the terminal nodes whose
         # conclusions were rendered. The agent records these but never reads them.
         metadata = {
@@ -120,5 +135,20 @@ class RDRBackend:
             "trace": [{"node_id": step.node_id, "matched": step.matched, "depth": step.depth}
                       for step in rendered.trace],
         }
+        if rule_catalog is not None:
+            metadata.update(catalog_fingerprint=rule_catalog["catalog_fingerprint"],
+                            tree_fingerprint=rule_catalog["tree_fingerprint"],
+                            condition_evaluations=request.condition_evaluations["evaluations"])
         return ResolvedSkill(rendered.markdown, request.artifact_id, info["source_fingerprint"],
                              self.revision, metadata, capabilities=skill_capabilities(directory))
+
+    def condition_catalog(self, skill_id, artifact_id):
+        from rdr_engine.skill_compiler import SkillBundle
+        from .conditions import build_catalog
+        directory, info = self._load_info(artifact_id)
+        if info["skill_id"] != skill_id:
+            raise ValueError("artifact does not belong to requested skill")
+        engine, _ = SkillBundle.load(directory)
+        return {**build_catalog(engine, artifact_id), "skill_id": skill_id,
+                "source_fingerprint": info["source_fingerprint"], "resolver_revision": self.revision,
+                "capabilities": skill_capabilities(directory)}

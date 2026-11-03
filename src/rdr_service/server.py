@@ -30,7 +30,7 @@ def make_server(backend, host="127.0.0.1", port=8765):
                 self.reply(404, {"error": "not found"})
 
         def do_POST(self):
-            if self.path != "/v1/resolve":
+            if self.path not in ("/v1/resolve", "/v1/catalog"):
                 self.reply(404, {"error": "not found"})
                 return
             try:
@@ -38,14 +38,19 @@ def make_server(backend, host="127.0.0.1", port=8765):
                 if not 0 < length <= 1_000_000:
                     raise ValueError("request exceeds size limit or is empty")
                 data = json.loads(self.rfile.read(length))
-                request = ResolveSkillRequest(**data)
-                result = backend.resolve(request)
+                if self.path == "/v1/catalog":
+                    if set(data) != {"skill_id", "artifact_id"}:
+                        raise ValueError("catalog requires skill_id and artifact_id")
+                    result = backend.condition_catalog(**data)
+                else:
+                    request = ResolveSkillRequest(**data)
+                    result = backend.resolve(request).to_dict()
             except (ValueError, TypeError, KeyError, OSError) as exc:
                 self.reply(400, {"error": type(exc).__name__})
                 return
             except Exception:
                 self.reply(500, {"error": "resolution failed"})
                 return
-            self.reply(200, result.to_dict())
+            self.reply(200, result)
 
     return ThreadingHTTPServer((host, port), Handler)

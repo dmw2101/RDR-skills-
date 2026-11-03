@@ -18,7 +18,8 @@ from . import __version__
 from .storage import read_json, write_json
 from .contracts import fingerprint, source_fingerprint
 from .resolvers import StaticSkillResolver
-from .runtime import ModelInitiatedSkillPolicy, NoSkillPolicy, RollingSkillPolicy, SessionContext, run_episode
+from .runtime import (InitialSkillPolicy, InitialWithRequestsPolicy, ModelInitiatedSkillPolicy,
+                      NoSkillPolicy, RollingSkillPolicy, SessionContext, run_episode)
 
 CONDITIONS = ("none", "full", "reduced")
 
@@ -85,21 +86,25 @@ def load_config(path):
     if set(config) != required or config["version"] != 1:
         raise ValueError("expected v1 config with model, benchmark, skill, run")
     run = config["run"]
-    if set(run) - {"output_dir", "split", "limit", "task_ids", "replicates", "concurrency", "max_calls", "timeout_seconds", "skill_loading", "conditions"}:
+    if set(run) - {"output_dir", "split", "limit", "task_ids", "replicates", "concurrency", "max_calls", "timeout_seconds", "skill_loading", "conditions", "episode_retries", "episode_retry_delay_seconds"}:
         raise ValueError("unknown run option")
     defaults = {"split": "dev", "limit": 5, "replicates": 1, "concurrency": 1,
-                "max_calls": 20, "timeout_seconds": 600, "skill_loading": "model_initiated"}
+                "max_calls": 20, "timeout_seconds": 600, "skill_loading": "model_initiated",
+                "episode_retries": 1, "episode_retry_delay_seconds": 5}
     config["run"] = run = {**defaults, **run}
     selected_conditions(run)
     for name in ("replicates", "concurrency", "max_calls", "timeout_seconds"):
         if type(run[name]) is not int or run[name] < 1:
             raise ValueError(f"{name} must be a positive integer")
+    for name in ("episode_retries", "episode_retry_delay_seconds"):
+        if type(run[name]) is not int or run[name] < 0:
+            raise ValueError(f"{name} must be a nonnegative integer")
     if run["limit"] is not None and (type(run["limit"]) is not int or run["limit"] < 1):
         raise ValueError("limit must be positive or null")
     if run["split"] not in ("dev", "heldout"):
         raise ValueError("split must be dev or heldout")
-    if run["skill_loading"] not in ("model_initiated", "rolling"):
-        raise ValueError("skill_loading must be model_initiated or rolling")
+    if run["skill_loading"] not in ("model_initiated", "rolling", "initial_only", "initial_with_requests"):
+        raise ValueError("unknown skill_loading mode")
     if run.get("task_ids") is not None:
         ids = run["task_ids"]
         if (not isinstance(ids, list) or not ids
@@ -118,6 +123,44 @@ def select_tasks(adapter, run):
     if missing:
         raise ValueError(f"document IDs are not in the prepared {run['split']} split: {missing}")
     return [available[name] for name in run["task_ids"]]
+
+
+def retryable_episode_error(error):
+    """Retry transient transport failures from a fresh benchmark environment."""
+    if not error:
+        return False
+    # HTTP retries (including Retry-After) are handled by the model client.
+    # Replaying an episode after an HTTP response here could violate Retry-After.
+    return error.startswith(("TimeoutError:", "ConnectionError:", "URLError:",
+                             "RemoteDisconnected:", "ConnectionResetError:",
+                             "ConnectionAbortedError:", "BrokenPipeError:"))
+
+
+def attempt_diagnostic(outcome):
+    """Keep partial resource use and errors without publishing an incomplete trace."""
+    usages = [e.get("usage", {}) for e in outcome.get("events", []) if e.get("type") in ("model_response", "skill_error")]
+    usages += [e["response"].get("usage", {}) for e in outcome.get("events", []) if e.get("type") == "skill"]
+    error = outcome.get("error") or ""
+    if error.startswith("ModelCallBudgetExceeded:"):
+        category = "model_call_budget"
+    elif "HTTP 429 from " in error:
+        category = "api_rate_limit"
+    elif "HTTP " in error:
+        category = "http_error"
+    elif error.startswith("BankEnvironmentError:"):
+        category = "benchmark_environment_error"
+    elif retryable_episode_error(error):
+        category = "timeout_or_connection_error"
+    else:
+        category = "other_incomplete"
+    return {"status": outcome["status"], "category": category, "error": outcome.get("error"),
+            "seconds": outcome.get("seconds"),
+            "request_retries": outcome.get("model_retry_events", []),
+            "model_responses": sum(e["type"] == "model_response" for e in outcome.get("events", [])),
+            "observed_input_tokens": sum(u.get("input_tokens") or 0 for u in usages),
+            "observed_output_tokens": sum(u.get("output_tokens") or 0 for u in usages),
+            "observed_cost_usd": sum(u.get("cost_usd") or 0 for u in usages),
+            "usage_complete": False}
 
 
 def code_revision():
@@ -219,6 +262,7 @@ async def run_experiment(config, *, resume=False):
                 raise ValueError("no run exists to resume")
             write_json(saved, {"run_id": run_id, **manifest, "preflight_skill": probe.events if probe else []})
         semaphore = asyncio.Semaphore(run["concurrency"])
+        incomplete_records = []
 
         async def attempt(task, replicate, condition):
             directory = root / "episodes"
@@ -232,37 +276,71 @@ async def run_experiment(config, *, resume=False):
                     raise ValueError("episode does not belong to run")
                 if record.get("record_sha256") != fingerprint({k: v for k, v in record.items() if k != "record_sha256"}):
                     raise ValueError("episode record changed")
+                if record.get("status") != "completed":
+                    raise ValueError(f"saved episode {path.name} is incomplete; use a new output directory")
                 return record
             async with semaphore:
-                # New model and environment instances prevent state shared across arms.
-                context = None
-                if condition != "none":
-                    context = SessionContext(config["skill"]["id"], receipt["artifact_id"], task["task"],
-                                             resolvers[condition], receipt["source_fingerprint"],
-                                             expected_revision=receipt["resolver_revision"] if condition == "reduced" else None,
-                                             capabilities=probe.capabilities)
-                started = time.monotonic()
-                try:
-                    model = factory(config["model"])
-                    session = await adapter.open_session(task)
-                    setup_seconds = time.monotonic() - started
-                    policy = (NoSkillPolicy() if condition == "none" else
-                              (adapter.rolling_skill_policy() if hasattr(adapter, "rolling_skill_policy")
-                               else RollingSkillPolicy()) if run.get("skill_loading") == "rolling" else
-                              ModelInitiatedSkillPolicy())
-                    result = await run_episode(model=model, session=session, skill_context=context,
-                                               system_prompt=adapter.system_prompt, policy=policy,
-                                               max_calls=run["max_calls"],
-                                               timeout_seconds=run["timeout_seconds"])
-                    outcome = asdict(result)
-                    outcome["setup_seconds"] = setup_seconds
-                    outcome["seconds"] = time.monotonic() - started
-                except Exception as exc:
-                    outcome = {"status": "setup_failed", "prediction": None,
-                               "error": f"{type(exc).__name__}: {exc}", "events": context.events if context else [],
-                               "seconds": time.monotonic() - started}
+                diagnostics_path = root / "diagnostics" / episode_filename(task["id"], condition, replicate)
+                diagnostics = read_json(diagnostics_path) if diagnostics_path.exists() else {"attempts": []}
+                if diagnostics.get("run_id", run_id) != run_id:
+                    raise ValueError("diagnostic does not belong to run")
+                for attempt_index in range(run.get("episode_retries", 1) + 1):
+                    # A retry always starts with a new skill context and a fresh environment.
+                    context = None
+                    if condition != "none":
+                        context = SessionContext(config["skill"]["id"], receipt["artifact_id"], task["task"],
+                                                 resolvers[condition], receipt["source_fingerprint"],
+                                                 expected_revision=receipt["resolver_revision"] if condition == "reduced" else None,
+                                                 capabilities=probe.capabilities)
+                    started = time.monotonic()
+                    model = None
+                    try:
+                        model = factory(config["model"])
+                        session = await adapter.open_session(task)
+                        setup_seconds = time.monotonic() - started
+                        policy = (NoSkillPolicy() if condition == "none" else
+                                  InitialSkillPolicy() if run.get("skill_loading") == "initial_only" else
+                                  InitialWithRequestsPolicy() if run.get("skill_loading") == "initial_with_requests" else
+                                  (adapter.rolling_skill_policy() if hasattr(adapter, "rolling_skill_policy")
+                                   else RollingSkillPolicy()) if run.get("skill_loading") == "rolling" else
+                                  ModelInitiatedSkillPolicy())
+                        result = await run_episode(model=model, session=session, skill_context=context,
+                                                   system_prompt=adapter.system_prompt, policy=policy,
+                                                   max_calls=run["max_calls"],
+                                                   timeout_seconds=run["timeout_seconds"])
+                        outcome = asdict(result)
+                        outcome["model_retry_events"] = list(getattr(model, "retry_events", []))
+                        outcome["setup_seconds"] = setup_seconds
+                        outcome["seconds"] = time.monotonic() - started
+                    except Exception as exc:
+                        outcome = {"status": "setup_failed", "prediction": None,
+                                   "error": f"{type(exc).__name__}: {exc}", "events": context.events if context else [],
+                                   "seconds": time.monotonic() - started,
+                                   "model_retry_events": list(getattr(model, "retry_events", []))}
+                    if outcome["status"] == "completed":
+                        break
+                    diagnostic = attempt_diagnostic(outcome)
+                    diagnostic["retryable"] = retryable_episode_error(outcome.get("error"))
+                    diagnostics.update({"run_id": run_id, "task_id": task["id"],
+                                        "replicate": replicate, "condition": condition})
+                    diagnostics["attempts"].append(diagnostic)
+                    write_json(diagnostics_path, diagnostics)
+                    # Keep inspectable partial traces outside the completed/scored episodes directory.
+                    write_json(root / "incomplete" / f"attempt{len(diagnostics['attempts'])}_{path.name}",
+                               {"run_id": run_id, "task_id": task["id"], "condition": condition,
+                                "replicate": replicate, **outcome})
+                    print(f"{task['id']} rep={replicate} {condition}: incomplete: {outcome.get('error')}", flush=True)
+                    if not diagnostic["retryable"] or attempt_index >= run.get("episode_retries", 1):
+                        incomplete_records.append({"task_id": task["id"], "condition": condition,
+                                                   "replicate": replicate, **outcome,
+                                                   "prior_attempts": diagnostics["attempts"][:-1]})
+                        return None
+                    delay = run.get("episode_retry_delay_seconds", 5) * (2 ** attempt_index)
+                    print(f"Retrying in a fresh environment after {delay}s.", flush=True)
+                    await asyncio.sleep(delay)
                 record = {"run_id": run_id, "task_id": task["id"], "replicate": replicate,
-                          "condition": condition, **outcome}
+                          "condition": condition, **outcome,
+                          "prior_attempts": diagnostics["attempts"]}
                 record["record_sha256"] = fingerprint(record)
                 # Atomic record: interruptions repeat only the unfinished episode.
                 temporary = path.with_suffix(".tmp")
@@ -270,7 +348,7 @@ async def run_experiment(config, *, resume=False):
                 temporary.replace(path)
                 calls = model_skill_calls(record["events"])
                 print(f"{task['id']} rep={replicate} {condition}: {record['status']} "
-                      f"(skill calls={calls}, follow-ups={max(0, calls - 1)}, "
+                      f"(skill calls={calls}, follow-ups={model_followup_calls(record['events'])}, "
                       f"auto refreshes={automatic_skill_refreshes(record['events'])})", flush=True)
                 return record
 
@@ -289,6 +367,17 @@ async def run_experiment(config, *, resume=False):
                 job.cancel()
             await asyncio.gather(*pending, return_exceptions=True)
             raise
+        incomplete = len(records) - sum(record is not None for record in records)
+        # Resource accounting remains available even when official scoring must wait.
+        write_json(root / "execution-summary.json", {
+            "run_id": run_id, "expected_episodes": len(records),
+            "completed_episodes": len(records) - incomplete, "incomplete_episodes": incomplete,
+            "unresolved_episodes": sum(r["status"] == "unresolved" for r in incomplete_records),
+            "usage": usage_summary([r for r in records if r is not None] + incomplete_records),
+            "scoring": "Diagnostic accounting only; incomplete episodes are not official benchmark failures.",
+        })
+        if incomplete:
+            raise RuntimeError(f"{incomplete} episodes incomplete; see {root / 'diagnostics'} and resume the run")
         return {"output_dir": str(root), "episodes": len(records), "run_id": run_id}
     finally:
         lock.unlink(missing_ok=True)
@@ -306,16 +395,26 @@ def automatic_skill_refreshes(events):
                for event in events)
 
 
+def model_followup_calls(events):
+    initial = any(e["type"] == "skill" and e.get("selection", {}).get("policy") == "initial" for e in events)
+    return max(0, model_skill_calls(events) - (0 if initial else 1))
+
+
 def usage_summary(records):
     result = {}
     for condition in CONDITIONS:
         episodes = [r for r in records if r["condition"] == condition]
         if not episodes:
             continue
+        prior_attempts = [attempt for record in episodes for attempt in record.get("prior_attempts", [])]
         events = [e for r in episodes for e in r["events"]]
         model_events = [e for e in events if e["type"] == "model_response"]
         skill_events = [e for e in events if e["type"] == "skill"]
         skill_errors = [e for e in events if e["type"] == "skill_error"]
+        selector_retries = [retry for e in skill_events
+                            for retry in e["response"].get("metadata", {}).get("selector", {}).get("transport_retries", [])]
+        selector_retries += [retry for e in skill_errors
+                             for retry in e.get("selector", {}).get("transport_retries", [])]
         skill_requests = sum(e["type"] == "skill_request" for e in events)
         model_requests = sum(e["type"] == "model_request" for e in events)
         usage = ([e["usage"] for e in model_events] + [e["response"]["usage"] for e in skill_events]
@@ -329,6 +428,17 @@ def usage_summary(records):
             return sum(values)
         result[condition] = {
             "episodes": len(episodes), "completed": sum(r["status"] == "completed" for r in episodes),
+            "prior_incomplete_attempts": len(prior_attempts),
+            "prior_attempts_observed_input_tokens": sum(a.get("observed_input_tokens", 0) for a in prior_attempts),
+            "prior_attempts_observed_output_tokens": sum(a.get("observed_output_tokens", 0) for a in prior_attempts),
+            "prior_attempts_observed_cost_usd": sum(a.get("observed_cost_usd", 0) for a in prior_attempts),
+            "prior_attempts_usage_complete": not bool(prior_attempts),
+            "model_request_retries": sum(len(r.get("model_retry_events", [])) for r in episodes)
+                                     + sum(len(a.get("request_retries", [])) for a in prior_attempts),
+            "selector_request_retries": len(selector_retries),
+            "retry_provider_usage_may_be_missing": bool(prior_attempts or selector_retries or any(r.get("model_retry_events") for r in episodes)),
+            "unresolved_episodes": sum(r["status"] == "unresolved" for r in episodes),
+            "failed_skill_resolutions": len(skill_errors),
             "failures": {s: sum(r["status"] == s for r in episodes) for s in sorted({r["status"] for r in episodes})},
             "agent_model_calls": model_requests,
             "skill_requests": skill_requests,
@@ -337,7 +447,7 @@ def usage_summary(records):
                                        for e in events),
             "model_skill_calls": model_skill_calls(events),
             "episodes_with_model_skill_calls": sum(model_skill_calls(r["events"]) > 0 for r in episodes),
-            "model_followup_skill_calls": sum(max(0, model_skill_calls(r["events"]) - 1) for r in episodes),
+            "model_followup_skill_calls": sum(model_followup_calls(r["events"]) for r in episodes),
             "resolver_model_calls": (sum(u["model_calls"] for u in
                                          [e["response"]["usage"] for e in skill_events]
                                          + [e["usage"] for e in skill_errors if "usage" in e])
@@ -349,9 +459,17 @@ def usage_summary(records):
             "cached_input_tokens": (sum(e["usage"]["cached_input_tokens"] for e in model_events)
                                     if model_requests == len(model_events) and all(e["usage"].get("cached_input_tokens") is not None for e in model_events) else None),
             "episode_seconds": sum(r["seconds"] for r in episodes),
-            "selection_seconds": sum(e["seconds"] for e in skill_events),
+            "selection_seconds": sum(e["seconds"] for e in skill_events + skill_errors),
             "selected_markdown_characters": sum(len(e["response"]["markdown"]) for e in skill_events),
         }
+        for label, sources, complete in (
+            ("inference_usage", [e["usage"] for e in model_events], model_requests == len(model_events)),
+            ("selector_usage", [e["response"]["usage"] for e in skill_events]
+             + [e["usage"] for e in skill_errors if "usage" in e], skill_usage_complete),
+        ):
+            result[condition][label] = {
+                key: sum(u[key] for u in sources) if complete and all(u.get(key) is not None for u in sources) else None
+                for key in ("input_tokens", "output_tokens", "cost_usd")}
     return result
 
 
@@ -379,7 +497,7 @@ def inspect_skill_requests(root):
         episodes.append({"task_id": record["task_id"], "condition": record["condition"],
                          "replicate": record["replicate"], "status": record["status"],
                          "error": record.get("error"),
-                         "model_skill_calls": calls, "model_followup_skill_calls": max(0, calls - 1),
+                         "model_skill_calls": calls, "model_followup_skill_calls": model_followup_calls(events),
                          "automatic_skill_refreshes": automatic_skill_refreshes(events),
                          "distinct_guidance_views": len({r["markdown_sha256"] for r in requests}),
                          "requests": requests})
@@ -442,6 +560,8 @@ def load_run(root):
 def summarize(root):
     root = Path(root)
     manifest, records = load_run(root)
+    if any(record.get("status") != "completed" for record in records):
+        raise ValueError("run contains incomplete episodes; they cannot be scored as model failures")
     adapter = factory(manifest["config"]["benchmark"])
     if adapter.snapshot_fingerprint != manifest["benchmark_fingerprint"]:
         raise ValueError("benchmark changed since inference")

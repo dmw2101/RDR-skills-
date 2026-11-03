@@ -22,6 +22,8 @@ class ResolveSkillRequest:
     task: str
     context: dict[str, Any]
     artifact_id: str
+    selection_input: dict[str, Any] | None = None
+    condition_evaluations: dict[str, Any] | None = None
 
     def __post_init__(self):
         if any(not isinstance(x, str) or not x for x in (self.skill_id, self.artifact_id)):
@@ -29,9 +31,23 @@ class ResolveSkillRequest:
         if not isinstance(self.task, str) or not isinstance(self.context, dict):
             raise ValueError("task must be text and context must be an object")
         fingerprint(self.context)  # Check JSON compatibility, including finite numbers.
+        for value in (self.selection_input, self.condition_evaluations):
+            if value is not None:
+                if not isinstance(value, dict):
+                    raise ValueError("selection input and evaluations must be objects")
+                fingerprint(value)
 
     def to_dict(self):
-        return asdict(self)
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+class SkillSelectionError(ValueError):
+    """An unresolved selection, retaining selector diagnostics and paid usage."""
+
+    def __init__(self, message, *, usage=None, details=None):
+        super().__init__(message)
+        self.usage = usage or {"model_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0}
+        self.details = details or {}
 
 
 @dataclass(frozen=True)

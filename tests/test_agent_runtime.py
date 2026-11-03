@@ -173,7 +173,8 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         session = FakeSession()
         result = await run_episode(model=SlowModel(), session=session, skill_context=context(),
                                    system_prompt="base", timeout_seconds=.01)
-        self.assertEqual(result.status, "budget_exhausted")
+        self.assertEqual(result.status, "failed")
+        self.assertTrue(result.error.startswith("TimeoutError:"))
         self.assertTrue(session.closed)
 
     async def test_provenance_failure_never_falls_back(self):

@@ -18,6 +18,10 @@ class HttpSkillResolver:
             raise ValueError("skill service returned a different artifact")
         return result
 
+    async def condition_catalog(self, skill_id, artifact_id):
+        return await asyncio.to_thread(json_request, self.url.rsplit("/", 1)[0] + "/catalog",
+                                      {"skill_id": skill_id, "artifact_id": artifact_id}, timeout=self.timeout)
+
 
 class StaticSkillResolver:
     def __init__(self, skill_id, artifact_id, markdown, *, empty=False):

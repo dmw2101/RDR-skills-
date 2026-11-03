@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from .contracts import ResolveSkillRequest, fingerprint, source_fingerprint
+from .contracts import ResolveSkillRequest, SkillSelectionError, fingerprint, source_fingerprint
 
 
 SKILL_REQUEST_INSTRUCTIONS = (
@@ -59,9 +59,42 @@ class SkillRequestPolicy(Protocol):
 
 
 class InitialSkillPolicy:
+    allow_skill_requests = False
+    show_catalog = False
+    instructions = "Use the supplied initial policy and execution tools. This policy view remains fixed for the episode."
+
     async def before_model(self, session, turn):
         if turn == 0:
-            await session.load_skill()
+            await session.load_skill(selection_input=session.selection_packet(),
+                                     selection={"policy": "initial", "turn": 0, "input_source": "public_task"})
+
+
+class InitialWithRequestsPolicy(InitialSkillPolicy):
+    allow_skill_requests = True
+    show_catalog = True
+    trace_requests = True
+    instructions = (
+        "An initial policy is supplied in <active_skill>. Read the policy before acting. "
+        "Before executing a procedure listed in <skill_catalog>, check that <active_skill> "
+        "explicitly includes that procedure's own policy. If it is absent, call request_skill "
+        "for that procedure before executing it, even when you already know the tool name "
+        "and arguments. A mention of a procedure as another procedure's prerequisite does "
+        "not supply its own policy. Missing policy does not mean the procedure is unrestricted. "
+        "An explicitly supplied policy stating no constraints is sufficient; an omitted policy "
+        "is not. Tool descriptions explain how to call tools, but do not replace missing "
+        "policy constraints. A successful tool response does not by itself establish policy "
+        "compliance. Do not execute a catalogued procedure with missing policy after a failed lookup. "
+        "If you are unsure how to perform a procedure, encounter a prerequisite whose procedure "
+        "is absent or unclear, or receive a tool result requiring guidance not covered by the "
+        "active policy, call request_skill before guessing or proceeding. Describe the guidance "
+        "needed and relevant observations. Use the catalog to discover available policies. "
+        "If the active policy covers the procedure, use it and the tool descriptions directly "
+        "without an unnecessary lookup. Procedures outside the catalog use their available "
+        "instructions and tool descriptions. "
+        "Needing a prerequisite does not mean it is satisfied: verify it using tool results. "
+        "A successful request replaces active guidance on your next turn. Request an earlier "
+        "procedure again when its details are needed. A failed request retains the previous view."
+    )
 
 
 class ModelInitiatedSkillPolicy:
@@ -130,6 +163,35 @@ class SessionContext:
     active_skills: dict = field(default_factory=dict)
     events: list = field(default_factory=list)
     capabilities: list[dict[str, str]] = field(default_factory=list)
+    question: str | None = None
+    public_context: dict = field(default_factory=dict)
+
+    def selection_packet(self, guidance_request=None, context=None):
+        """Only visible events, in execution order; never replay full prompt snapshots."""
+        trace = []
+        if guidance_request is not None:
+            for index, event in enumerate(self.events):
+                kind = event["type"]
+                item = None
+                if kind == "model_response":
+                    # Future calls in this same response have not executed yet.
+                    message = {k: v for k, v in event["message"].items() if k != "tool_calls"}
+                    text = planning_text(message)
+                    if text:
+                        item = {"type": "assistant", "text": text}
+                elif kind == "user_message":
+                    item = {"type": "user", "text": event["content"]}
+                elif kind == "tool" and event["name"] != "request_skill":
+                    item = {"type": "tool", "name": event["name"], "call": event["call"],
+                            "result": event["result"]}
+                if item is not None:
+                    trace.append({"event_id": f"event_{index}", **item})
+        packet = {"phase": "follow_up" if guidance_request is not None else "initial",
+                  "task": self.task, "question": self.question or self.task,
+                  "context": self.public_context, "trace": trace}
+        if guidance_request is not None:
+            packet.update(guidance_request=guidance_request, observations=context or {})
+        return packet
 
     def catalog_text(self):
         lines = [f"Available skill: {self.skill_id}"]
@@ -138,14 +200,15 @@ class SessionContext:
             lines.append("Request procedural guidance for your current operation when useful.")
         return "<skill_catalog>\n" + "\n".join(lines) + "\n</skill_catalog>"
 
-    async def load_skill(self, context=None, *, task=None, selection=None):
+    async def load_skill(self, context=None, *, task=None, selection=None, selection_input=None):
         """Resolve a focused task independently, or reuse the initial task for a policy load."""
         if context is not None and not isinstance(context, dict):
             raise ValueError("skill context must be an object")
         observed = dict(self.observed) if task is None else {}
         observed.update(context or {})
         request = ResolveSkillRequest(
-            self.skill_id, self.task if task is None else task, observed, self.artifact_id)
+            self.skill_id, self.task if task is None else task, observed, self.artifact_id,
+            selection_input=selection_input)
         started = time.monotonic()
         audit = {"selection": selection} if selection is not None else {}
         self.events.append({"type": "skill_request", "request": request.to_dict(), **audit})
@@ -156,6 +219,8 @@ class SessionContext:
                      "seconds": time.monotonic() - started}
             if isinstance(getattr(exc, "usage", None), dict):
                 event["usage"] = exc.usage
+            if isinstance(getattr(exc, "details", None), dict):
+                event["selector"] = exc.details
             self.events.append(event)
             raise
         if result.artifact_id != self.artifact_id:
@@ -196,9 +261,10 @@ class SkillRequestTool:
         }, "required": ["request"], "additionalProperties": False},
     }}
 
-    def __init__(self, session: SessionContext, *, acknowledge_only=False):
+    def __init__(self, session: SessionContext, *, acknowledge_only=False, trace_requests=False):
         self.session = session
         self.acknowledge_only = acknowledge_only
+        self.trace_requests = trace_requests
 
     async def execute(self, arguments):
         request = arguments.get("request")
@@ -213,7 +279,17 @@ class SkillRequestTool:
                     "request_applied": False, "guidance_available": bool(text),
                     "markdown_sha256": source_fingerprint(text)}
         try:
-            return await self.session.load_skill(context, task=request.strip())
+            return await self.session.load_skill(
+                context, task=request.strip(),
+                selection_input=self.session.selection_packet(request.strip(), context) if self.trace_requests else None,
+                selection={"policy": "model_request", "input_source": "visible_trace"} if self.trace_requests else None)
+        except SkillSelectionError as exc:
+            if not self.trace_requests:
+                raise
+            text = self.session.active_skills.get(self.session.skill_id, "")
+            return {"skill_id": self.session.skill_id, "request_applied": False,
+                    "error": str(exc), "guidance_available": bool(text),
+                    "markdown_sha256": source_fingerprint(text)}
         except Exception as exc:
             # Resolver/provenance failures abort the attempt rather than reusing old guidance.
             raise RuntimeError(f"skill refresh failed: {exc}") from exc
@@ -226,6 +302,10 @@ class EpisodeResult:
     error: str | None
     events: list
     seconds: float
+
+
+class ModelCallBudgetExceeded(Exception):
+    """The acting agent used all allowed turns without completing the task."""
 
 
 async def run_episode(*, model, session, skill_context, system_prompt, policy=None,
@@ -247,10 +327,14 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
         if skill_enabled:
             if skill_context is None:
                 raise ValueError("skill-enabled episodes require a skill context")
-            tools = {"request_skill": SkillRequestTool(
-                skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False)), **tools}
+            skill_context.question = session.prompt
+            skill_context.public_context = dict(getattr(session, "public_context", {}))
+            if getattr(policy, "allow_skill_requests", True):
+                tools = {"request_skill": SkillRequestTool(
+                    skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False),
+                    trace_requests=getattr(policy, "trace_requests", False)), **tools}
             instructions += ("\n\n" + getattr(policy, "instructions", SKILL_REQUEST_INSTRUCTIONS)
-                             + "\n\n" + skill_context.catalog_text())
+                             + ("\n\n" + skill_context.catalog_text() if getattr(policy, "show_catalog", True) else ""))
         for turn in range(max_calls):
             skill_text = ""
             if skill_enabled:
@@ -304,13 +388,14 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                     prediction = await session.collect()
                     status = "completed"
                     return
-        raise TimeoutError("model-call budget exhausted")
+        raise ModelCallBudgetExceeded("model-call budget exhausted")
 
     try:
         await asyncio.wait_for(loop(), timeout=timeout_seconds)
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-        status = "budget_exhausted" if isinstance(exc, TimeoutError) else "failed"
+        status = ("unresolved" if isinstance(exc, SkillSelectionError) else
+                  "budget_exhausted" if isinstance(exc, ModelCallBudgetExceeded) else "failed")
         if getattr(session, "collect_on_failure", False):
             try:
                 prediction = await session.collect()
