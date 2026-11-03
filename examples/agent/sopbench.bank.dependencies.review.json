@@ -1,0 +1,83 @@
+{
+  "links": [
+    {
+      "procedure": "transfer_funds",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 71,
+          "end": 71
+        }
+      ],
+      "reason": "The transfer requires prior admin authentication."
+    },
+    {
+      "procedure": "authenticate_admin_password",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 46,
+          "end": 46
+        }
+      ],
+      "reason": "Admin authentication requires a prior login."
+    },
+    {
+      "procedure": "get_account_balance",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 64,
+          "end": 64
+        }
+      ],
+      "reason": "Checking the balance requires a prior login."
+    },
+    {
+      "procedure": "pay_bill",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 84,
+          "end": 84
+        }
+      ],
+      "reason": "Paying a bill requires a prior login."
+    },
+    {
+      "procedure": "set_safety_box",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 151,
+          "end": 151
+        }
+      ],
+      "reason": "Setting a safety box requires prior admin authentication."
+    }
+  ],
+  "deferred": [
+    {
+      "procedure": "transfer_funds",
+      "prerequisite": "get_account_balance",
+      "evidence": [
+        {
+          "start": 72,
+          "end": 72
+        }
+      ],
+      "reason": "A sufficient balance is required. The separate balance procedure is useful when balance still needs checking."
+    },
+    {
+      "procedure": "pay_bill",
+      "prerequisite": "get_account_balance",
+      "evidence": [
+        {
+          "start": 83,
+          "end": 83
+        }
+      ],
+      "reason": "The balance-check procedure is useful when balance still needs checking."
+    }
+  ]
+}

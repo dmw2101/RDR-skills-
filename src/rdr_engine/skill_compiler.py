@@ -562,6 +562,8 @@ class SkillBundle:
         from .skill_cases import SkillConditionEvaluator
 
         directory = Path(skill_dir).resolve()
+        if (directory / "compiled/dependencies.json").exists():
+            raise ValueError("compile the base skill separately, then rebuild its dependency bundle")
         source = SkillInput.from_markdown(directory / "initial.md")
         ir = SkillIR.model_validate_json(Path(ir_path).read_text(encoding="utf-8"), strict=True)
         issues = SkillIRValidator().validate(ir, source, feature_schema)
@@ -623,7 +625,10 @@ class SkillBundle:
         source = SkillInput.from_markdown(directory / "initial.md")
         if source.sha256 != manifest.get("source_sha256"):
             raise ValueError("skill source changed since compilation")
-        for name in ("ir", "fragments", "tree"):
+        artifacts = ["ir", "fragments", "tree"]
+        if "dependencies_sha256" in manifest or (compiled / "dependencies.json").exists():
+            artifacts.append("dependencies")
+        for name in artifacts:
             if _sha256((compiled / f"{name}.json").read_bytes()) != manifest.get(f"{name}_sha256"):
                 raise ValueError(f"{name}.json changed since compilation")
         features = manifest.get("feature_schema")
@@ -658,7 +663,7 @@ class RuleModel(Protocol):
     ) -> str: ...
 
 
-def _response_schema() -> dict[str, Any]:
+def _response_schema(model: type[StrictModel] = SkillIR) -> dict[str, Any]:
     """Keep API constraints to Gemini's supported JSON Schema subset.
 
     Pydantic still checks string lengths and rule-ID patterns after generation.
@@ -675,7 +680,7 @@ def _response_schema() -> dict[str, Any]:
             return [strip_unsupported(item) for item in value]
         return value
 
-    return strip_unsupported(SkillIR.model_json_schema())
+    return strip_unsupported(model.model_json_schema())
 
 
 class GeminiRuleModel:

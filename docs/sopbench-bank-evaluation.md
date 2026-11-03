@@ -124,6 +124,49 @@ Pilot acceptance concerns correct inputs, mode behaviour, traversal, and differe
 
 Local validation: 34 checks passed. Of six live episode attempts, five completed and one initial Qwen selection was unresolved due to malformed output at the output-token budget. No completed episode requested follow-up guidance; a separate manual live probe correctly switched from transfer to account-balance guidance using a focused request and saved visible trace. The detailed local report is `experiments/bank-windows/batch-selector-pilot.md`. Selector formatting reliability and autonomous request behaviour remain to be established before expanding the run.
 
+## Dependency pilot
+
+The dependency arm uses the initial-only policy with a separate skill bundle. It expands
+procedure relevance before MCRDR traversal, so the prerequisite's exception and stopping rules
+still apply. The Bank review is manually sourced for the three pilot cases. It links transfer
+and safety-box guidance to admin authentication, then login. The separate balance procedure
+is deferred because it is needed when the balance still needs checking.
+
+To propose a new review with Gemini, set `GEMINI_API_KEY` and run:
+
+```powershell
+$python = 'experiments/bank-windows/.venv/Scripts/python.exe'
+& $python -m rdr_engine.dependencies propose skills/sopbench_bank_fixed_policy experiments/bank-dependencies-proposed.json
+```
+
+Review the cited lines before passing a proposal to `build`. To use the checked-in Bank review
+and run all three matched arms after the Windows setup:
+
+```powershell
+$python = 'experiments/bank-windows/.venv/Scripts/python.exe'
+$bundle = 'experiments/dependency-pilot/sopbench_bank_fixed_policy'
+& $python -m rdr_engine.dependencies build skills/sopbench_bank_fixed_policy examples/agent/sopbench.bank.dependencies.review.json $bundle
+& scripts/run_bank_powershell.ps1 -Experiment initial_only -Name dep-baseline-01 -SingleSelection
+& scripts/run_bank_powershell.ps1 -Experiment initial_with_requests -Name dep-requests-01 -SingleSelection
+& scripts/run_bank_powershell.ps1 -Experiment initial_only -Name dep-expanded-01 -DependencyBundle $bundle
+```
+
+The bundle destination must be new and retain the original skill directory name. All three
+runs use one semantic selector attempt per resolution and separate result directories. The
+dependency arm records direct selections and added links under `response.metadata.dependencies`
+in skill events. Inspect the existing execution summary and incomplete traces if an episode
+cannot be scored.
+
+To reproduce the telecom construction check without model calls:
+
+```powershell
+& $python scripts/check_telecom_dependencies.py experiments/dependency-pilot/telecom-demo
+```
+
+The check saves the review, resolution metadata and rendered Markdown. It selects MMS and
+follows the mobile-data and cellular-service links. Line suspension and overdue bills are
+deferred because their relevance depends on the observed cause.
+
 ## Colab / Linux
 
 Once these repository changes are available in your clone, run the same setup inside the repository's venv. Start the service in the background, then run the pilot:

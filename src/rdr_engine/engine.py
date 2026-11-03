@@ -119,7 +119,7 @@ class RDREngine:
         return True
 
     def _infer(
-        self, nodes: Sequence[Node], case: JSONValue
+        self, nodes: Sequence[Node], case: JSONValue, *, relevant_nodes: frozenset[int] = frozenset()
     ) -> tuple[tuple[FiredConclusion, ...], tuple[int, ...], tuple[EvaluationStep, ...]]:
         """Iterative depth-first MCRDR inference over a node table."""
         trace: list[EvaluationStep] = []
@@ -135,7 +135,7 @@ class RDREngine:
                 if not child_fired[node_id] and not node.stopping:
                     conclusions.append(FiredConclusion(node_id, clone(node.conclusion)))
                 continue
-            matched = self._matches(node.conditions, case)
+            matched = node_id in relevant_nodes or self._matches(node.conditions, case)
             trace.append(EvaluationStep(node_id, matched, depth))
             if not matched:
                 continue
@@ -147,11 +147,11 @@ class RDREngine:
             stack.extend((child, depth + 1, False) for child in reversed(node.children))
         return tuple(conclusions), tuple(fired), tuple(trace)
 
-    def predict(self, case: JSONValue) -> Prediction:
+    def predict(self, case: JSONValue, *, relevant_nodes: frozenset[int] = frozenset()) -> Prediction:
         """Return every terminal conclusion and the evaluation trace, without learning."""
         case = clone(case)
         revision = self._revision
-        conclusions, fired, trace = self._infer(self._nodes, case)
+        conclusions, fired, trace = self._infer(self._nodes, case, relevant_nodes=relevant_nodes)
         if self._revision != revision:
             raise StalePredictionError("The tree changed during condition evaluation")
         prediction = Prediction(

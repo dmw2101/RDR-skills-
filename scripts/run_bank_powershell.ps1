@@ -2,7 +2,9 @@ param(
     [ValidateSet('pilot', 'dev34', 'affected6', 'initial_only', 'initial_with_requests', 'initial_only34', 'initial_with_requests34', 'initial_requests_retry12')][string]$Experiment = 'pilot',
     [Parameter(Mandatory = $true)][ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')][string]$Name,
     [switch]$Resume,
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+    [string]$DependencyBundle,
+    [switch]$SingleSelection
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,6 +24,12 @@ function Invoke-Checked([string]$Program, [string[]]$Arguments) {
 
 if (-not (Test-Path -LiteralPath $python)) { throw 'Run scripts/setup_bank_powershell.ps1 first.' }
 if ($Resume -and $CheckOnly) { throw 'Use -Resume or -CheckOnly, not both.' }
+if ($DependencyBundle -and ($Experiment -ne 'initial_only' -or $Resume)) {
+    throw 'Use -DependencyBundle with a new initial_only experiment.'
+}
+if ($SingleSelection -and ($Experiment -notin @('initial_only', 'initial_with_requests') -or $Resume)) {
+    throw 'Use -SingleSelection with a new initial-guidance pilot.'
+}
 if ($Resume -and -not (Test-Path -LiteralPath $configPath)) { throw 'No saved configuration exists for this run name.' }
 if (-not $Resume -and (Test-Path -LiteralPath $resultPath)) { throw "Results already exist at $resultPath. Choose a new -Name or use -Resume." }
 New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
@@ -30,6 +38,9 @@ if (-not $Resume) {
     $template = Join-Path $repo "examples\agent\sopbench.bank.$Experiment.json"
     $config = Get-Content -LiteralPath $template -Raw | ConvertFrom-Json
     $config.run.output_dir = $resultPath
+    if ($SingleSelection -or $DependencyBundle) {
+        $config.skill.resolver.options | Add-Member -NotePropertyName selection_attempts -NotePropertyValue 1
+    }
     $json = $config | ConvertTo-Json -Depth 100
     [System.IO.File]::WriteAllText($configPath, $json + "`n", (New-Object System.Text.UTF8Encoding($false)))
 } else {
@@ -58,7 +69,8 @@ try {
 
     if (-not $Resume -and $Experiment -in @('initial_only', 'initial_with_requests', 'initial_only34', 'initial_with_requests34', 'initial_requests_retry12')) {
         $receiptPath = Join-Path $runRoot 'skill-snapshot.json'
-        Invoke-Checked $python @('-m', 'rdr_service', 'prepare', 'skills/sopbench_bank_fixed_policy', '--store', 'experiments/bank-snapshots', '--output', $receiptPath)
+        $bundle = if ($DependencyBundle) { $DependencyBundle } else { 'skills/sopbench_bank_fixed_policy' }
+        Invoke-Checked $python @('-m', 'rdr_service', 'prepare', $bundle, '--store', 'experiments/bank-snapshots', '--output', $receiptPath)
         $config.skill.receipt = $receiptPath
         [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 100) + "`n", (New-Object System.Text.UTF8Encoding($false)))
     }

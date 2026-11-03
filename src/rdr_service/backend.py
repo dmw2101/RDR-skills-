@@ -58,6 +58,8 @@ class RDRBackend:
         SkillBundle.load(directory)  # Fail before copying stale or incomplete bundles.
         names = ["initial.md", "compiled/manifest.json", "compiled/ir.json",
                  "compiled/fragments.json", "compiled/tree.json"]
+        if (directory / "compiled/dependencies.json").exists():
+            names.append("compiled/dependencies.json")
         contents = {name: (directory / name).read_bytes() for name in names}
         hashes = {name: hashlib.sha256(data).hexdigest() for name, data in contents.items()}
         info = {"skill_id": directory.name, "files": hashes, "resolver_revision": self.revision,
@@ -107,19 +109,35 @@ class RDRBackend:
         # Public observed facts can contain other keys; only this adapter interprets them.
         visible = {k: v for k, v in request.context.items() if k in schema.features}
         rule_catalog = None
+        relevant_nodes = frozenset()
+        dependency_trace = None
+        graph_path = directory / "compiled/dependencies.json"
         if request.condition_evaluations is not None:
-            from .conditions import build_catalog, validate_results, LookupConditionEvaluator, UnknownCondition
+            from .conditions import build_catalog, condition_id, validate_results, LookupConditionEvaluator, UnknownCondition
             from rdr_engine.types import EvaluationError
             tree, _ = SkillBundle.load(directory)
             rule_catalog = build_catalog(tree, request.artifact_id)
-            evaluator = LookupConditionEvaluator(validate_results(rule_catalog, request.condition_evaluations))
+            results = validate_results(rule_catalog, request.condition_evaluations)
+            evaluator = LookupConditionEvaluator(results)
+            if graph_path.exists():
+                from rdr_engine.dependencies import DependencyReview, expand, load_review
+                graph = json.loads(graph_path.read_bytes())
+                review = DependencyReview.model_validate(graph["review"])
+                mapping = load_review(directory, review, tree)
+                if graph["rule_nodes"] != mapping:
+                    raise ValueError("dependency procedure mapping does not match the tree")
+                relevant_nodes, dependency_trace = expand(review, mapping, tree, results, condition_id)
             case = {"selection_input": request.selection_input or {"task": request.task}}
         else:
+            if graph_path.exists():
+                raise ValueError("dependency bundles require batch condition evaluations")
             evaluator = SkillConditionEvaluator(schema)
             case = build_case(request.skill_id, request.task, visible, schema)
         engine, catalog = SkillBundle.load(directory, evaluator)
         try:
-            rendered = SkillRenderer().render(engine.predict(case), engine, catalog)
+            rendered = SkillRenderer().render(
+                engine.predict(case, relevant_nodes=relevant_nodes), engine, catalog
+            )
         except Exception as exc:
             if rule_catalog is not None and isinstance(exc, EvaluationError) and isinstance(exc.__cause__, UnknownCondition):
                 raise ValueError(str(exc.__cause__)) from exc
@@ -139,6 +157,8 @@ class RDRBackend:
             metadata.update(catalog_fingerprint=rule_catalog["catalog_fingerprint"],
                             tree_fingerprint=rule_catalog["tree_fingerprint"],
                             condition_evaluations=request.condition_evaluations["evaluations"])
+        if dependency_trace is not None:
+            metadata["dependencies"] = dependency_trace
         return ResolvedSkill(rendered.markdown, request.artifact_id, info["source_fingerprint"],
                              self.revision, metadata, capabilities=skill_capabilities(directory))
 

@@ -29,10 +29,13 @@ Return only the tool call, with valid JSON arguments. Do not append commentary.
 
 
 class BatchLLMSkillResolver:
-    def __init__(self, *, base_url, selector_model, timeout=30):
+    def __init__(self, *, base_url, selector_model, timeout=30, selection_attempts=2):
+        if type(selection_attempts) is not int or selection_attempts not in (1, 2):
+            raise ValueError("selection_attempts must be 1 or 2")
         self.inner = HttpSkillResolver(base_url, timeout=timeout)
         self.selector = OpenAICompatibleClient(**selector_model)
         self.catalogs = {}
+        self.selection_attempts = selection_attempts
         self.provenance = {"selector": "batch-conditions-v1", "model": selector_model,
                            "prompt_sha256": fingerprint(SELECTOR_PROMPT)}
 
@@ -87,7 +90,7 @@ class BatchLLMSkillResolver:
             usage = {"model_calls": 1, "input_tokens": None, "output_tokens": None, "cost_usd": None}
             attempts = []
             usage = {"model_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0}
-            for attempt in range(2):
+            for attempt in range(self.selection_attempts):
                 messages = [{"role": "system", "content": SELECTOR_PROMPT},
                             {"role": "user", "content": json.dumps(packet, ensure_ascii=False)}]
                 if attempt:
@@ -112,7 +115,7 @@ class BatchLLMSkillResolver:
                     break
                 except (ValueError, KeyError, TypeError) as exc:
                     attempts[-1]["error"] = str(exc)
-                    if attempt == 1:
+                    if attempt + 1 == self.selection_attempts:
                         raise
             if not isinstance(data, dict) or set(data) != {"evaluations"}:
                 raise ValueError("invalid selector output")
