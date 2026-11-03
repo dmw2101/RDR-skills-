@@ -1,0 +1,18 @@
+{
+  "id": "telecom",
+  "benchmark": "tau2-bench Telecom",
+  "source_repository": "https://github.com/sierra-research/tau2-bench.git",
+  "source_release": "v1.0.1",
+  "source_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "source_paths": [
+    "data/tau2/domains/telecom/main_policy.md",
+    "data/tau2/domains/telecom/tech_support_manual.md"
+  ],
+  "source_sha256": {
+    "data/tau2/domains/telecom/main_policy.md": "95943844a0cf11fdf0e2842b483b81d9f9338aa53235712ed131db075d086ed7",
+    "data/tau2/domains/telecom/tech_support_manual.md": "015a3ee49ec8c199c5e1a059c922081937b92cf3a5ea74fedbc4357816f389ba"
+  },
+  "composition": "Exact default dual-control manual policy returned by get_environment()",
+  "sha256": "065b48503bf780153fc671455cdfddb85b4c6ffb11e2ea93bd940233d804c3e9",
+  "license": "MIT; see LICENSE.txt"
+}

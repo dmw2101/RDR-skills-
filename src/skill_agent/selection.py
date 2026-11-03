@@ -24,6 +24,7 @@ irrelevant procedures or contradicted facts. Conditions are local: the engine en
 For every true or unknown answer, give a short reference to task/question/guidance_request or
 an event ID, explaining the evidence or what is missing. Do not output a chain of thought.
 Call evaluate_conditions exactly once with one result for every condition ID.
+Return only the tool call, with valid JSON arguments. Do not append commentary.
 """
 
 
@@ -84,20 +85,35 @@ class BatchLLMSkillResolver:
                 return replace(result, usage=usage, metadata={**result.metadata, "selector": details})
             retry_start = len(self.selector.retry_events)
             usage = {"model_calls": 1, "input_tokens": None, "output_tokens": None, "cost_usd": None}
-            try:
-                response = await self.selector.complete(
-                    [{"role": "system", "content": SELECTOR_PROMPT},
-                     {"role": "user", "content": json.dumps(packet, ensure_ascii=False)}], [tool])
-            finally:
-                details["transport_retries"] = self.selector.retry_events[retry_start:]
-            usage = {**response.usage, "model_calls": 1}
-            details.update(response=response.message, model_metadata=response.metadata)
-            if response.metadata.get("finish_reason") in ("length", "content_filter"):
-                raise ValueError("selector response truncated or blocked")
-            calls = response.message.get("tool_calls") or []
-            if len(calls) != 1 or calls[0].get("function", {}).get("name") != "evaluate_conditions":
-                raise ValueError("selector must call evaluate_conditions exactly once")
-            data = json.loads(calls[0]["function"]["arguments"])
+            attempts = []
+            usage = {"model_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0}
+            for attempt in range(2):
+                messages = [{"role": "system", "content": SELECTOR_PROMPT},
+                            {"role": "user", "content": json.dumps(packet, ensure_ascii=False)}]
+                if attempt:
+                    messages.append({"role": "user", "content": "Your previous output was invalid or incomplete. Return only one evaluate_conditions tool call with complete valid JSON and no commentary. Keep evidence very short."})
+                try:
+                    response = await self.selector.complete(messages, [tool])
+                finally:
+                    details["transport_retries"] = self.selector.retry_events[retry_start:]
+                usage["model_calls"] += 1
+                for key in ("input_tokens", "output_tokens", "cost_usd"):
+                    value = response.usage.get(key)
+                    usage[key] = None if value is None or usage[key] is None else usage[key] + value
+                attempts.append({"response": response.message, "model_metadata": response.metadata, "usage": response.usage})
+                details.update(response=response.message, model_metadata=response.metadata, attempts=attempts)
+                try:
+                    if response.metadata.get("finish_reason") in ("length", "content_filter"):
+                        raise ValueError("selector response truncated or blocked")
+                    calls = response.message.get("tool_calls") or []
+                    if len(calls) != 1 or calls[0].get("function", {}).get("name") != "evaluate_conditions":
+                        raise ValueError("selector must call evaluate_conditions exactly once")
+                    data = json.loads(calls[0]["function"]["arguments"])
+                    break
+                except (ValueError, KeyError, TypeError) as exc:
+                    attempts[-1]["error"] = str(exc)
+                    if attempt == 1:
+                        raise
             if not isinstance(data, dict) or set(data) != {"evaluations"}:
                 raise ValueError("invalid selector output")
             values = data["evaluations"]

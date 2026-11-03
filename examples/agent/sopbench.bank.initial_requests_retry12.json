@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "model": {
+    "factory": "skill_agent.models:OpenAICompatibleClient",
+    "options": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "qwen/qwen3.7-flash",
+      "api_key_env": "MODEL_API_KEY",
+      "temperature": 0,
+      "max_tokens": 8192,
+      "timeout": 90,
+      "rate_limit_retries": 2,
+      "rate_limit_delay_seconds": 60,
+      "provider": {
+        "only": [
+          "alibaba"
+        ],
+        "allow_fallbacks": false,
+        "require_parameters": true,
+        "max_price": {
+          "prompt": 0.23,
+          "completion": 0.92
+        }
+      }
+    }
+  },
+  "benchmark": {
+    "factory": "skill_agent.benchmarks.sopbench_bank:SOPBenchBankAdapter",
+    "options": {
+      "source_dir": "benchmarks/local-data/sopbench-li",
+      "restore_missing_tools": true
+    }
+  },
+  "skill": {
+    "id": "sopbench_bank_fixed_policy",
+    "full_markdown": "skills/sopbench_bank_fixed_policy/initial.md",
+    "receipt": "experiments/bank-snapshot-mcrdr.json",
+    "resolver": {
+      "factory": "skill_agent.selection:BatchLLMSkillResolver",
+      "options": {
+        "base_url": "http://127.0.0.1:8766",
+        "timeout": 30,
+        "selector_model": {
+          "base_url": "https://openrouter.ai/api/v1",
+          "model": "qwen/qwen3.7-flash",
+          "api_key_env": "MODEL_API_KEY",
+          "temperature": 0,
+          "max_tokens": 8192,
+          "timeout": 90,
+          "rate_limit_retries": 2,
+          "rate_limit_delay_seconds": 60,
+          "provider": {
+            "only": [
+              "alibaba"
+            ],
+            "allow_fallbacks": false,
+            "require_parameters": true,
+            "max_price": {
+              "prompt": 0.23,
+              "completion": 0.92
+            }
+          }
+        }
+      }
+    }
+  },
+  "run": {
+    "skill_loading": "initial_with_requests",
+    "output_dir": "experiments/sopbench-bank-initial-requests-retry12",
+    "split": "dev",
+    "limit": 12,
+    "replicates": 1,
+    "concurrency": 1,
+    "max_calls": 20,
+    "timeout_seconds": 600,
+    "conditions": [
+      "reduced"
+    ],
+    "episode_retries": 0,
+    "task_ids": [
+      "cancel_credit_card-014",
+      "close_account-000",
+      "open_account-004",
+      "pay_bill-003",
+      "pay_bill_with_credit_card-002",
+      "pay_bill_with_credit_card-003",
+      "pay_loan-005",
+      "pay_loan-006",
+      "pay_loan-007",
+      "set_account_information-001",
+      "set_safety_box-032",
+      "transfer_funds-022"
+    ]
+  }
+}

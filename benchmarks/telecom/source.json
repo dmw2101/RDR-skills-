@@ -1,0 +1,21 @@
+{
+  "repository": "https://github.com/sierra-research/tau2-bench.git",
+  "release": "v1.0.1",
+  "commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "domain": "telecom",
+  "policy_type": "manual",
+  "evaluation_split": "base",
+  "paper": "https://arxiv.org/abs/2506.07982",
+  "license": "MIT",
+  "sparse_paths": [
+    "src",
+    "docs",
+    "data/tau2/domains/telecom",
+    "data/tau2/user_simulator"
+  ],
+  "skill_sources": [
+    "data/tau2/domains/telecom/main_policy.md",
+    "data/tau2/domains/telecom/tech_support_manual.md"
+  ],
+  "note": "Text, dual-control Telecom from the pinned 1.x release; not the later 2.0 task replacements. The original 2025 paper and this later release are not asserted to have identical inputs."
+}

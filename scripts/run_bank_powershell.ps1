@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('pilot', 'dev34', 'affected6', 'initial_only', 'initial_with_requests', 'initial_only34', 'initial_with_requests34')][string]$Experiment = 'pilot',
+    [ValidateSet('pilot', 'dev34', 'affected6', 'initial_only', 'initial_with_requests', 'initial_only34', 'initial_with_requests34', 'initial_requests_retry12')][string]$Experiment = 'pilot',
     [Parameter(Mandatory = $true)][ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')][string]$Name,
     [switch]$Resume,
     [switch]$CheckOnly
@@ -56,7 +56,7 @@ try {
     }
     if (-not $healthy) { throw "Skill service did not start. Check $errLog and $outLog." }
 
-    if (-not $Resume -and $Experiment -in @('initial_only', 'initial_with_requests', 'initial_only34', 'initial_with_requests34')) {
+    if (-not $Resume -and $Experiment -in @('initial_only', 'initial_with_requests', 'initial_only34', 'initial_with_requests34', 'initial_requests_retry12')) {
         $receiptPath = Join-Path $runRoot 'skill-snapshot.json'
         Invoke-Checked $python @('-m', 'rdr_service', 'prepare', 'skills/sopbench_bank_fixed_policy', '--store', 'experiments/bank-snapshots', '--output', $receiptPath)
         $config.skill.receipt = $receiptPath

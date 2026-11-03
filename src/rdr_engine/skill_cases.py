@@ -107,6 +107,8 @@ def build_case(
 
     if skill_id == "pdf":
         case.update(_pdf_case(task))
+    elif skill_id == "sopbench_bank_fixed_policy":
+        case["needed_actions"] = _bank_actions(task, feature_schema.features["needed_actions"].values)
 
     # Older bundles omitted `multiple` and still expect one scalar value.
     for field, value in list(case.items()):
@@ -122,6 +124,46 @@ def build_case(
         case[field] = value
     SkillConditionEvaluator(feature_schema).validate_case(case)
     return case
+
+
+def _bank_actions(task: str, allowed: list[str]) -> list[str]:
+    """Match visible Bank action names and common phrases without model calls.
+
+    This deliberately uses text alone, not benchmark task labels or private data.
+    Like the PDF parser, it may miss paraphrases or match mentions of irrelevant actions.
+    """
+    cues = {
+        "login_user": r"\b(log(?:ged|ging)?[ -]?in|sign(?:ed|ing)?[ -]?in|authenticate (?:the )?user)\b",
+        "logout_user": r"\b(log(?:ged|ging)?[ -]?out|sign(?:ed|ing)?[ -]?out)\b",
+        "open_account": r"\b(open|opening|create|creating)\b.{0,35}\b(bank )?account\b",
+        "authenticate_admin_password": r"\b(admin(?:istrator)? password|admin authentication|authenticate.{0,25}admin)\b",
+        "set_admin_password": r"\b(set|change|update|reset)\b.{0,30}\badmin(?:istrator)? password\b",
+        "set_account_information": r"\b(update|change|set|modify)\b.{0,35}\baccount (?:information|details|profile)\b",
+        "close_account": r"\b(close|closing|delete|terminate)\b.{0,35}\baccount\b",
+        "get_account_balance": r"\b(account balance|balance (?:of|in|on) (?:the |my |your )?account|check.{0,25}balance)\b",
+        "transfer_funds": r"\b(transfer(?:ring)?|send(?:ing)?|move|moving)\b.{0,50}\b(funds?|money|dollars?|cash|payment|account)\b|\b(?:funds?|money) transfer\b",
+        "deposit_funds": r"\b(deposit(?:ing)?|deposited)\b",
+        "pay_bill": r"\b(pay|paying|settle|settling)\b.{0,35}\b(bill|invoice)\b",
+        "pay_bill_with_credit_card": r"\b(pay|paying|settle|settling)\b.{0,60}\b(bill|invoice)\b.{0,50}\b(?:credit )?card\b|\b(?:credit )?card\b.{0,50}\b(pay|paying)\b.{0,35}\b(bill|invoice)\b",
+        "apply_credit_card": r"\b(apply|applying|application|qualify|eligibility)\b.{0,50}\bcredit card\b|\bcredit card\b.{0,35}\b(application|eligibility)\b",
+        "cancel_credit_card": r"\b(cancel|cancelling|canceling|close|closing)\b.{0,35}\bcredit card\b",
+        "exchange_foreign_currency": r"\b(exchange|convert|converting)\b.{0,40}\b(currency|foreign|dollars?|euros?|yen)\b|\bforeign (?:currency|exchange)\b",
+        "get_account_owed_balance": r"\b(owed balance|outstanding (?:loan |account )?balance|account (?:debt|owed))\b",
+        "get_loan": r"\b(get|obtain|request|apply|applying|application|take|taking)\b.{0,45}\bloan\b|\bloan (?:application|eligibility)\b",
+        "pay_loan": r"\b(pay|paying|repay|repaying|repayment|settle)\b.{0,35}\bloan\b|\bloan (?:payment|repayment)\b",
+        "get_safety_box": r"\b(get|check|read|inspect|view|retrieve)\b.{0,40}\b(?:safety|safe(?:ty)? deposit) box\b",
+        "set_safety_box": r"\b(set|update|change|store|put)\b.{0,40}\b(?:safety|safe(?:ty)? deposit) box\b",
+        "get_credit_card_info": r"\b(?:credit )?card (?:information|info|details|balance|limit)\b",
+        "get_credit_cards": r"\b(list|find|show|get|check)\b.{0,35}\bcredit cards\b",
+        "get_bank_maximum_loan_amount": r"\b(?:maximum|max|largest)\b.{0,30}\b(?:bank )?loan\b",
+    }
+    matches = []
+    for name in allowed:
+        # Tool names in agent reasoning or tool-call fallback are unambiguous cues.
+        exact = rf"(?<![\w]){re.escape(name)}(?![\w])"
+        if re.search(exact, task, re.I) or (name in cues and re.search(cues[name], task, re.I)):
+            matches.append(name)
+    return matches
 
 
 def _pdf_case(task: str) -> dict[str, FeatureValue]:

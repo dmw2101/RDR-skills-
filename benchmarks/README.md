@@ -1,5 +1,13 @@
 # Benchmarks and data policy
 
+Five further procedural references are available in the [skill candidate index](../skills/CANDIDATES.md).
+Their source skills/corpora and benchmark links are present for inspection; no
+new benchmark runner or scored experiment was added for those candidates.
+
+Telecom support assets and an isolated official runtime are now available through
+the [pinned Telecom setup](telecom/README.md). Its full/reduced/no-skill agent
+integration is a separate next step; existing PDF/VAREX experiments are unchanged.
+
 This folder pairs the five skills in `../skills/` with the published SkillOpt
 benchmark implementations and splits. `skillopt/` is a pinned snapshot of
 [Microsoft SkillOpt](https://github.com/microsoft/SkillOpt) at commit

@@ -7,3 +7,7 @@ __pycache__/
 /dist/
 /benchmarks/local-data/
 /experiments/
+# Video annotation has additional access-control/redistribution conditions.
+# Keep its review copy local; retain only provenance and license notices in Git.
+/skills/sopbench_video_annotation/initial.md
+/skills/sopbench_video_annotation/references/
