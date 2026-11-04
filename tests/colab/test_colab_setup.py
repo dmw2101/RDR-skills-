@@ -127,6 +127,10 @@ class ColabSetupConfigTests(unittest.TestCase):
         learner = colab.build_learner_config(example, opts, self.paths, run_config)
         # Incremental by default: one document at a time, the worker run by the learner itself.
         self.assertEqual((learner["mode"], learner["batch_size"]), ("incremental", 1))
+        # This branch learns from the whole skill at a lone root unless told otherwise.
+        self.assertEqual(learner["base_tree"], "root_only")
+        self.assertEqual(colab.build_learner_config(example, options("--learn", "--base-tree", "compiled"),
+                                                    self.paths, run_config)["base_tree"], "compiled")
         self.assertEqual(learner["run_config"], str(self.paths.configs / "mcrdr-test.json"))
         self.assertNotIn("collect_run", learner)
         self.assertEqual(colab.build_learner_config(example, options("--learn", "--batch-size", "5"), self.paths,
@@ -280,7 +284,7 @@ class ColabSetupDryRunTests(unittest.TestCase):
     def test_dry_run_lists_steps_in_order_and_changes_nothing(self):
         records, config = self.dry_run("--experiment", "qwen-dev30")
         commands = [text for kind, text in records if kind in ("run", "start")]
-        expected = ["apt-get update", "git clone --branch verifier-mcrdr", "-m venv", "pip install",
+        expected = ["apt-get update", "git clone --branch mcrdr-root-only", "-m venv", "pip install",
                     "skill_agent prepare", "rdr_service prepare", "rdr_service serve", "skill_agent doctor"]
         positions = [next(i for i, text in enumerate(commands) if fragment in text) for fragment in expected]
         self.assertEqual(positions, sorted(positions))

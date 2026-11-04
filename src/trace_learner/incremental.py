@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from rdr_engine.learned import CONTEXT_KEY
+from rdr_engine.skill_compiler import SkillBundle
 from rdr_service.backend import RDRBackend
 from skill_agent.experiments import episode_filename, factory, load_config, load_run, run_experiment, select_tasks
 from skill_agent.learned_features import FeatureJudge
@@ -47,6 +48,7 @@ class IncrementalLearner:
         self.adapter = factory(self.run_config["benchmark"])
         self.hooks = factory(config["hooks"], adapter=self.adapter)
         self.skill_name = Path(config["skill_dir"]).resolve().name
+        self.base_tree = config.get("base_tree", "compiled")
         if self.run_config["skill"].get("id") != self.skill_name:
             raise ValueError(f"skill_dir {self.skill_name!r} is not the run config's skill "
                              f"{self.run_config['skill'].get('id')!r}")
@@ -85,17 +87,21 @@ class IncrementalLearner:
         state = self.state()
         if state is not None:
             if state.get("mode") != "incremental" or state["task_order"] != order \
-                    or state["batch_size"] != self.config["batch_size"]:
-                raise ValueError("output_dir belongs to a different learning run (documents, order or "
-                                 "batch size changed); use a new output_dir")
+                    or state["batch_size"] != self.config["batch_size"] \
+                    or state.get("base_tree", "compiled") != self.base_tree:
+                raise ValueError("output_dir belongs to a different learning run (documents, order, "
+                                 "batch size or base tree changed); use a new output_dir")
             return state
         target = self.version_dir(0)
         if target.parent.exists():
             shutil.rmtree(target.parent)  # An interrupted initialization is rebuilt.
         copy_bundle(self.config["skill_dir"], target)
+        if self.base_tree == "root_only":
+            SkillBundle.reshape(target, "root_only")  # The whole skill at the root, no children yet.
         write_json(self.root / "cornerstones.json", {})
         state = {"mode": "incremental", "learner_version": __version__, "task_order": order,
-                 "batch_size": self.config["batch_size"], "round": 0, "current_version": 0}
+                 "batch_size": self.config["batch_size"], "base_tree": self.base_tree,
+                 "round": 0, "current_version": 0}
         write_json(self.root / "state.json", state)
         return state
 

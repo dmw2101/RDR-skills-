@@ -436,5 +436,52 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             load_learner_config(self.root / "bad.json")
 
 
+class RootOnlyIncrementalTests(unittest.IsolatedAsyncioTestCase):
+    """The same learning run starting from the whole skill at a lone root (base_tree root_only)."""
+
+    async def asyncSetUp(self):
+        await IncrementalTests.asyncSetUp(self)
+        config = read_json(self.root / "learner.json")
+        write_json(self.root / "learner.json", {**config, "base_tree": "root_only"})
+        # Only the root fires on a root-only tree; the inspector proposes an alternative there.
+        script = json.loads(json.dumps(VerifierModel.script))
+        arguments = json.loads(script[-1]["tool_calls"][0]["function"]["arguments"])
+        arguments["diagnosis"]["proposal"].update(kind="add", target_node_id=0)
+        script[-1]["tool_calls"][0]["function"]["arguments"] = json.dumps(arguments)
+        patcher = patch.object(VerifierModel, "script", script)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def learner(self):
+        return IncrementalLearner(load_learner_config(self.root / "learner.json"))
+
+    async def test_learning_adds_every_child_under_the_whole_skill(self):
+        learner = self.learner()
+        await learner.learn()
+        v0 = SkillWorkspace(learner.version_dir(0))
+        rounds = learner.rounds()
+        self.assertEqual([list(rounds[str(i)]["passed"].values()) for i in range(4)],
+                         [[False], [True], [True], [True]])
+        self.assertEqual(len(v0.engine.nodes), 1)  # v0: the root alone, holding the whole skill.
+        final = SkillWorkspace(learner.status()["current_skill"])
+        whole = v0.engine.nodes[0].conclusion["fragments"]
+        [child] = final.engine.nodes[0].children
+        self.assertEqual(final.engine.nodes[child].conclusion["fragments"][:len(whole)], whole)
+        base = {"operation": ["extract_content"], "source_kind": "unknown"}
+        forms = final.render(final.case_for(base, judge_context(TASK, MATERIALS["forms_a"]))).markdown
+        names = final.render(final.case_for(base, judge_context(TASK, MATERIALS["names"]))).markdown
+        self.assertIn(MARKER, forms)
+        self.assertNotIn(MARKER, names)
+        self.assertTrue(forms.startswith(names.rstrip()[:200]))  # The skill is kept with the new advice.
+        self.assertEqual(learner.state()["base_tree"], "root_only")
+
+    async def test_an_output_folder_keeps_its_base_tree(self):
+        await self.learner().learn()
+        config = read_json(self.root / "learner.json")
+        write_json(self.root / "learner.json", {**config, "base_tree": "compiled"})
+        with self.assertRaisesRegex(ValueError, "base tree"):
+            self.learner().initialize()
+
+
 if __name__ == "__main__":
     unittest.main()

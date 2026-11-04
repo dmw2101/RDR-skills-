@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .skill_cases import SkillConditionEvaluator, build_case
-from .skill_compiler import FeatureSchema, SkillBundle
+from .skill_compiler import TREE_SHAPES, FeatureSchema, SkillBundle
 from .skill_renderer import SkillRenderer
 
 
@@ -24,6 +24,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     compile_parser.add_argument("--force", action="store_true", help="Replace existing compiled artifacts")
     compile_parser.add_argument("--discard-learned", action="store_true",
                                 help="Rebuild even though compiled/learned.json holds trace-learned rules")
+    compile_parser.add_argument("--tree-shape", choices=TREE_SHAPES, default="flat",
+                                help="flat: general node plus one node per rule; root_only: the whole skill "
+                                     "at the root, with no children until learning adds them")
 
     render_parser = commands.add_parser("render", help="Predict and print selected Markdown")
     render_parser.add_argument("skill_dir", type=Path)
@@ -50,6 +53,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 model_id=args.model_id,
                 force=args.force,
                 discard_learned=args.discard_learned,
+                tree_shape=args.tree_shape,
             )
             print(f"Compiled {len(catalog.fragments)} fragments and {len(tree.nodes)} tree nodes in {directory / 'compiled'}")
             return 0

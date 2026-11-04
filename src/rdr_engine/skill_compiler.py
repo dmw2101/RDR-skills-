@@ -506,13 +506,27 @@ class FragmentCatalog:
         return cls(loaded, skill_input, ir)
 
 
-class SkillTreeCompiler:
-    """Compile rule predicates into a flat MCRDR tree.
+TREE_SHAPES = ("flat", "root_only")
 
-    Node 0 is the root default, reported only when no child fires, so it holds
-    no fragments. Node 1 is an unconditional child carrying general guidance.
-    Each conditional rule is another child of the root, in source order.
+
+class SkillTreeCompiler:
+    """Compile rule predicates into an MCRDR tree of one of two shapes.
+
+    ``flat`` (the default): node 0 is the root default, reported only when no
+    child fires, so it holds no fragments. Node 1 is an unconditional child
+    carrying general guidance. Each conditional rule is another child of the
+    root, in source order.
+
+    ``root_only``: node 0 alone, holding every instructional fragment (the whole
+    skill, without its non-instructional lines). The rule list only supplies the
+    fragment boundaries; its conditions are not used. Every child is added later
+    by learning.
     """
+
+    def __init__(self, shape: str = "flat") -> None:
+        if shape not in TREE_SHAPES:
+            raise ValueError(f"unknown tree shape {shape!r}; expected one of {TREE_SHAPES}")
+        self.shape = shape
 
     def compile(
         self, ir: SkillIR, catalog: FragmentCatalog, evaluator: ConditionEvaluator
@@ -528,14 +542,18 @@ class SkillTreeCompiler:
                 "stopping": False, "evidence": [], "children": [],
             }
 
-        nodes = [rule_node(0, [], []), rule_node(1, [], catalog.ids_for(ir.root))]
-        for rule in ir.rules:
-            nodes.append(rule_node(
-                len(nodes),
-                [predicate.model_dump() for predicate in rule.when],
-                catalog.ids_for(rule.source),
-            ))
-        nodes[0]["children"] = list(range(1, len(nodes)))
+        if self.shape == "root_only":
+            whole = [f.id for f in sorted(catalog.fragments, key=lambda f: f.order) if f.role == "instruction"]
+            nodes = [rule_node(0, [], whole)]
+        else:
+            nodes = [rule_node(0, [], []), rule_node(1, [], catalog.ids_for(ir.root))]
+            for rule in ir.rules:
+                nodes.append(rule_node(
+                    len(nodes),
+                    [predicate.model_dump() for predicate in rule.when],
+                    catalog.ids_for(rule.source),
+                ))
+            nodes[0]["children"] = list(range(1, len(nodes)))
         return RDREngine.from_dict({
             "schema_version": RDREngine.SCHEMA_VERSION,
             "revision": 0,
@@ -560,6 +578,7 @@ class SkillBundle:
     def build(
         skill_dir: str | Path, *, ir_path: str | Path, feature_schema: FeatureSchema,
         model_id: str = "unspecified", force: bool = False, discard_learned: bool = False,
+        tree_shape: str = "flat",
     ) -> tuple[RDREngine, FragmentCatalog]:
         from .learned import LEARNED_FILE
         from .skill_cases import SkillConditionEvaluator
@@ -577,7 +596,7 @@ class SkillBundle:
         if issues:
             raise ValueError("invalid rule list:\n" + "\n".join(str(issue) for issue in issues))
         catalog = FragmentCatalog.from_ir(source, ir)
-        tree = SkillTreeCompiler().compile(ir, catalog, SkillConditionEvaluator(feature_schema))
+        tree = SkillTreeCompiler(tree_shape).compile(ir, catalog, SkillConditionEvaluator(feature_schema))
         target = directory / "compiled"
         ir_target = target / "ir.json"
         files_to_write = {
@@ -612,9 +631,40 @@ class SkillBundle:
             "ir_sha256": _sha256(ir_target.read_bytes()),
             "fragments_sha256": _sha256((target / "fragments.json").read_bytes()),
             "tree_sha256": _sha256((target / "tree.json").read_bytes()),
+            "tree_shape": tree_shape,
         }
         (target / "manifest.json").write_bytes(_json_bytes(manifest))
         return tree, catalog
+
+    @staticmethod
+    def reshape(skill_dir: str | Path, tree_shape: str) -> RDREngine:
+        """Rebuild a compiled bundle's tree in another shape from its stored rule list.
+
+        Only an unlearned bundle can be reshaped: learned rules hang off the old
+        tree's nodes. The rule list, fragments and source are left as they are.
+        """
+        from .learned import LEARNED_FILE
+        from .skill_cases import SkillConditionEvaluator
+
+        directory = Path(skill_dir).resolve()
+        compiled = directory / "compiled"
+        if (compiled / LEARNED_FILE).exists():
+            raise ValueError(f"{compiled / LEARNED_FILE} holds trace-learned rules; reshape the original bundle")
+        SkillBundle.load(directory)  # Every hash and the rule list are checked first.
+        manifest = json.loads((compiled / "manifest.json").read_text(encoding="utf-8"))
+        schema = FeatureSchema.model_validate(manifest["feature_schema"])
+        source = SkillInput.from_markdown(directory / "initial.md")
+        ir = SkillIR.model_validate_json((compiled / "ir.json").read_text(encoding="utf-8"), strict=True)
+        catalog = FragmentCatalog.from_dict(
+            json.loads((compiled / "fragments.json").read_text(encoding="utf-8")), source, ir
+        )
+        tree = SkillTreeCompiler(tree_shape).compile(ir, catalog, SkillConditionEvaluator(schema))
+        (compiled / "tree.json").write_bytes(_json_bytes(tree.to_dict()))
+        manifest["tree_sha256"] = _sha256((compiled / "tree.json").read_bytes())
+        manifest["tree_shape"] = tree_shape
+        (compiled / "manifest.json").write_bytes(_json_bytes(manifest))
+        SkillBundle.load(directory)
+        return tree
 
     @staticmethod
     def load(

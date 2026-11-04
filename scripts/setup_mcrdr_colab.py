@@ -4,7 +4,7 @@
 Standalone and standard-library only, so it can be downloaded and run before the
 repository exists:
 
-    !wget -q -O /content/setup_mcrdr_colab.py https://raw.githubusercontent.com/dmw2101/RDR-skills-/verifier-mcrdr/scripts/setup_mcrdr_colab.py
+    !wget -q -O /content/setup_mcrdr_colab.py https://raw.githubusercontent.com/dmw2101/RDR-skills-/mcrdr-root-only/scripts/setup_mcrdr_colab.py
     %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --run-name mcrdr-qwen-rolling-dev30
 
 Every step is idempotent: system tools, the checkout, the venv, prepared data and
@@ -14,7 +14,9 @@ logs and results live under <workdir>/experiments/, which Git ignores.
 
 With --learn it also writes a trace_learner config that learns from these documents batch by
 batch (--batch-size, default 1): the learner runs the worker on each batch with the tree learned
-so far (outputs in <workdir>/experiments/learning/<run-name>):
+so far (outputs in <workdir>/experiments/learning/<run-name>). On this branch learning starts from a
+root-only tree, the whole skill at a lone root with no children (--base-tree root_only, the default);
+--base-tree compiled starts from the skill's compiled flat tree instead, as on verifier-mcrdr:
 
     %run /content/setup_mcrdr_colab.py --experiment qwen-dev30 --heldout-batch 30 --conditions reduced \
         --run-name learn-heldout30 --learn
@@ -51,7 +53,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_URL = "https://github.com/dmw2101/RDR-skills-.git"
-BRANCH = "verifier-mcrdr"
+BRANCH = "mcrdr-root-only"
 WORKDIR = "/content/rdr-skills-mcrdr"
 # 8765 is the default of the single-classification service; never talk to it by accident.
 SERVICE_PORT = 8766
@@ -332,6 +334,7 @@ def build_learner_config(base: dict, options: argparse.Namespace, paths: Paths, 
     config = copy.deepcopy(base)
     config.pop("collect_run", None)
     config.update(name=options.run_name, mode="incremental", batch_size=options.batch_size,
+                  base_tree=options.base_tree,
                   run_config=str(paths.configs / f"{options.run_name}.json"),
                   skill_dir=str(paths.workdir / "skills" / "pdf"),
                   output_dir=str(paths.learning / options.run_name))
@@ -594,7 +597,7 @@ def setup(options: argparse.Namespace, runner: Runner) -> dict:
             runner.note(f"resolver revision {receipt['resolver_revision']}")
     if learner is not None:
         runner.note(f"learn batch by batch ({options.batch_size} document(s) at a time) on the tree learned so "
-                    "far; learn makes model calls and resumes after an interruption, report and status do not "
+                    f"far, starting from the {options.base_tree} tree; learn makes model calls and resumes after an interruption, report and status do not "
                     "(see docs/verifier-learning.md):")
         for stage in (*LEARNER_STAGES, "report"):
             runner.out("!" + shlex.join([str(paths.python), "-m", "trace_learner", stage,
@@ -643,6 +646,9 @@ def parse_args(argv=None) -> argparse.Namespace:
                         help="Write a trace_learner config that learns from these documents, batch by batch")
     parser.add_argument("--batch-size", type=int, default=1,
                         help="Documents per learning round with --learn (default 1: one at a time)")
+    parser.add_argument("--base-tree", choices=("root_only", "compiled"), default="root_only",
+                        help="Tree --learn starts from: root_only (default), the whole skill at a lone root "
+                             "that learning adds every child to; compiled, the skill's flat compiled tree")
     options = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", options.run_name):
         parser.error("--run-name may only contain letters, digits, '.', '_' and '-'")

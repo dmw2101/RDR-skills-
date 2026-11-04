@@ -243,11 +243,14 @@ class SkillWorkspace:
         prediction = self.engine.predict(case)
         kind, note = proposal.kind, None
         node = self.engine.nodes[parent]
-        if (kind == "add" and parent != 0 and not node.stopping
+        renders = bool((node.conclusion or {}).get("fragments"))
+        if (kind == "add" and (parent != 0 or renders) and not node.stopping
                 and not any(child in prediction.fired for child in node.children)):
             # The engine refuses a child under a node with no fired child: it would replace the
             # node's guidance. The intent, the node's guidance plus the new one where the
-            # conditions hold, is a replace that keeps every fragment.
+            # conditions hold, is a replace that keeps every fragment. The engine does allow
+            # it under the root, whose default is meant to give way; but a root that holds the
+            # whole skill (a root-only tree) must keep it, so the same applies there.
             kind, note = "replace", "add under a terminal node applied as replace (its guidance is kept)"
         if kind == "add":
             change = Add({"fragments": [fragment_id]}, parent)

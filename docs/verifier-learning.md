@@ -46,6 +46,27 @@ It follows the paper's workflow: find what is wrong, trace it to a decision, val
 - **Conditions** reuse existing feature predicates or define **learned features** (`lf_<name>`). A learned feature is a yes/no definition judged true/false/unknown by a separate **judge** model before every worker step. The judge reads (1) the worker's starting materials, from the benchmark's `judge_materials(task)`: for VAREX the task, the requested schema and the PDF's text layer (first 12,000 characters; a scanned PDF shows as having no text layer), and (2) the resolver query: the task at first, then the worker's last three messages. It does not see later tool outputs. Learning builds the same text for every stored and failing moment, so a feature is judged the same way during learning and at test time. Only `true` fires a rule; the original tree's regex features still read only the resolver query.
 - **Before inserting**, the learner judges the new feature on the failing context and on every cornerstone reaching the parent node. The judge must say `true` on the failing context.
 - **The engine then requires** that the conjunction holds on the failing case, excludes every cornerstone, and leaves every stored case's output unchanged. Otherwise nothing changes.
+- An `add` under a node that rendered guidance and has no fired child is applied as a `replace` that keeps all of that node's fragments (the ledger notes it). Otherwise the new child would hide the node's guidance.
+
+### Base tree (`base_tree`)
+
+Learning starts from one of two trees:
+
+| `base_tree` | v0 | Children |
+|---|---|---|
+| `compiled` (learner default) | The skill's compiled flat tree: an empty root, an unconditional general-guidance node, and one node per conditional rule | Learned rules attach to any of these nodes |
+| `root_only` (default of the Colab setup on the `mcrdr-root-only` branch) | Node 0 alone, holding every instructional fragment of the skill, so every situation sees the whole skill | Every child is learned |
+
+`root_only` tests whether learning needs the up-front split of the skill into conditional rules. The compiled rule list still supplies the fragment boundaries (so a `replace` can remove one part of the skill), but its conditions are not used. `SkillBundle.reshape(dir, "root_only")` rebuilds an unlearned bundle's tree this way, and `skill_tool compile --tree-shape root_only` builds one directly. The original `skills/` bundles are never reshaped: the learner reshapes its own v0 copy.
+
+How a `root_only` tree grows:
+- **Breadth.** A failure where no exception fired gets a new child of the root. Because the root renders the whole skill, an `add` there becomes a `replace`: the whole skill plus the new advice, minus any removals, where the conditions hold.
+- **Depth.** A failure where exception E fired can get a rule under E that refines it. That rule fires only when E's conditions and its own hold.
+- A `stop` at the root withholds the whole skill where its conditions hold.
+
+Each child carries its own copy of the skill's fragments, and the worker sees the union of every terminal node's fragments. So when two sibling exceptions fire together, a fragment that one of them removed comes back through the other. Additions are not affected.
+
+`root_only` needs `"mode": "incremental"`, because a batch learner learns from a run collected on the compiled tree. An `output_dir` keeps the base tree it started with.
 
 ### Validation
 

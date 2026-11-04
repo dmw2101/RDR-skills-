@@ -21,7 +21,10 @@ from .verifier import verify_episode
 from .workspace import SkillWorkspace, copy_bundle
 
 CONFIG_KEYS = {"version", "name", "mode", "collect_run", "run_config", "batch_size", "skill_dir", "output_dir",
-               "condition", "hooks", "verifier", "judge", "merge", "cornerstones_per_episode", "validation"}
+               "condition", "hooks", "verifier", "judge", "merge", "cornerstones_per_episode", "validation",
+               "base_tree"}
+# The tree learning starts from: the skill's compiled tree as it is, or the whole skill at a lone root.
+BASE_TREES = ("compiled", "root_only")
 MODES = {
     # Learn once from a finished run of the original tree.
     "batch": {"collect_run"},
@@ -52,6 +55,12 @@ def load_learner_config(path):
     config.setdefault("merge", None)
     config.setdefault("cornerstones_per_episode", 6)
     config.setdefault("validation", {"enabled": False})
+    base_tree = config.setdefault("base_tree", "compiled")
+    if base_tree not in BASE_TREES:
+        raise ValueError(f"base_tree must be one of {list(BASE_TREES)}")
+    if base_tree != "compiled" and mode != "incremental":
+        # A batch learner learns from a run collected on the compiled tree, whose views name its nodes.
+        raise ValueError("base_tree 'root_only' needs mode 'incremental'")
     if mode == "incremental":
         batch_size = config.setdefault("batch_size", 1)
         if type(batch_size) is not int or batch_size < 1:
