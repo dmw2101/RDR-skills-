@@ -1,0 +1,185 @@
+{
+  "paper": {
+    "title": "Trace2Skill: Distill Trajectory-Local Lessons into Transferable Agent Skills",
+    "code": "https://github.com/Qwen-Applications/Trace2Skill",
+    "code_commit": "3d0b52a140f002a512930252b613c49048f7d5ac",
+    "code_license": "Apache-2.0 (README badge; the repository has no LICENSE file)"
+  },
+  "datasets": [
+    {
+      "id": "trace2skill-repo",
+      "name": "Official Trace2Skill code, SpreadsheetBench-Verified 400 (evolve 0:200, test 200:400) and SpreadsheetBench 912 (Soft/Hard)",
+      "when": "now",
+      "approx_mb": 190,
+      "method": "git",
+      "repo": "https://github.com/Qwen-Applications/Trace2Skill",
+      "commit": "3d0b52a140f002a512930252b613c49048f7d5ac",
+      "license": "Code Apache-2.0; SpreadsheetBench data CC-BY-SA-4.0; two released skills carry Anthropic's licence"
+    },
+    {
+      "id": "wikitq",
+      "name": "WikiTableQuestions 1.0.2 (OOD table QA; the paper converts 2,810 examples to spreadsheet tasks, conversion not released)",
+      "when": "now",
+      "approx_mb": 29,
+      "method": "url",
+      "extract": true,
+      "urls": [
+        "https://github.com/ppasupat/WikiTableQuestions/releases/download/v1.0.2/WikiTableQuestions-1.0.2-compact.zip"
+      ],
+      "license": "CC-BY-SA-4.0",
+      "sha256": {
+        "WikiTableQuestions-1.0.2-compact.zip": "7c9ca7cc1ccd75fe4be0255b44be63f7b566761005f4ee6ce67e51c129d8b085"
+      }
+    },
+    {
+      "id": "hitab",
+      "name": "HiTab (OOD hierarchical-table QA; the paper converts 1,585 examples, conversion not released)",
+      "when": "now",
+      "approx_mb": 18,
+      "method": "url",
+      "urls": [
+        "https://raw.githubusercontent.com/microsoft/HiTab/d179602662b490249baf068a76fbe4137029126e/data/train_samples.jsonl",
+        "https://raw.githubusercontent.com/microsoft/HiTab/d179602662b490249baf068a76fbe4137029126e/data/dev_samples.jsonl",
+        "https://raw.githubusercontent.com/microsoft/HiTab/d179602662b490249baf068a76fbe4137029126e/data/test_samples.jsonl",
+        "https://raw.githubusercontent.com/microsoft/HiTab/d179602662b490249baf068a76fbe4137029126e/data/tables.zip",
+        "https://raw.githubusercontent.com/microsoft/HiTab/d179602662b490249baf068a76fbe4137029126e/LICENSE"
+      ],
+      "license": "Microsoft Computational Use of Data Agreement (see LICENSE after download)",
+      "sha256": {
+        "train_samples.jsonl": "25a3d58025bbf69322b2caa0b28a565e9c2db6aa61a1541d97c5d3f2ecc1d0fd",
+        "dev_samples.jsonl": "567530ce270422d1f1bde767a732f5cb44ef2c717eacdfe43cb3ca6f990c2475",
+        "test_samples.jsonl": "cfb8296a23d4481757e1e9f63874085c90bc498386aa0b522c9ef3df65c1f339",
+        "tables.zip": "c26f72f4a318c2a1a2c177f17d7cbc27db9e0bb4d30f0a7f53c037b0a15770b5",
+        "LICENSE": "c536073ff6d5f6317f7eef4163aa7cf01f7a5b0f0a7a38f4a5fd187c605bd38b"
+      },
+      "extract": true
+    },
+    {
+      "id": "dapo-math",
+      "name": "DAPO-Math-17k (the paper evolves on 400 and tests on 100 disjoint questions; IDs not released)",
+      "when": "now",
+      "approx_mb": 299,
+      "method": "hf",
+      "repo": "BytedTsinghua-SIA/DAPO-Math-17k",
+      "revision": "65877096c24ffa7abc4e4fa5edb95cf3413a5674",
+      "files": [
+        "data/dapo-math-17k.parquet"
+      ],
+      "flatten": true,
+      "license": "Apache-2.0",
+      "sha256": {
+        "data/dapo-math-17k.parquet": "534375d6bb8630d22ab46a56e11f2ffec1d288d8f7d04099bc82d68948705941"
+      }
+    },
+    {
+      "id": "aime-2026",
+      "name": "AIME 2026 (30 problems, OOD math test, avg@8)",
+      "when": "now",
+      "approx_mb": 0.1,
+      "method": "hf",
+      "repo": "MathArena/aime_2026",
+      "revision": "d61f486805306e6e6b5913504c07763a99e1b112",
+      "files": [
+        "data/train-00000-of-00001.parquet",
+        "README.md"
+      ],
+      "flatten": true,
+      "license": "CC-BY-NC-SA-4.0",
+      "sha256": {
+        "data/train-00000-of-00001.parquet": "ae72853349a46c5f08666feb42db2d09fb4ac4fd4768c726b29702df21c7768e",
+        "README.md": "1a48ad03a780e3a0b1f3398292723f36c5f088e810533c59a29cbbd4768f401c"
+      }
+    },
+    {
+      "id": "docvqa-full",
+      "name": "DocVQA validation, all 5,349 questions (50 evolve, 5,299 test)",
+      "when": "on-demand",
+      "approx_mb": 1055,
+      "method": "hf",
+      "repo": "lmms-lab/DocVQA",
+      "revision": "539088ef8a8ada01ac8e2e6d4e372586748a265e",
+      "patterns": [
+        "DocVQA/validation-*.parquet"
+      ],
+      "license": "Apache-2.0 (dataset listing)"
+    },
+    {
+      "id": "varex",
+      "name": "VAREX Flat (PDF held-out test, base 76.9% -> 85.3%); uses our pinned VAREX preparation",
+      "when": "on-demand",
+      "approx_mb": 300,
+      "method": "delegate",
+      "call": "varex",
+      "license": "CDLA-Permissive-2.0"
+    },
+    {
+      "id": "vrdu-registration",
+      "name": "VRDU Registration Forms (PDF source traces)",
+      "when": "on-demand",
+      "approx_mb": 200,
+      "method": "git",
+      "repo": "https://github.com/google-research-datasets/vrdu",
+      "commit": "04a4df7ac5cc694e51c48115c03fe428f0e240cc",
+      "paths": [
+        "/README.md",
+        "/registration-form/"
+      ],
+      "license": "see upstream README (no LICENSE file)"
+    },
+    {
+      "id": "tsbench",
+      "name": "TSBench from Talk-to-Your-Slides (PPTX editing, base 72.5% -> 88.8%)",
+      "when": "on-demand",
+      "approx_mb": 612,
+      "method": "git",
+      "repo": "https://github.com/KyuDan1/Talk-to-Your-Slides",
+      "commit": "851494563aea103fcf80d02e3ea3e3f65b245b5b",
+      "license": "no LICENSE file upstream"
+    },
+    {
+      "id": "officebench",
+      "name": "OfficeBench (DOCX holdout, 64 tasks; base 79.7% -> 87.5%)",
+      "when": "on-demand",
+      "approx_mb": 13,
+      "method": "git",
+      "repo": "https://github.com/zlwang-cs/OfficeBench",
+      "commit": "b978b808667c32b52ce19a67ce1def1de9ae02b7",
+      "license": "Apache-2.0"
+    }
+  ],
+  "licensed_skills": [
+    {
+      "id": "anthropic-skills",
+      "name": "Anthropic's official xlsx, pdf, docx, pptx and skill-creator skills (deepening starts and the skill-creator baseline)",
+      "when": "now",
+      "approx_mb": 2,
+      "method": "git",
+      "dest": "skills/licensed/anthropic-skills",
+      "repo": "https://github.com/anthropics/skills",
+      "commit": "33375500bcea98d610eb30ce10ac4e59b89c390d",
+      "paths": [
+        "/skills/xlsx/",
+        "/skills/pdf/",
+        "/skills/docx/",
+        "/skills/pptx/",
+        "/skills/skill-creator/"
+      ],
+      "license": "Anthropic proprietary: no redistribution or derivative works. Local use only, never commit."
+    },
+    {
+      "id": "trace2skill-combined",
+      "name": "Trace2Skill's two deepened xlsx skills (built on Anthropic's xlsx skill)",
+      "when": "now",
+      "approx_mb": 0.2,
+      "method": "copy",
+      "dest": "skills/licensed/trace2skill-combined",
+      "from": "local-data/trace2skill-repo",
+      "paths": [
+        "released_skills/trace2skill-xlsx-122B-combined",
+        "released_skills/trace2skill-xlsx-35B-combined",
+        "spreadsheet_agent/skills/xlsx"
+      ],
+      "license": "Anthropic licence (LICENSE.txt in each folder). Local use only, never commit."
+    }
+  ]
+}

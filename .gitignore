@@ -7,3 +7,10 @@ __pycache__/
 /dist/
 /benchmarks/local-data/
 /experiments/
+
+# Paper folders: raw downloads and Anthropic-licensed skills stay local
+/papers/*/local-data/
+/papers/*/skills/licensed/
+
+# Presentations stay local
+/presentations/

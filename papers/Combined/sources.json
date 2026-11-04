@@ -1,0 +1,461 @@
+{
+  "about": "Every benchmark we treat as compatible with the worker -> inspector -> judge -> checker pipeline. 'ref' items reuse the paper folders' downloads; 'repo' items already live in this repository; 'manual' items need a registration step.",
+  "datasets": [
+    {
+      "id": "spreadsheetbench-verified",
+      "name": "SpreadsheetBench-Verified 400, SkillOpt/WikiSkill 80/40/280 split",
+      "when": "now",
+      "approx_mb": 15,
+      "method": "ref",
+      "paper": "SkillOpt",
+      "item": "spreadsheetbench"
+    },
+    {
+      "id": "spreadsheetbench-t2s",
+      "name": "SpreadsheetBench-Verified (Trace2Skill 200/200 split) and SpreadsheetBench 912 (Soft/Hard), via the Trace2Skill repo",
+      "when": "now",
+      "approx_mb": 190,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "trace2skill-repo"
+    },
+    {
+      "id": "wikitq",
+      "name": "WikiTableQuestions 1.0.2",
+      "when": "now",
+      "approx_mb": 29,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "wikitq"
+    },
+    {
+      "id": "hitab",
+      "name": "HiTab",
+      "when": "now",
+      "approx_mb": 18,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "hitab"
+    },
+    {
+      "id": "sheetcopilot",
+      "name": "SheetCopilot spreadsheet tasks (xlsx + checks)",
+      "when": "now",
+      "approx_mb": 62,
+      "method": "git",
+      "repo": "https://github.com/BraveGroup/SheetCopilot",
+      "commit": "09d38708a17e6a8a2aac25084849b929de3f04f2",
+      "license": "GPL-3.0"
+    },
+    {
+      "id": "officeqa",
+      "name": "OfficeQA, incl. the OfficeQA-Pro question file (gated; HF_TOKEN)",
+      "when": "on-demand",
+      "approx_mb": 2500,
+      "method": "ref",
+      "paper": "SkillOpt",
+      "item": "officeqa"
+    },
+    {
+      "id": "varex",
+      "name": "VAREX Flat via our pinned preparation (Nested/Table need the prepare step extended)",
+      "when": "on-demand",
+      "approx_mb": 300,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "varex"
+    },
+    {
+      "id": "vrdu-registration",
+      "name": "VRDU Registration Forms",
+      "when": "on-demand",
+      "approx_mb": 200,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "vrdu-registration"
+    },
+    {
+      "id": "docvqa",
+      "name": "DocVQA, SkillOpt's 534-question subset",
+      "when": "on-demand",
+      "approx_mb": 100,
+      "method": "ref",
+      "paper": "SkillOpt",
+      "item": "docvqa"
+    },
+    {
+      "id": "docvqa-full",
+      "name": "DocVQA validation, all 5,349 questions",
+      "when": "on-demand",
+      "approx_mb": 1055,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "docvqa-full"
+    },
+    {
+      "id": "tat-dqa",
+      "name": "TAT-DQA questions and answers (train/dev/test + test gold)",
+      "when": "now",
+      "approx_mb": 13,
+      "method": "hf",
+      "repo": "next-tat/TAT-DQA",
+      "revision": "bc46208b22f0bfe47152c98fd0938d238ce868c2",
+      "files": [
+        "tatdqa_dataset_train.json",
+        "tatdqa_dataset_dev.json",
+        "tatdqa_dataset_test.json",
+        "tatdqa_dataset_test_gold.json",
+        "README.md"
+      ],
+      "license": "CC-BY-4.0",
+      "sha256": {
+        "tatdqa_dataset_train.json": "3025b4ca9c3c87f5ecd2c504371e1ee92929ef1f31d8a3ac38bc3a5376582fab",
+        "tatdqa_dataset_dev.json": "07395642f317754ed22bd8330525af7c1e15b7189efdf046cd0a257fc3178fcb",
+        "tatdqa_dataset_test.json": "92e20a746efc203936fa38d76e3f3762df4f7a15b815bb6c247a5a1049d27982",
+        "tatdqa_dataset_test_gold.json": "e6758315b839203a72e05f8849ce4d56fc8d6d7c34dc0240352769014807f5da",
+        "README.md": "f1aaf013155ff2c0383056ea45f291d9bf63b5f00beef02d135c971001d2caff"
+      }
+    },
+    {
+      "id": "tat-dqa-docs",
+      "name": "TAT-DQA source PDFs (dev 156 MB, test 174 MB, train 1.17 GB)",
+      "when": "on-demand",
+      "approx_mb": 1503,
+      "method": "hf",
+      "extract": true,
+      "repo": "next-tat/TAT-DQA",
+      "revision": "bc46208b22f0bfe47152c98fd0938d238ce868c2",
+      "files": [
+        "tatdqa_docs_dev.zip",
+        "tatdqa_docs_test.zip",
+        "tatdqa_docs_train.zip"
+      ],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "financebench",
+      "name": "FinanceBench open sample: 150 questions with evidence and answers",
+      "when": "now",
+      "approx_mb": 1,
+      "method": "hf",
+      "repo": "PatronusAI/financebench",
+      "revision": "e04404e3a97f69f79c14d42f24981a1c9c3bcd18",
+      "files": [
+        "financebench_merged.jsonl",
+        "README.md"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "sha256": {
+        "financebench_merged.jsonl": "7a1c81789e0fd2f1c37057a7ec0097756d726b05e7228e68e57db8e18c54fd0b",
+        "README.md": "b344ca600c3a0788554bc24556a395e690260a801da1ee83e2ad1b26270f06b9"
+      }
+    },
+    {
+      "id": "financebench-pdfs",
+      "name": "FinanceBench source filings (PDF)",
+      "when": "on-demand",
+      "approx_mb": 552,
+      "method": "git",
+      "repo": "https://github.com/patronus-ai/financebench",
+      "commit": "cc39aeb4afdf33909ee1412188bf89035950c2eb",
+      "license": "no LICENSE file upstream; dataset card says CC-BY-NC-4.0"
+    },
+    {
+      "id": "kleister-nda",
+      "name": "Kleister NDA (long-document key-field extraction)",
+      "when": "now",
+      "approx_mb": 44,
+      "method": "git",
+      "repo": "https://github.com/applicaai/kleister-nda",
+      "commit": "c2c7bf069b919bfb618b268fda2a2c079c0db316",
+      "license": "see upstream README"
+    },
+    {
+      "id": "kleister-charity",
+      "name": "Kleister Charity (long-document key-field extraction)",
+      "when": "now",
+      "approx_mb": 38,
+      "method": "git",
+      "repo": "https://github.com/applicaai/kleister-charity",
+      "commit": "2309f4861cc49864ac653a7fa108efc2144400b3",
+      "license": "see upstream README"
+    },
+    {
+      "id": "funsd",
+      "name": "FUNSD form understanding (images + entity labels)",
+      "when": "now",
+      "approx_mb": 17,
+      "method": "hf",
+      "repo": "nielsr/funsd",
+      "revision": "7e7eeeedd84ce86540eb83cbbf7c75a3fcc7c7a5",
+      "files": [
+        "data/train-00000-of-00001.parquet",
+        "data/test-00000-of-00001.parquet"
+      ],
+      "flatten": true,
+      "license": "FUNSD: non-commercial research use",
+      "sha256": {
+        "data/train-00000-of-00001.parquet": "b6abbe52888c51c5e55321461e70a8b23de43d8bee319a51898e21cff2bc456f",
+        "data/test-00000-of-00001.parquet": "268d70be5399a5f5066b3cf6e47f2952f6ebc104fed453f8497564ecc07bb055"
+      }
+    },
+    {
+      "id": "cord",
+      "name": "CORD v2 receipts (images + parsed fields)",
+      "when": "on-demand",
+      "approx_mb": 2307,
+      "method": "hf",
+      "repo": "naver-clova-ix/cord-v2",
+      "revision": "7f0115a4b758a71d6473b8d085751692da2fef98",
+      "patterns": [
+        "data/*.parquet",
+        "README.md"
+      ],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "sroie",
+      "name": "SROIE receipts (ICDAR 2019)",
+      "when": "manual",
+      "approx_mb": 400,
+      "method": "manual",
+      "instructions": "Register at https://rrc.cvc.uab.es/?ch=13 and download Task 3 (key information extraction) into papers/Combined/local-data/sroie/."
+    },
+    {
+      "id": "docile",
+      "name": "DocILE invoices (key information and line items)",
+      "when": "manual",
+      "approx_mb": 1000,
+      "method": "manual",
+      "instructions": "Request a token at https://docile.rossum.ai/, then follow its download script, writing into papers/Combined/local-data/docile/."
+    },
+    {
+      "id": "infographicvqa",
+      "name": "InfographicVQA validation",
+      "when": "on-demand",
+      "approx_mb": 266,
+      "method": "hf",
+      "repo": "lmms-lab/DocVQA",
+      "revision": "539088ef8a8ada01ac8e2e6d4e372586748a265e",
+      "patterns": [
+        "InfographicVQA/validation-*.parquet"
+      ],
+      "license": "Apache-2.0 (dataset listing)"
+    },
+    {
+      "id": "chartqa",
+      "name": "ChartQA test split",
+      "when": "now",
+      "approx_mb": 69,
+      "method": "hf",
+      "repo": "ahmed-masry/ChartQA",
+      "revision": "af8b6f5c08c95085271561c2a3f9d15f2b5a9031",
+      "files": [
+        "data/test-00000-of-00001.parquet",
+        "README.md"
+      ],
+      "flatten": true,
+      "license": "GPL-3.0",
+      "sha256": {
+        "data/test-00000-of-00001.parquet": "84889bae30aaf6e24ff899e1604221606c0b65e658b6c70a7d02c79f50fc87df",
+        "README.md": "eacad5aa4aeb6ee7575fe8434a04d24554915d7898ecd1b02f4adb240f0c6814"
+      }
+    },
+    {
+      "id": "slidevqa",
+      "name": "SlideVQA (gated; HF_TOKEN)",
+      "when": "on-demand",
+      "approx_mb": 10904,
+      "method": "hf",
+      "repo": "NTT-hil-insight/SlideVQA",
+      "revision": "e780ea258d734958befbfaed19fa059584642ca8",
+      "patterns": [
+        "*"
+      ],
+      "license": "see dataset card"
+    },
+    {
+      "id": "officebench",
+      "name": "OfficeBench (DOCX holdout)",
+      "when": "on-demand",
+      "approx_mb": 13,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "officebench"
+    },
+    {
+      "id": "tsbench",
+      "name": "TSBench (PPTX editing)",
+      "when": "on-demand",
+      "approx_mb": 612,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "tsbench"
+    },
+    {
+      "id": "skillsbench",
+      "name": "SkillsBench tasks, curated skills and verifiers (Harbor containers)",
+      "when": "on-demand",
+      "approx_mb": 865,
+      "method": "git",
+      "repo": "https://github.com/benchflow-ai/skillsbench",
+      "commit": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "livemathematicianbench",
+      "name": "LiveMathematicianBench (SkillOpt 35/17/125 split)",
+      "when": "now",
+      "approx_mb": 1,
+      "method": "ref",
+      "paper": "SkillOpt",
+      "item": "livemathematicianbench"
+    },
+    {
+      "id": "searchqa",
+      "name": "SearchQA (SkillOpt 2,000-row subset)",
+      "when": "on-demand",
+      "approx_mb": 60,
+      "method": "ref",
+      "paper": "SkillOpt",
+      "item": "searchqa"
+    },
+    {
+      "id": "sealqa",
+      "name": "SealQA Seal-0 and Seal-Hard (needs a live-search adapter)",
+      "when": "now",
+      "approx_mb": 0.1,
+      "method": "ref",
+      "paper": "SkillOpt",
+      "item": "sealqa"
+    },
+    {
+      "id": "dapo-math",
+      "name": "DAPO-Math-17k",
+      "when": "now",
+      "approx_mb": 299,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "dapo-math"
+    },
+    {
+      "id": "aime-2026",
+      "name": "AIME 2026",
+      "when": "now",
+      "approx_mb": 0.1,
+      "method": "ref",
+      "paper": "Trace2Skill",
+      "item": "aime-2026"
+    },
+    {
+      "id": "aime-2024",
+      "name": "AIME 2024 (30 problems)",
+      "when": "now",
+      "approx_mb": 0.1,
+      "method": "hf",
+      "repo": "Maxwell-Jia/AIME_2024",
+      "revision": "8d88b2876a82a080e2f172cc9b25d0d9d2cb4792",
+      "files": [
+        "aime_2024_problems.parquet",
+        "README.md"
+      ],
+      "license": "MIT",
+      "sha256": {
+        "aime_2024_problems.parquet": "3cb34696a75837f848ea16f15a42f4130be655d5995e8cd24efcc54f4e6e1524",
+        "README.md": "3fa2b10d5570ba4cb81a57c032449815400b1c9c2e5f900f30951189803361e1"
+      }
+    },
+    {
+      "id": "aime-2025",
+      "name": "AIME 2025 (30 problems)",
+      "when": "now",
+      "approx_mb": 0.1,
+      "method": "hf",
+      "repo": "MathArena/aime_2025",
+      "revision": "c94da77eb22bbd6439e62a323bec18493a421302",
+      "files": [
+        "data/train-00000-of-00001.parquet",
+        "README.md"
+      ],
+      "flatten": true,
+      "license": "CC-BY-NC-SA-4.0",
+      "sha256": {
+        "data/train-00000-of-00001.parquet": "9f9066ff48ad2e31f9bf1b1ac6d5e80693195f987985f2859f89dd25ffa51c2d",
+        "README.md": "c0538c503517a198662a8575adda395b2dfc2abe3f76f74c1a4ef952a69debaa"
+      }
+    },
+    {
+      "id": "gpqa-diamond",
+      "name": "GPQA-Diamond (198 questions; gated, HF_TOKEN)",
+      "when": "on-demand",
+      "approx_mb": 1.4,
+      "method": "hf",
+      "repo": "Idavidrein/gpqa",
+      "revision": "83022cefff930aea54f654c0b282e74b9eeda5c6",
+      "files": [
+        "gpqa_diamond.csv",
+        "license.txt"
+      ],
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "dynamic-cheatsheet",
+      "name": "Dynamic Cheatsheet repo with its Game of 24 and other task files",
+      "when": "now",
+      "approx_mb": 67,
+      "method": "git",
+      "repo": "https://github.com/suzgunmirac/dynamic-cheatsheet",
+      "commit": "5cfe3c37e8e52b1d858d0f3df46e7f17c50991b9",
+      "license": "MIT"
+    },
+    {
+      "id": "omni-math",
+      "name": "Omni-MATH (SkillOpt transfer target)",
+      "when": "now",
+      "approx_mb": 7.5,
+      "method": "hf",
+      "repo": "KbsdJames/Omni-MATH",
+      "revision": "40ba231d8f16e29ecd40e6407e2c8640145a8f62",
+      "files": [
+        "test.jsonl",
+        "README.md"
+      ],
+      "license": "Apache-2.0",
+      "sha256": {
+        "test.jsonl": "7c87be8ee41ac7c7a597ef5a5500e84bd2b639a85a06db3da7f69bf9a32ef168",
+        "README.md": "2688bd0d51f329de3647c540dc1df4fa699681d029068ae575bb2eb1eb8515f0"
+      }
+    },
+    {
+      "id": "olympiadbench",
+      "name": "OlympiadBench (SkillOpt transfer source)",
+      "when": "on-demand",
+      "approx_mb": 104,
+      "method": "hf",
+      "repo": "Hothan/OlympiadBench",
+      "revision": "91184b52131e7fc9455fef848035173aea8cc01a",
+      "patterns": [
+        "OlympiadBench/*",
+        "README.md"
+      ],
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "alfworld",
+      "name": "ALFWorld (needs an environment adapter)",
+      "when": "on-demand",
+      "approx_mb": 300,
+      "method": "ref",
+      "paper": "SkillOpt",
+      "item": "alfworld"
+    },
+    {
+      "id": "sopbench-bank",
+      "name": "SOPBench Bank, fixed-policy cases already wired into this repo",
+      "when": "now",
+      "approx_mb": 1,
+      "method": "repo",
+      "path": "skills/sopbench_bank_fixed_policy"
+    }
+  ]
+}

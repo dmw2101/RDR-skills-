@@ -1,0 +1,99 @@
+{
+  "paper": {
+    "title": "WikiSkill: Compiling Agent Experience into Persistent Knowledge for Skill Evolution",
+    "arxiv": "https://arxiv.org/abs/2608.27454",
+    "code": "none released by the authors (Google Research)",
+    "splits": "LiveMath 35/18/124, SealQA 16/10/85, SpreadSheet 80/40/280, OfficeQA 50/24/172, ALFWorld 39/18/134. SpreadSheet, OfficeQA and ALFWorld match SkillOpt's published manifests; LiveMath and SealQA splits are not released."
+  },
+  "datasets": [
+    {
+      "id": "spreadsheetbench",
+      "name": "SpreadsheetBench-Verified 400 in the 80/40/280 split (same counts as SkillOpt's manifest)",
+      "when": "now",
+      "approx_mb": 15,
+      "method": "hf",
+      "extract": true,
+      "repo": "KAKA22/SpreadsheetBench",
+      "revision": "ab0b742b0fc95b946f212d80ac7771b5531272e4",
+      "files": [
+        "spreadsheetbench_verified_400.tar.gz"
+      ],
+      "sha256": {
+        "spreadsheetbench_verified_400.tar.gz": "10ef893dd29cb13ab97143ea787e68cdc9574a13873ab9a54e50b31dc03fc949"
+      },
+      "materialize": "spreadsheetbench",
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "livemathematicianbench",
+      "name": "LiveMathematicianBench, four monthly files (177 items). WikiSkill's 35/18/124 split is unreleased; SkillOpt's 35/17/125 split is materialized as the nearest match",
+      "when": "now",
+      "approx_mb": 1,
+      "method": "hf",
+      "flatten": true,
+      "repo": "LiveMathematicianBench/LiveMathematicianBench",
+      "revision": "b72450f6ce96c26158d64d945a5d31ef7727be41",
+      "files": [
+        "data/202511/qa_202511_final.json",
+        "data/202512/qa_202512_final.json",
+        "data/202601/qa_202601_final.json",
+        "data/202602/qa_202602_final.json"
+      ],
+      "sha256": {
+        "data/202511/qa_202511_final.json": "5dafc9d65c0b593a7f3be5fc62fb7ad741bccff51f22c1fce5baa2564a0b24ea",
+        "data/202512/qa_202512_final.json": "e54b5300763db319f36efd4ddc4ee97f24da1381d9de9d0a71ea815429548561",
+        "data/202601/qa_202601_final.json": "15b36733086c9a348f8e3227f31a411819dfeeaee5196d618a02ce714ca29027",
+        "data/202602/qa_202602_final.json": "39092b91f0045b689522d8ddcc3188ea24c33d590da79826ef7f036c71e52611"
+      },
+      "materialize": "livemathematicianbench",
+      "license": "not specified in the dataset listing"
+    },
+    {
+      "id": "sealqa",
+      "name": "SealQA Seal-0 (111 questions = 16/10/85; split unreleased). Needs a live web-search tool",
+      "when": "now",
+      "approx_mb": 0.1,
+      "method": "hf",
+      "repo": "vtllms/sealqa",
+      "revision": "0c298f519c871579c75920189b3858da29fe2c81",
+      "files": [
+        "seal-0.parquet",
+        "LICENSE",
+        "README.md"
+      ],
+      "license": "Apache-2.0",
+      "sha256": {
+        "seal-0.parquet": "381c9f86039c16570ee8d74ecbc3e687b553b21f7ebd7828a3d6a9e8f4705e7c",
+        "LICENSE": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "README.md": "f39019667332c191be409814e0289219e949620adffbf5df6c084401b7b68667"
+      }
+    },
+    {
+      "id": "officeqa",
+      "name": "OfficeQA questions and parsed Treasury Bulletins (50/24/172, SkillOpt's officeqa_id_split); gated: accept terms on Hugging Face and set HF_TOKEN",
+      "when": "on-demand",
+      "approx_mb": 2500,
+      "method": "hf",
+      "repo": "databricks/officeqa",
+      "revision": "763a8366abf2a3605c381d53586d844dc60fa756",
+      "patterns": [
+        "officeqa_full.csv",
+        "officeqa_pro.csv",
+        "LICENSE-*",
+        "NOTICE",
+        "README.md",
+        "treasury_bulletins_parsed/*"
+      ],
+      "license": "CC-BY-SA-4.0 (data), Apache-2.0 (code)"
+    },
+    {
+      "id": "alfworld",
+      "name": "ALFWorld json_2.1.1 game files (39/18/134, SkillOpt's path split)",
+      "when": "on-demand",
+      "approx_mb": 300,
+      "method": "delegate",
+      "call": "alfworld",
+      "license": "MIT (code); check upstream game-data terms"
+    }
+  ]
+}
