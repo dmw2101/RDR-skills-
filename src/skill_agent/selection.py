@@ -29,15 +29,24 @@ Return only the tool call, with valid JSON arguments. Do not append commentary.
 
 
 class BatchLLMSkillResolver:
-    def __init__(self, *, base_url, selector_model, timeout=30, selection_attempts=2):
+    def __init__(self, *, base_url, selector_model, timeout=30, selection_attempts=2,
+                 selector_client="openai_compatible"):
         if type(selection_attempts) is not int or selection_attempts not in (1, 2):
             raise ValueError("selection_attempts must be 1 or 2")
         self.inner = HttpSkillResolver(base_url, timeout=timeout)
-        self.selector = OpenAICompatibleClient(**selector_model)
+        if selector_client == "local_transformers":
+            from .local_models import LocalTransformersClient
+            self.selector = LocalTransformersClient(**selector_model)
+        elif selector_client == "openai_compatible":
+            self.selector = OpenAICompatibleClient(**selector_model)
+        else:
+            raise ValueError(f"unknown selector client: {selector_client}")
         self.catalogs = {}
         self.selection_attempts = selection_attempts
         self.provenance = {"selector": "batch-conditions-v1", "model": selector_model,
                            "prompt_sha256": fingerprint(SELECTOR_PROMPT)}
+        if selector_client != "openai_compatible":
+            self.provenance["client"] = selector_client
 
     async def _catalog(self, request):
         key = (request.skill_id, request.artifact_id)

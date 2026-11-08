@@ -24,8 +24,11 @@ function Invoke-Checked([string]$Program, [string[]]$Arguments) {
 
 if (-not (Test-Path -LiteralPath $python)) { throw 'Run scripts/setup_bank_powershell.ps1 first.' }
 if ($Resume -and $CheckOnly) { throw 'Use -Resume or -CheckOnly, not both.' }
-if ($DependencyBundle -and ($Experiment -ne 'initial_only' -or $Resume)) {
-    throw 'Use -DependencyBundle with a new initial_only experiment.'
+if ($DependencyBundle -and ($Experiment -notin @('initial_only', 'initial_only34') -or $Resume)) {
+    throw 'Use -DependencyBundle with a new initial_only or initial_only34 experiment. For resume, omit -DependencyBundle.'
+}
+if ($DependencyBundle -and -not (Test-Path -LiteralPath (Join-Path $DependencyBundle 'compiled/dependencies.json') -PathType Leaf)) {
+    throw "Dependency bundle is missing compiled/dependencies.json: $DependencyBundle"
 }
 if ($SingleSelection -and ($Experiment -notin @('initial_only', 'initial_with_requests') -or $Resume)) {
     throw 'Use -SingleSelection with a new initial-guidance pilot.'
@@ -38,7 +41,7 @@ if (-not $Resume) {
     $template = Join-Path $repo "examples\agent\sopbench.bank.$Experiment.json"
     $config = Get-Content -LiteralPath $template -Raw | ConvertFrom-Json
     $config.run.output_dir = $resultPath
-    if ($SingleSelection -or $DependencyBundle) {
+    if ($SingleSelection -or ($DependencyBundle -and $Experiment -eq 'initial_only')) {
         $config.skill.resolver.options | Add-Member -NotePropertyName selection_attempts -NotePropertyValue 1
     }
     $json = $config | ConvertTo-Json -Depth 100

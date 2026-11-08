@@ -31,6 +31,8 @@ For a Colab T4 without provider rate limits, use the optional [local Qwen3.5-4B 
 
 - [Bank LLM-selected guidance modes and PowerShell pilots](docs/sopbench-bank-evaluation.md#batch-llm-selection-two-initial-guidance-modes): `initial_only` or `initial_with_requests`, using one catalog-wide selector call per resolution. Existing rolling experiments remain available.
 - [SOPBench Bank fixed-policy MCRDR build and visualization](skills/sopbench_bank_fixed_policy/README.md) (34-case policy; benchmark execution remains separate)
+- [Gemini skill and dependency build](docs/sopbench-bank-evaluation.md#dependency-pilot) (reusable PowerShell pipeline with both HTML views)
+- [Bank selective disclosure on a Linux GPU](docs/sopbench-bank-evaluation.md#linux-gpu-comparison) (local actor and selector)
 - [Procedural skill candidates to inspect](skills/CANDIDATES.md) (Bank, video annotation, referral abuse, banking corpus, COBOL, Telecom)
 - [Telecom support skill and pinned benchmark setup](benchmarks/telecom/README.md) (assets ready; three-arm integration pending)
 - [RDR engine overview](docs/rdr-engine.md)

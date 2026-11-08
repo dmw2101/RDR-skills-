@@ -309,6 +309,25 @@ def analyse(nodes: dict[int, dict[str, Any]], root_id: int, domains: dict[str, l
 # --------------------------------------------------------------------------- #
 
 
+def load_dependencies(path: Path, nodes: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    try:
+        graph = load_json(path)
+        mapping = graph["rule_nodes"]
+        edges = []
+        for link in graph["review"]["links"]:
+            source, target = link["procedure"], link["prerequisite"]
+            start, end = mapping[source], mapping[target]
+            if any(type(node) is not int or node not in nodes for node in (start, end)):
+                raise ValueError(f"unknown node in dependency {source} → {target}")
+            edges.append({"from": start, "to": end, "label": f"{source} → {target}",
+                          "reason": link["reason"]})
+        return edges
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f"invalid dependency graph in {path}: {error}") from error
+
+
 def build_payload(
     tree_path: Path,
     meta: dict[str, Any],
@@ -442,6 +461,7 @@ button, label.toggle { font: inherit; font-size: 13px; color: var(--ink); backgr
   border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
 button:hover { border-color: var(--accent); }
 label.toggle { display: inline-flex; gap: 6px; align-items: center; }
+#dependencyToggle[hidden], #dependencyLegend[hidden] { display: none; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-left: auto; }
 .legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
 .warnings { margin: 10px 0 0; padding: 8px 12px; background: var(--warn-bg); color: var(--warn-ink);
@@ -461,6 +481,8 @@ svg { display: block; }
 .edge { fill: none; stroke-width: 1.6; }
 .edge.t { stroke: var(--true); } .edge.s { stroke: var(--false); }
 .edge.dead { stroke: var(--dead-ink); stroke-dasharray: 4 4; }
+.edge.dependency { stroke: #8052b7; stroke-dasharray: 7 4; pointer-events: stroke; }
+.dependency-arrow { fill: #8052b7; }
 .node rect.box { fill: var(--node); stroke: var(--node-line); stroke-width: 1; }
 .node.root rect.box { fill: var(--root); stroke: var(--root); }
 .node.root text { fill: var(--root-ink); }
@@ -510,6 +532,7 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
   <div class="stats" id="stats"></div>
   <div class="toolbar">
     <label class="toggle"><input type="checkbox" id="hideDead"> Hide unreachable</label>
+    <label class="toggle" id="dependencyToggle" hidden><input type="checkbox" id="showDependencies" checked> Show dependencies</label>
     <button id="expand">Expand all</button>
     <button id="collapse">Collapse dead</button>
     <button id="zoomOut" aria-label="Zoom out">−</button>
@@ -520,6 +543,7 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
       <span><i style="border-color:var(--true)"></i>child: tested when the parent fires</span>
       <span><i style="border-color:var(--false)"></i>stopping rule</span>
       <span><i style="border-color:var(--dead-ink);border-top-style:dashed"></i>unreachable</span>
+      <span id="dependencyLegend" hidden><i style="border-color:#8052b7;border-top-style:dashed"></i>procedure → prerequisite</span>
     </div>
   </div>
   <div class="warnings" id="warnings" hidden></div>
@@ -541,7 +565,7 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
 
   const $ = id => document.getElementById(id);
   const el = (tag, attrs = {}, text) => {
-    const e = tag === "svg" || ["g","rect","text","path","circle","title"].includes(tag)
+    const e = tag === "svg" || ["g","rect","text","path","circle","title","defs","marker"].includes(tag)
       ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
     if (text !== undefined) e.textContent = text;
@@ -565,6 +589,8 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
   }
   $("hideDead").checked = hideDead;
   $("hideDead").onchange = e => { hideDead = e.target.checked; render(); };
+  $("dependencyToggle").hidden = $("dependencyLegend").hidden = !DATA.dependencies.length;
+  $("showDependencies").onchange = render;
   $("expand").onclick = () => { collapsed.clear(); render(); };
   $("collapse").onclick = () => {
     // Fold every unreachable node so each dead subtree shows as one grey box.
@@ -620,11 +646,29 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; word-break: break-al
     const svg = $("svg"); svg.replaceChildren();
     let maxX = 0, maxY = 0;
     pos.forEach((p, id) => { maxX = Math.max(maxX, p.x + NW); maxY = Math.max(maxY, p.y + height(id) / 2); });
-    const W = maxX + PAD * 2 + 20, H = maxY + PAD * 2;
+    const dependencies = $("showDependencies").checked
+      ? DATA.dependencies.filter(edge => pos.has(edge.from) && pos.has(edge.to)) : [];
+    const W = maxX + PAD * 2 + 20 + dependencies.length * 12, H = maxY + PAD * 2;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     svg.setAttribute("width", W * zoom); svg.setAttribute("height", H * zoom);
     const root = el("g", { transform: `translate(${PAD},${PAD})` }); svg.append(root);
-    const edges = el("g"), nodesG = el("g"); root.append(edges, nodesG);
+    const edges = el("g"), dependencyEdges = el("g"), nodesG = el("g");
+    root.append(edges, dependencyEdges, nodesG);
+    if (dependencies.length) {
+      const defs = el("defs");
+      const arrow = el("marker", { id: "dependencyArrow", viewBox: "0 0 8 8", refX: 8,
+        refY: 4, markerWidth: 6, markerHeight: 6, orient: "auto" });
+      arrow.append(el("path", { class: "dependency-arrow", d: "M0,0 L8,4 L0,8 Z" }));
+      defs.append(arrow); svg.prepend(defs);
+      dependencies.forEach((edge, i) => {
+        const source = pos.get(edge.from), target = pos.get(edge.to);
+        const y1 = source.y - 7, y2 = target.y + 7, lane = maxX + 12 * (i + 1);
+        const path = el("path", { class: "edge dependency", "marker-end": "url(#dependencyArrow)",
+          d: `M${source.x + NW},${y1} H${lane} V${y2} H${target.x + NW + 1}` });
+        path.append(el("title", {}, edge.label + "\n" + edge.reason));
+        dependencyEdges.append(path);
+      });
+    }
     const onPath = new Set((byId.get(selected)?.path || []).map(p => p.id));
 
     pos.forEach((p, id) => {
@@ -784,6 +828,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="fragment catalogue used to resolve fragment ids (default: fragments.json beside the tree)")
     parser.add_argument("--schema", type=Path,
                         help="feature schema or manifest giving field domains (default: manifest.json beside the tree)")
+    parser.add_argument("--dependencies", type=Path,
+                        help="dependency graph (default: dependencies.json beside the tree)")
     parser.add_argument("--skill", help="key to pick from a multi-skill schema file (default: the tree's skill folder name)")
     parser.add_argument("--hide-unreachable", action="store_true",
                         help="start with unreachable branches hidden (can be toggled in the page)")
@@ -799,11 +845,12 @@ def main(argv: list[str] | None = None) -> int:
 
     fragments_path = args.fragments or folder / "fragments.json"
     schema_path = args.schema or folder / "manifest.json"
-    for given in (args.fragments, args.schema):
+    for given in (args.fragments, args.schema, args.dependencies):
         if given and not given.is_file():
             parser.error(f"file not found: {given}")
     try:
         meta, nodes, warnings = load_tree(tree_path)
+        dependencies = load_dependencies(args.dependencies or folder / "dependencies.json", nodes)
         fragments = load_fragments(fragments_path)
         domains = load_domains(schema_path, skill)
     except (OSError, ValueError) as error:  # JSONDecodeError is a ValueError
@@ -815,6 +862,7 @@ def main(argv: list[str] | None = None) -> int:
     title = args.title or f"{skill} RDR tree"
     payload = build_payload(tree_path, meta, nodes, analysis, fragments, domains,
                             warnings + analysis_warnings, args.hide_unreachable, title)
+    payload["dependencies"] = dependencies
 
     output = args.output or folder / f"{tree_path.stem}_visualisation.html"
     output.write_text(render_html(payload), encoding="utf-8")

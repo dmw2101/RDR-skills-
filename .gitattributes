@@ -2,6 +2,7 @@
 # endings on every platform so checkouts with core.autocrlf still load.
 skills/**/initial.md text eol=lf
 skills/**/compiled/*.json text eol=lf
+skills/variants/**/gemini-dependencies.json text eol=lf
 # Candidate provenance checks compare exact source bytes on Windows and Linux.
 skills/sopbench_*/** text eol=lf
 skills/tau_banking/** text eol=lf

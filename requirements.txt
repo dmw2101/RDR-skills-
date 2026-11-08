@@ -1,0 +1,2 @@
+# Bank GPU runtime. Install the pinned CUDA wheels from the PyTorch index first.
+-e .[skill-service,local-model]

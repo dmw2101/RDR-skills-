@@ -1,0 +1,324 @@
+{
+  "links": [
+    {
+      "procedure": "logout_user",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 36,
+          "end": 37
+        }
+      ],
+      "reason": "The logout_user rule requires the user to have an account, and logging in is a prerequisite action for accessing or verifying account data."
+    },
+    {
+      "procedure": "authenticate_admin_password",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 45,
+          "end": 46
+        }
+      ],
+      "reason": "The authenticate_admin_password rule requires the user to be logged in previously."
+    },
+    {
+      "procedure": "set_admin_password",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 48,
+          "end": 49
+        }
+      ],
+      "reason": "The set_admin_password rule requires that the user has already authenticated the admin password."
+    },
+    {
+      "procedure": "set_account_information",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 51,
+          "end": 54
+        }
+      ],
+      "reason": "The set_account_information rule requires the user to be logged in."
+    },
+    {
+      "procedure": "set_account_information",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 51,
+          "end": 54
+        }
+      ],
+      "reason": "The set_account_information rule requires that the user has already authenticated the admin password."
+    },
+    {
+      "procedure": "close_account",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 56,
+          "end": 59
+        }
+      ],
+      "reason": "The user must be logged in with correct credentials to close an account."
+    },
+    {
+      "procedure": "close_account",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 56,
+          "end": 59
+        }
+      ],
+      "reason": "The user must have authenticated the admin password to close an account."
+    },
+    {
+      "procedure": "get_account_balance",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 61,
+          "end": 64
+        }
+      ],
+      "reason": "The user must be logged in with correct credentials to get account balance."
+    },
+    {
+      "procedure": "transfer_funds",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 66,
+          "end": 72
+        }
+      ],
+      "reason": "The user must be logged in with correct credentials to transfer funds."
+    },
+    {
+      "procedure": "transfer_funds",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 66,
+          "end": 72
+        }
+      ],
+      "reason": "The user must have authenticated the admin password to transfer funds."
+    },
+    {
+      "procedure": "deposit_funds",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 74,
+          "end": 78
+        }
+      ],
+      "reason": "The user must be logged in with correct credentials to deposit funds."
+    },
+    {
+      "procedure": "pay_bill",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 80,
+          "end": 84
+        }
+      ],
+      "reason": "The user must be logged in with correct credentials to pay a bill."
+    },
+    {
+      "procedure": "pay_bill_with_credit_card",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 86,
+          "end": 90
+        }
+      ],
+      "reason": "The user must be logged in with correct credentials to pay a bill with a credit card."
+    },
+    {
+      "procedure": "apply_credit_card",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 92,
+          "end": 96
+        }
+      ],
+      "reason": "The apply_credit_card procedure requires the user to be logged in with correct credentials, which is established by the login_user procedure."
+    },
+    {
+      "procedure": "cancel_credit_card",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 98,
+          "end": 103
+        }
+      ],
+      "reason": "The cancel_credit_card procedure requires the user to be logged in with correct credentials, which is established by the login_user procedure."
+    },
+    {
+      "procedure": "cancel_credit_card",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 98,
+          "end": 103
+        }
+      ],
+      "reason": "The cancel_credit_card procedure requires the user to have authenticated the admin password previously, which is performed by the authenticate_admin_password procedure."
+    },
+    {
+      "procedure": "get_account_owed_balance",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 110,
+          "end": 113
+        }
+      ],
+      "reason": "The get_account_owed_balance procedure requires the user to be logged in with correct credentials, which is established by the login_user procedure."
+    },
+    {
+      "procedure": "get_loan",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 115,
+          "end": 120
+        }
+      ],
+      "reason": "The get_loan procedure requires the user to be logged in with correct credentials, which is established by the login_user procedure."
+    },
+    {
+      "procedure": "pay_loan",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 122,
+          "end": 128
+        }
+      ],
+      "reason": "The pay_loan procedure requires the user to be logged in with correct credentials, which is established by the login_user procedure."
+    },
+    {
+      "procedure": "pay_loan",
+      "prerequisite": "get_account_balance",
+      "evidence": [
+        {
+          "start": 122,
+          "end": 128
+        }
+      ],
+      "reason": "The pay_loan procedure requires verifying the user's account balance, which can be done using the get_account_balance procedure."
+    },
+    {
+      "procedure": "pay_loan",
+      "prerequisite": "get_account_owed_balance",
+      "evidence": [
+        {
+          "start": 122,
+          "end": 128
+        }
+      ],
+      "reason": "The pay_loan procedure requires verifying the user's owed balance, which is performed by the get_account_owed_balance procedure."
+    },
+    {
+      "procedure": "get_safety_box",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 130,
+          "end": 134
+        }
+      ],
+      "reason": "The user must be logged in as a prerequisite for get_safety_box."
+    },
+    {
+      "procedure": "get_safety_box",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 130,
+          "end": 134
+        }
+      ],
+      "reason": "The user must authenticate the admin password as a prerequisite for get_safety_box."
+    },
+    {
+      "procedure": "get_credit_card_info",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 136,
+          "end": 139
+        }
+      ],
+      "reason": "The user must be logged in as a prerequisite for get_credit_card_info."
+    },
+    {
+      "procedure": "get_credit_cards",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 141,
+          "end": 145
+        }
+      ],
+      "reason": "The user must be logged in as a prerequisite for get_credit_cards."
+    },
+    {
+      "procedure": "get_credit_cards",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 141,
+          "end": 145
+        }
+      ],
+      "reason": "The user must authenticate the admin password as a prerequisite for get_credit_cards."
+    },
+    {
+      "procedure": "set_safety_box",
+      "prerequisite": "login_user",
+      "evidence": [
+        {
+          "start": 147,
+          "end": 153
+        }
+      ],
+      "reason": "The user must be logged in as a prerequisite for set_safety_box."
+    },
+    {
+      "procedure": "set_safety_box",
+      "prerequisite": "authenticate_admin_password",
+      "evidence": [
+        {
+          "start": 147,
+          "end": 153
+        }
+      ],
+      "reason": "The user must authenticate the admin password as a prerequisite for set_safety_box."
+    },
+    {
+      "procedure": "set_safety_box",
+      "prerequisite": "get_account_balance",
+      "evidence": [
+        {
+          "start": 147,
+          "end": 153
+        }
+      ],
+      "reason": "The user may need to get their account balance to verify eligibility for the safety box."
+    }
+  ],
+  "deferred": []
+}

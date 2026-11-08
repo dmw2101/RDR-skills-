@@ -1,5 +1,25 @@
 # SOPBench Bank evaluation
 
+## Linux GPU comparison
+
+From a checkout of `MCRDR-with-dependencies`, activate your Python venv and run:
+
+```bash
+python -m pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu126
+python -m pip install -r requirements.txt
+python -m pip check
+python scripts/run_bank_gpu.py setup
+python scripts/run_bank_gpu.py pilot --name bank-gpu-pilot
+```
+
+`setup` fetches the pinned Bank data and Qwen3.5-4B weights. It can run before a GPU allocation. Set `HF_HOME` to persistent storage shared with the GPU job. The pilot checks CUDA, structured tool calls, and a Bank selector response before running. A single local model serves both the actor and selector. The setup uses Git and an NVIDIA driver compatible with the CUDA wheels.
+
+The five arms are `none`, `full`, `initial`, `requests`, and `dependencies`. Each runs the same three pilot cases once. The [frozen Bank variants](../skills/variants/bank-defensive-v2) share the same policy, fragments and tree. The dependency bundle adds the 29-link graph, and the proposal is stored beside the variants. Neither runtime setup nor inference calls Gemini.
+
+Use `python scripts/run_bank_gpu.py bank34 --name bank-gpu-34` after reviewing the pilot. Use `--results-root` to write to persistent storage outside the checkout. Each named run keeps per-arm configs, results, and skill inspections alongside server logs and smoke check results. Use `--resume` with the original suite, name, and settings. Incomplete episodes retain their diagnostic records and block scoring for that arm until resolved.
+
+## Benchmark protocol
+
 This experiment compares `none`, `full` and `reduced` on the 34 SOPBench Bank cases that share the [compiled policy](../skills/sopbench_bank_fixed_policy/README.md). The pilot uses two cases from different action types (six episodes), including an eligible and an ineligible case; the full configuration uses all 34 (102 episodes). These are a project-selected subset, not an official benchmark split.
 
 Each episode receives a fresh upstream Bank environment, the same public tools and customer request, and the upstream non-LLM customer response when the assistant asks for information. The assistant ends the conversation with `exit_conversation`. The original SOPBench directed-graph evaluator scores the action sequence and final database. The surrounding agent loop, model settings and 20-call budget are our evaluation protocol, not an exact reproduction of the paper's full experiment.
@@ -126,11 +146,59 @@ Local validation: 34 checks passed. Of six live episode attempts, five completed
 
 ## Dependency pilot
 
+From the repository root, the reusable build script runs the standard compiler and both
+Gemini stages. Use a Python installation with `py -3.12 -m pip install -e '.[skill-compiler]'`
+and set `GEMINI_API_KEY` in your shell.
+
+```powershell
+$python = py -3.12 -c "import sys; print(sys.executable)"
+& scripts/build_skill_dependencies.ps1 -Skill skills/sopbench_bank_fixed_policy -Output experiments/bank-gemini-build -Python $python -AcceptGeminiProposal
+Start-Process experiments/bank-gemini-build/base-tree.html
+Start-Process experiments/bank-gemini-build/dependency-tree.html
+```
+
+For another skill, substitute its directory and a fresh output path. The input is
+`initial.md` and a feature catalog, either the skill's `feature_schema.json` or the parent
+directory's `feature_schemas.json`. Use `-Features` to point to another catalog and `-Model`
+to choose the Gemini model. The script uses a skill-local `extraction_prompt.md` when present.
+Use `-Prompt` to supply a different prompt.
+Pass `-BaseBundle` with an existing compiled skill to rerun dependency extraction without
+paying for IR extraction again. Omit `-AcceptGeminiProposal` to review the proposal first,
+then pass the reviewed JSON with `-ReviewedDependencies` and reuse the compiled base.
+
+The first stage produces the IR. The dependency stage reviews up to six source procedures
+per Gemini call. Each call receives the compiled node IDs, conditions, and conclusion text
+for the source procedures and candidate prerequisites. Gemini returns one review per source,
+including an empty list when there are no candidates. The compiler maps node pairs to rule
+IDs and records the source procedure's line ranges for review.
+
+The prompt favors including plausible prerequisites with a concrete connection to the source.
+Those links deliver guidance even if the requirement might already hold or only apply in
+some cases. Links whose endpoints lack a supported procedure-relevance predicate are recorded
+for review. The graph sits alongside an exact copy of the base tree.
+
 The dependency arm uses the initial-only policy with a separate skill bundle. It expands
 procedure relevance before MCRDR traversal, so the prerequisite's exception and stopping rules
 still apply. The Bank review is manually sourced for the three pilot cases. It links transfer
 and safety-box guidance to admin authentication, then login. The separate balance procedure
 is deferred because it is needed when the balance still needs checking.
+
+For the 34-task Bank run with the existing Gemini dependency bundle, from the repository root:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_bank_powershell.ps1 -Experiment initial_only34 -Name dependency-initial-34 -DependencyBundle experiments/bank-gemini-next/with-dependencies/sopbench_bank_fixed_policy
+```
+
+This runs the reduced-skill condition once per task, selects guidance only at the start, and
+does not expose `request_skill`. It keeps the normal selector retry setting. Results are saved
+under `experiments/bank-windows/runs/dependency-initial-34`. To resume incomplete episodes:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_bank_powershell.ps1 -Experiment initial_only34 -Name dependency-initial-34 -Resume
+```
+
+The Gemini dependency bundle is local experiment data. Its proposed links require review; in
+particular it links credit-card bill payment to login, but not to credit-card information.
 
 To propose a new review with Gemini, set `GEMINI_API_KEY` and run:
 
@@ -139,7 +207,7 @@ $python = 'experiments/bank-windows/.venv/Scripts/python.exe'
 & $python -m rdr_engine.dependencies propose skills/sopbench_bank_fixed_policy experiments/bank-dependencies-proposed.json
 ```
 
-Review the cited lines before passing a proposal to `build`. To use the checked-in Bank review
+Review each reason against the source procedure before passing a proposal to `build`. To use the checked-in Bank review
 and run all three matched arms after the Windows setup:
 
 ```powershell
@@ -156,6 +224,18 @@ runs use one semantic selector attempt per resolution and separate result direct
 dependency arm records direct selections and added links under `response.metadata.dependencies`
 in skill events. Inspect the existing execution summary and incomplete traces if an episode
 cannot be scored.
+
+To view the dependency bundle in the existing HTML viewer:
+
+```powershell
+$compiled = 'experiments/dependency-pilot/sopbench_bank_fixed_policy/compiled'
+py -3.12 skills/visualise_tree.py "$compiled/tree.json"
+Start-Process "$compiled/tree_visualisation.html"
+```
+
+The viewer reads the adjacent `dependencies.json` automatically. Purple dashed arrows point
+from procedures to prerequisites. Hover an arrow to read its reason, or use **Show dependencies**
+to toggle the overlay. Only links approved for expansion are drawn.
 
 To reproduce the telecom construction check without model calls:
 
