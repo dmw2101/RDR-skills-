@@ -29,12 +29,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL_ID = "sopbench_bank_fixed_policy"
 BUNDLES = Path("skills/variants/bank-defensive-v2")
 ARMS = (
-    ("none", "none", "initial_only", "base"),
-    ("full", "full", "initial_only", "base"),
-    ("initial", "reduced", "initial_only", "base"),
-    ("requests", "reduced", "initial_with_requests", "base"),
-    ("dependencies", "reduced", "initial_only", "with-dependencies"),
+    ("none", ("none",), "initial_only", "base"),
+    ("full", ("full",), "initial_only", "base"),
+    ("initial", ("reduced",), "initial_only", "base"),
+    ("requests", ("reduced",), "initial_with_requests", "base"),
+    ("dependencies", ("reduced",), "initial_only", "with-dependencies"),
 )
+FULL_VS_REDUCED = "full-vs-reduced"
+PAIRED_RUN = ((FULL_VS_REDUCED, ("full", "reduced"), "initial_only", "with-dependencies"),)
 
 
 def setup():
@@ -108,15 +110,16 @@ def prepare_configs(args, run_dir, model_options, store):
     receipts = {}
     configs = {}
     template = "initial_only" if args.command == "pilot" else "initial_only34"
-    for arm, condition, mode, variant in ARMS:
+    arms = PAIRED_RUN if args.full_vs_reduced else ARMS
+    for arm, conditions, mode, variant in arms:
         arm_dir = run_dir / arm
         config_path = arm_dir / "config.json"
         config = load_config(f"examples/agent/sopbench.bank.{template}.json")
         config["model"] = {"factory": "skill_agent.local_models:LocalTransformersClient",
                            "options": model_options}
-        config["run"].update(conditions=[condition], skill_loading=mode, timeout_seconds=1800,
+        config["run"].update(conditions=list(conditions), skill_loading=mode, timeout_seconds=1800,
                              output_dir=str(arm_dir / "results"))
-        if condition == "none":
+        if conditions == ("none",):
             config["skill"] = {}
         else:
             bundle = BUNDLES / variant / SKILL_ID
@@ -143,10 +146,10 @@ async def run_suite(configs, run_dir):
         if errors:
             raise RuntimeError(f"{arm} setup: {'; '.join(errors)}")
 
-    actor = factory(configs["none"]["model"])
+    config = configs[FULL_VS_REDUCED] if FULL_VS_REDUCED in configs else configs["dependencies"]
+    actor = factory(config["model"])
     print("Checking the local model's tool round trip.", flush=True)
     write_json(run_dir / "model-check.json", await check_tools(actor))
-    config = configs["dependencies"]
     adapter = factory(config["benchmark"])
     task = select_tasks(adapter, {"split": "dev", "task_ids": ["transfer_funds-021"]})[0]["task"]
     skill = config["skill"]
@@ -183,8 +186,11 @@ def run(args):
     run_dir = args.results_root.resolve() / args.name
     if args.resume != run_dir.is_dir():
         raise ValueError("choose a new run name, or use --resume for an existing run")
+    current_arm, other_arm = (FULL_VS_REDUCED, "none") if args.full_vs_reduced else ("none", FULL_VS_REDUCED)
+    if (run_dir / other_arm / "config.json").is_file():
+        raise ValueError("comparison mode differs from the saved run; resume with the original flags")
     default_window = gpu_context_window()
-    previous = run_dir / "none/config.json"
+    previous = run_dir / current_arm / "config.json"
     if args.resume and previous.is_file():
         default_window = read_json(previous)["model"]["options"]["context_window"]
     window = args.context_window if args.context_window is not None else default_window
@@ -216,6 +222,8 @@ def main():
         command.add_argument("--context-window", type=int)
         command.add_argument("--model-port", type=int, default=8000)
         command.add_argument("--service-port", type=int, default=8766)
+        command.add_argument("--full-vs-reduced", action="store_true",
+                             help="run a paired comparison of full policy and dependency-aware reduced policy")
         command.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if args.command != "setup" and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.name):

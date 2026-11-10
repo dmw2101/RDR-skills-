@@ -2,21 +2,34 @@
 
 ## Linux GPU comparison
 
-From a checkout of `MCRDR-with-dependencies`, activate your Python venv and run:
+On the GPU node, use Python 3.10 or newer with pip in an active venv. Clone the branch and install the pinned CUDA wheels before installing the repo requirements:
 
 ```bash
+git clone --single-branch --branch MCRDR-with-dependencies https://github.com/dmw2101/RDR-skills-.git RDR-skills
+cd RDR-skills
 python -m pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu126
 python -m pip install -r requirements.txt
 python -m pip check
 python scripts/run_bank_gpu.py setup
-python scripts/run_bank_gpu.py pilot --name bank-gpu-pilot
 ```
 
 `setup` fetches the pinned Bank data and Qwen3.5-4B weights. It can run before a GPU allocation. Set `HF_HOME` to persistent storage shared with the GPU job. The pilot checks CUDA, structured tool calls, and a Bank selector response before running. A single local model serves both the actor and selector. The setup uses Git and an NVIDIA driver compatible with the CUDA wheels.
 
-The five arms are `none`, `full`, `initial`, `requests`, and `dependencies`. Each runs the same three pilot cases once. The [frozen Bank variants](../skills/variants/bank-defensive-v2) share the same policy, fragments and tree. The dependency bundle adds the 29-link graph, and the proposal is stored beside the variants. Neither runtime setup nor inference calls Gemini.
+With the GPU visible, run the selective disclosure pilot. It evaluates the same three cases with the full policy and with dependency-aware reduced policy, for six episodes total.
 
-Use `python scripts/run_bank_gpu.py bank34 --name bank-gpu-34` after reviewing the pilot. Use `--results-root` to write to persistent storage outside the checkout. Each named run keeps per-arm configs, results, and skill inspections alongside server logs and smoke check results. Use `--resume` with the original suite, name, and settings. Incomplete episodes retain their diagnostic records and block scoring for that arm until resolved.
+```bash
+python scripts/run_bank_gpu.py pilot --full-vs-reduced --name bank-disclosure-pilot
+```
+
+After reviewing the pilot, run all 34 cases per condition for 68 episodes:
+
+```bash
+python scripts/run_bank_gpu.py bank34 --full-vs-reduced --name bank-disclosure-34
+```
+
+Read `experiments/bank-gpu/<name>/full-vs-reduced/results/summary.json` for success rates, token usage, and the paired success difference. Use `--results-root` to write to persistent storage outside the checkout and `--resume` with the original suite, name, and settings to continue an interrupted run. Incomplete episodes retain their diagnostic records and block scoring until resolved.
+
+The [frozen Bank variants](../skills/variants/bank-defensive-v2) share the same policy, fragments and tree. The reduced condition uses the 29-link dependency graph. The full condition supplies the original policy directly. Both use local inference. Omit `--full-vs-reduced` to run the original five-arm workflow.
 
 ## Benchmark protocol
 
