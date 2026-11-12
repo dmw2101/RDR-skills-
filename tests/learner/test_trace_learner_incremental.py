@@ -329,6 +329,23 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("| 1 | forms_a | 0 | v0 | failed | skill_missing |",
                       (learner.root / "report.md").read_text(encoding="utf-8"))
 
+        # Every proposed rule is readable in full after each round (decision V1).
+        round_log = (learner.round_dir(0) / "rules.md").read_text(encoding="utf-8")
+        self.assertIn("### Rule 1.1: ACCEPTED", round_log)
+        self.assertIn("Definition: The input document has form fields.", round_log)
+        self.assertIn("> " + MARKER, round_log)  # The advice, untruncated.
+        self.assertIn("Root cause: form fields were never read", round_log)
+        self.assertIn("`lf_form_fields` = true", round_log)
+        running = (learner.root / "rules.md").read_text(encoding="utf-8")
+        self.assertEqual([line for line in running.splitlines() if line.startswith("## Round")],
+                         ["## Round 1: forms_a (tree v0 -> v1)", "## Round 2: names (tree v1 -> v2)",
+                          "## Round 3: forms_b (tree v2 -> v3)", "## Round 4: totals (tree v3 -> v4)"])
+        self.assertIn("No rule proposed: every attempt passed.", running)
+        # The kept rule's tree page shows the learned condition in plain English and the new advice.
+        page = (learner.root / "versions" / "v1" / "tree.html").read_text(encoding="utf-8")
+        self.assertIn("learned: The input document has form fields.", page)
+        self.assertIn("Always list AcroForm fields", page)
+
         # Running again changes nothing and calls no model.
         again = self.learner()
         with patch.object(AgentModel, "complete", side_effect=AssertionError("worker called")):
@@ -504,6 +521,11 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(selection, {"fixed": ["forms_a"], "protected": ["names"], "impact_based": False,
                                          "changed_documents": [], "mode": "reject"})
             self.assertEqual(len(list((learner.round_dir(1) / "diagnoses").glob("*.retry.json"))), 1)
+            log = (learner.round_dir(1) / "rules.md").read_text(encoding="utf-8")
+            self.assertIn("### Rule 2.1: REJECTED", log)
+            self.assertIn("Definition: The input is a PDF.", log)
+            self.assertIn("Stored successes it fires on:** names", log)
+            self.assertIn("### Rule 2.2: ACCEPTED (retry of rule 2.1)", log)
             # Rerunning reuses everything, including the retry.
             self.assertEqual(await self.learner().learn(), state)
             self.assertEqual(len(BroadThenNarrowVerifier.prompts), 2)

@@ -21,6 +21,7 @@ from urllib.parse import quote
 
 from rdr_engine.learned import CONTEXT_KEY
 from rdr_engine.skill_compiler import SkillBundle
+from rdr_engine.visualise import write_tree_page
 from rdr_service.backend import RDRBackend
 from skill_agent.experiments import episode_filename, factory, load_config, load_run, run_experiment, select_tasks
 from skill_agent.learned_features import FeatureJudge, JudgeError
@@ -32,6 +33,7 @@ from .passing import PassingTraces, affected_tasks, load_passing_record
 from .pipeline import sample_views
 from .proposals import Proposal
 from .records import Interrupted, episode_key, skill_views, trace_steps, view_at, was_interrupted
+from .rules_log import write_rules_log
 from .validate import validate_candidate
 from .verifier import verify_episode
 from .workspace import SkillWorkspace, copy_bundle
@@ -554,6 +556,9 @@ class IncrementalLearner:
         write_json(self.root / "state.json", state)
         for name in ("work", "candidates"):
             shutil.rmtree(directory / name, ignore_errors=True)
+        write_rules_log(self, index)  # Decision V1: every proposed rule, readable after each round.
+        if changed:
+            write_tree_page(self.version_dir(after), self.version_dir(after).parent / "tree.html")
         print(f"  -> {sum(passed.values())}/{len(passed)} passed, {len(accepted)} rule(s) kept, tree v{after}",
               flush=True)
         return state
@@ -598,7 +603,7 @@ class IncrementalLearner:
                 if was_interrupted(read_json(path)):
                     path.unlink()
                     removed.append(path.stem)
-            for name in ("work.json", "proposals.json", "ledger.json"):
+            for name in ("work.json", "proposals.json", "ledger.json", "rules.md"):
                 (directory / name).unlink(missing_ok=True)
             for name in ("work", "candidates", "validation"):
                 shutil.rmtree(directory / name, ignore_errors=True)
@@ -616,6 +621,7 @@ class IncrementalLearner:
             write_json(self.root / "rounds.json", rounds)
             state = {**state, "round": index, "current_version": item["version_before"]}
             write_json(self.root / "state.json", state)
+            write_rules_log(self)  # The reopened round leaves the running log until it is redone.
             print(f"round {index + 1} ({', '.join(item['tasks'])}) reopened on v{item['version_before']}; "
                   f"interrupted inspector results removed: {len(removed)}. Run learn to redo it; its worker "
                   "run and saved verdicts are reused.", flush=True)

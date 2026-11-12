@@ -177,6 +177,6 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
   The tree diagram (`versions/vN/tree.html`) shows learned conditions and advice in plain English. The log is read-only: learning never waits for a person.
 - **Alternatives:** a human approval step before each rule is inserted (classic RDR with an expert in the loop).
 - **Why:** the professors asked for proposed rules to be readable. Approval would need someone watching every run.
-- **Where:** `trace_learner/rules_log.py`, `rdr_engine/visualise.py`.
+- **Where:** `trace_learner/rules_log.py`; `rdr_engine/visualise.py` (`write_tree_page`; `scripts/visualise_tree.py` is now a thin wrapper around it). The ledger entry carries `level`, `retry_of`, `changed_documents`, `reruns`, the insert's `judged` and `changed`, and `refresh`.
 - **Ablation:** none (always on).
-- **Status:** planned (agreed 2026-11-13).
+- **Status:** in use since 2026-11-13.
