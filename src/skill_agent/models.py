@@ -32,10 +32,15 @@ class OpenAICompatibleClient:
     retry_delays = (5, 15, 30, 60)
     MAX_RETRY_WAIT = 120
 
+    # Optional sampling settings sent only when set (vLLM accepts all; see decision S1 in
+    # docs/learning-design-decisions.md: use each model card's recommended values, not greedy).
+    SAMPLING = ("top_p", "top_k", "min_p", "presence_penalty", "repetition_penalty")
+
     def __init__(self, *, base_url, model, api_key_env="MODEL_API_KEY", temperature=0,
-                 max_tokens=2048, seed=None, timeout=90, provider=None, **unknown):
-        if unknown:
-            raise ValueError(f"unknown model settings: {sorted(unknown)}")
+                 max_tokens=2048, seed=None, timeout=90, provider=None, **options):
+        self.sampling = {name: options.pop(name) for name in self.SAMPLING if options.get(name) is not None}
+        if options:
+            raise ValueError(f"unknown model settings: {sorted(options)}")
         if provider is not None and not isinstance(provider, dict):
             raise ValueError("provider settings must be an object")
         parsed = urlparse(base_url)
@@ -55,7 +60,7 @@ class OpenAICompatibleClient:
 
     async def complete(self, messages, tools):
         payload = {"model": self.model, "messages": messages,
-                   "temperature": self.temperature, "max_tokens": self.max_tokens}
+                   "temperature": self.temperature, "max_tokens": self.max_tokens, **self.sampling}
         if tools:
             payload.update(tools=tools, tool_choice="auto")
         if self.seed is not None:

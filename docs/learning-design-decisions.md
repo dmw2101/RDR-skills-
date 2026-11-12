@@ -156,7 +156,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 ### C4. One run per rerun task
 - **Decision:** the checker runs each affected task **once**.
 - **Alternatives:** 2 runs (the old default) with a majority, meaning both must pass; 3 runs with a majority.
-- **Why:** the local models run at temperature 0, so repeat runs are nearly identical. One run halves the checker's cost. Revisit if decisions look inconsistent.
+- **Why:** one run halves the checker's cost. It was chosen when the models ran at temperature 0, so repeat runs were nearly identical. Since S1 they sample, which makes one run noisier; revisit if decisions look inconsistent.
 - **Where:** config `validation.replicates`.
 - **Ablation:** `validation.replicates: 2` (or more).
 - **Status:** in use since 2026-11-13, set in `examples/learning/varex.learner.json`, which the Colab setup copies. The code's own default is still 2 for configs that omit it.
@@ -182,6 +182,16 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Where:** `skill_agent.models.OpenAICompatibleClient._post`, `skill_agent.experiments.timing_summary`.
 - **Ablation:** none (measurement only).
 - **Status:** in use since 2026-11-13. Records from earlier runs report null model time.
+
+### S1. Sampling follows each model card, not greedy decoding
+- **Decision:** every role samples with its model card's recommended thinking-mode settings and a fixed `seed: 42`:
+  - **Qwen3.5-4B** (worker, checker, judge): temperature 1.0, top_p 0.95, top_k 20, min_p 0, presence_penalty 1.5 (the card's "thinking, general" preset).
+  - **Qwen3.8-27B** (inspector, merge): temperature 1.0, top_p 0.95, top_k 20 (its `generation_config.json`).
+- **Alternatives:** temperature 0 (greedy). It was the harness default since 2026-10-16 (`9cf9829`), set before any model was chosen, with no recorded reason. Qwen's cards advise against greedy decoding for thinking models, and the 4B looped in the smoke test under it. The 4B card's "precise coding" preset (temperature 0.6, no presence penalty) is the other candidate for the worker.
+- **Why:** these are the model maker's recommendations. They match Trace2Skill's Qwen3.5 settings (`gen_config/qwen3.5_35B_122B_thinking_reasoning.json`), and the presence penalty works against repetition loops.
+- **Where:** model options `temperature`, `top_p`, `top_k`, `min_p`, `presence_penalty` and `repetition_penalty` (`OpenAICompatibleClient`); the GPU's generated configs.
+- **Ablation:** set `temperature: 0` and drop the other options.
+- **Status:** in use since 2026-11-13. It affects C4: single runs are now noisier, so revisit how many runs the checker and the final comparison use.
 
 ## Decisions about visibility
 

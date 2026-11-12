@@ -55,6 +55,19 @@ class ModelRetryTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(response.metadata["latency_seconds"], 0)
         self.assertLess(response.metadata["latency_seconds"], 5)  # Only the successful request.
 
+    async def test_sampling_settings_are_sent_only_when_set(self):
+        sent = []
+        with patch("skill_agent.models.json_request", side_effect=lambda url, payload, **k: sent.append(payload) or REPLY):
+            await OpenAICompatibleClient(base_url="http://127.0.0.1:1/v1", model="m", api_key_env=None,
+                                         temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                                         presence_penalty=1.5).complete([{"role": "user", "content": "x"}], [])
+            await client().complete([{"role": "user", "content": "x"}], [])
+        self.assertEqual({k: sent[0][k] for k in ("temperature", "top_p", "top_k", "min_p", "presence_penalty")},
+                         {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "min_p": 0.0, "presence_penalty": 1.5})
+        self.assertNotIn("top_p", sent[1])  # Unset settings are left to the server.
+        with self.assertRaisesRegex(ValueError, "unknown model settings"):
+            OpenAICompatibleClient(base_url="http://127.0.0.1:1/v1", model="m", api_key_env=None, top_q=1)
+
     def test_retry_after_header_parsing(self):
         self.assertEqual(_retry_after({"Retry-After": "12"}), 12.0)
         self.assertIsNone(_retry_after({"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}))
