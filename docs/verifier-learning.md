@@ -2,6 +2,8 @@
 
 `trace_learner` adapts Trace2Skill's agentic error analyst to MCRDR skills. Trace2Skill turns each verified failure into a text patch and merges the patches into SKILL.md. Here, each verified failure becomes an **exception or alternative rule in the skill's MCRDR tree**. The engine accepts a rule only when it separates the failing situation from every stored situation where the guidance already worked. A candidate tree is then kept only if re-running the tasks confirms it.
 
+Every design decision about the inspector (the verifier), the judge and the checker (validation), with the config switch for each ablation, is recorded in [learning-design-decisions.md](learning-design-decisions.md). Update it with any change to how rules are proposed, judged or kept.
+
 ## Pipeline
 
 Two modes share the same verifier, insertion and validation:

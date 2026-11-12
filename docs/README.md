@@ -9,6 +9,7 @@
 | [rdr-engine.md](rdr-engine.md) | The MCRDR engine: rules, cornerstone cases, and how feedback adds exceptions |
 | [agent-evaluation.md](agent-evaluation.md) | The agent harness: no-skill / full-skill / selected-skill arms, cost accounting, limits |
 | [verifier-learning.md](verifier-learning.md) | Learning from failed traces: verifier, merged proposals, new MCRDR rules, validation |
+| [learning-design-decisions.md](learning-design-decisions.md) | Every design decision about the inspector, judge and checker, with the config switch for each ablation |
 
 ## How to run it
 
