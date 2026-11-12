@@ -89,6 +89,42 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((self.workspace.summary(), self.workspace.engine.to_dict(),
                           self.workspace.layer.model_dump()), before)
 
+    async def test_rerun_mode_lets_a_rule_change_matching_successes_and_reports_them(self):
+        judge = KeywordJudge({"lf_form_fields": "invoice 1"})  # True for one stored success too.
+        broad = proposal(conditions=[{"new_feature": {"name": "lf_form_fields", "description": "Invoice 1."}}])
+        failing = "Extract the form of invoice 1 again"
+        result = await self.workspace.apply(broad, EXTRACT, failing, judge, {}, changed_successes="rerun")
+        self.assertEqual(result.status, "revised", result.reason)
+        changed = self.workspace.case_for(EXTRACT, "Extract totals from invoice 1")
+        self.assertEqual(result.changed, [changed[self.context_key]])
+        self.assertEqual(result.judged, {"lf_form_fields": "true"})
+        # The matching success now gets the new guidance; the others do not.
+        self.assertIn("get_fields()", self.text(EXTRACT, "Extract totals from invoice 1"))
+        self.assertNotIn("get_fields()", self.text(EXTRACT, "Extract totals from invoice 0"))
+        # The default stays classic RDR: the same rule is rejected.
+        other = SkillWorkspace(copy_bundle(ROOT / "skills/pdf", Path(self.temporary.name) / "pdf2"))
+        for index in range(3):
+            await other.accept(EXTRACT, f"Extract totals from invoice {index}")
+        result = await other.apply(broad, EXTRACT, failing, KeywordJudge({"lf_form_fields": "invoice 1"}), {})
+        self.assertEqual(result.status, "unresolved")
+        self.assertEqual(len(result.conflicts), 1)
+
+    async def test_replace_cornerstones_swaps_a_tasks_stored_cases(self):
+        old = self.workspace.case_for(EXTRACT, "Extract totals from invoice 2")
+        stored, calls, contexts = await self.workspace.replace_cornerstones(
+            [old[self.context_key]], [{"case": EXTRACT, "context": "Re-run: totals of invoice 2"},
+                                      {"case": None, "context": "no skill view"}], self.judge)
+        self.assertEqual((stored, calls, len(contexts)), (True, 0, 1))
+        stored_contexts = {case[self.context_key] for case in self.workspace.stored_cases()}
+        self.assertNotIn(old[self.context_key], stored_contexts)
+        self.assertIn(contexts[0], stored_contexts)
+        self.assertEqual(len(stored_contexts), 3)
+
+    @property
+    def context_key(self):
+        from rdr_engine.learned import CONTEXT_KEY
+        return CONTEXT_KEY
+
     async def test_condition_not_judged_true_on_the_failing_context_is_rejected(self):
         result = await self.workspace.apply(proposal(), EXTRACT, "nothing visible here", self.judge, {})
         self.assertEqual(result.status, "unresolved")

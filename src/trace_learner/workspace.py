@@ -21,6 +21,7 @@ from skill_agent.learned_features import JudgeError
 from .proposals import Proposal
 
 JUDGE_CONCURRENCY = 4  # Judge calls in flight while a new feature is judged on stored cases.
+CHANGED_SUCCESSES = ("rerun", "reject")  # What a rule that would change stored successes gets.
 BUNDLE_FILES = ("initial.md", "compiled/manifest.json", "compiled/ir.json", "compiled/fragments.json",
                 "compiled/tree.json", "compiled/learned.json")
 
@@ -48,6 +49,8 @@ class InsertResult:
     judge_calls: int = 0
     note: str | None = None
     conflicts: list[str] = field(default_factory=list)  # Cornerstone contexts the conditions also matched.
+    changed: list[str] = field(default_factory=list)  # Stored contexts whose output the revision changed.
+    judged: dict = field(default_factory=dict)  # The failing case's value for each condition's field.
 
     def to_dict(self):
         return dict(self.__dict__)
@@ -201,12 +204,21 @@ class SkillWorkspace:
         return calls
 
     # -- proposals -----------------------------------------------------------------------
-    async def apply(self, proposal: Proposal, observed_case, context_text, judge, provenance):
-        """Insert one proposal for the failing case; leave everything unchanged unless revised."""
+    async def apply(self, proposal: Proposal, observed_case, context_text, judge, provenance,
+                    changed_successes="reject"):
+        """Insert one proposal for the failing case; leave everything unchanged unless revised.
+
+        changed_successes: "reject" is classic RDR (a rule may not change any stored case);
+        "rerun" lets the rule change the stored cases its conditions match, reported in
+        ``InsertResult.changed`` so the caller re-runs their tasks before keeping it.
+        """
+        if changed_successes not in CHANGED_SUCCESSES:
+            raise ValueError(f"changed_successes must be one of {list(CHANGED_SUCCESSES)}")
         saved = (self.engine.to_dict(), self.layer.model_copy(deep=True), self.schema, self.catalog)
         failure = None
         try:
-            result = await self._apply(proposal, observed_case, context_text, judge, provenance)
+            result = await self._apply(proposal, observed_case, context_text, judge, provenance,
+                                       changed_successes)
         except JudgeError as exc:  # Not a verdict on the proposal: the caller stops and retries later.
             result, failure = InsertResult("unresolved", f"JudgeError: {exc}"), exc
         except Exception as exc:
@@ -219,7 +231,7 @@ class SkillWorkspace:
             raise failure
         return result
 
-    async def _apply(self, proposal, observed_case, context_text, judge, provenance):
+    async def _apply(self, proposal, observed_case, context_text, judge, provenance, changed_successes):
         if proposal.new_features:
             self._add_features(proposal.new_features)
         conditions = proposal.predicates()
@@ -240,10 +252,18 @@ class SkillWorkspace:
             if CONTEXT_KEY in example and parent in self.engine.predict(example).fired]
         calls = await self._ensure_judged(list(dict.fromkeys(contexts)), names, judge) if names else 0
         case = self.case_for(observed_case, context_text)
+        judged = {c["field"]: case.get(c["field"]) for c in conditions}
         for condition in conditions:
             if not SkillConditionEvaluator(self.schema).evaluate(condition, case):
                 return InsertResult("unresolved", f"condition {condition} is not true for the failing "
-                                    "context (learned features must be judged true there)", judge_calls=calls)
+                                    "context (learned features must be judged true there)", judge_calls=calls,
+                                    judged=judged)
+        # Stored successes the rule would fire on: in "rerun" mode the engine may change them.
+        # Only cases from learning (with a context, so their task can be re-run) qualify;
+        # any other stored case keeps classic protection.
+        matched = [example for example in self._matching_examples(conditions, parent)
+                   if CONTEXT_KEY in example and key(example) != key(case)]
+        changeable = {key(example) for example in matched} if changed_successes == "rerun" else set()
         fragment_id = None
         if proposal.guidance_text:
             anchor = proposal.anchor_fragment_id or self._default_anchor(proposal, parent)
@@ -275,29 +295,58 @@ class SkillWorkspace:
             missing = set(proposal.remove_fragment_ids) - set((current or {}).get("fragments", []))
             if missing:
                 return InsertResult("unresolved", f"node {parent} does not render {sorted(missing)}",
-                                    judge_calls=calls)
+                                    judge_calls=calls, judged=judged)
             change = Replace(parent, {"fragments": fragments + ([fragment_id] if fragment_id else [])})
         try:
-            update = self.engine.learn(prediction, Revise((change,)))
+            update = self.engine.learn(prediction, Revise((change,)), changeable=changeable)
         except ValueError as exc:  # Invalid feedback, e.g. a target that did not conclude.
-            return InsertResult("unresolved", str(exc), judge_calls=calls)
+            return InsertResult("unresolved", str(exc), judge_calls=calls, judged=judged)
         finally:
             self._rebuild()  # Drop the per-proposal author.
         if update.status != "revised":
             return InsertResult("unresolved", update.reason, judge_calls=calls,
-                                conflicts=self._matching_cornerstones(conditions, parent))
+                                conflicts=self._matching_cornerstones(conditions, parent), judged=judged)
         if fragment_id is not None and fragment_id not in self.render(case).selected_ids:
             return InsertResult("unresolved", "the new guidance does not render for the failing case",
-                                judge_calls=calls)
-        return InsertResult("revised", None, list(update.new_node_ids), fragment_id, parent, calls, note)
+                                judge_calls=calls, judged=judged)
+        changed = list(dict.fromkeys(example[CONTEXT_KEY] for example in matched if CONTEXT_KEY in example)) \
+            if changeable else []
+        return InsertResult("revised", None, list(update.new_node_ids), fragment_id, parent, calls, note,
+                            changed=changed, judged=judged)
+
+    def _matching_examples(self, conditions, parent):
+        """Stored cases reaching the parent where every condition holds."""
+        evaluator = SkillConditionEvaluator(self.schema)
+        return [example for example in self.stored_cases()
+                if parent in self.engine.predict(example).fired
+                and all(evaluator.evaluate(condition, example) for condition in conditions)]
 
     def _matching_cornerstones(self, conditions, parent):
         """Context IDs of stored cases reaching the parent where every condition holds."""
-        evaluator = SkillConditionEvaluator(self.schema)
-        return list(dict.fromkeys(
-            example[CONTEXT_KEY] for example in self.stored_cases()
-            if CONTEXT_KEY in example and parent in self.engine.predict(example).fired
-            and all(evaluator.evaluate(condition, example) for condition in conditions)))
+        return list(dict.fromkeys(example[CONTEXT_KEY] for example in self._matching_examples(conditions, parent)
+                                  if CONTEXT_KEY in example))
+
+    async def replace_cornerstones(self, remove_contexts, views, judge=None):
+        """Swap a task's stored cases for new ones: drop every stored case whose context is in
+        ``remove_contexts``, then store each new view (a passing re-run's) as ``accept`` does.
+
+        Returns (cases stored, judge calls, the new views' context IDs).
+        """
+        remove = set(remove_contexts)
+        if remove:
+            nodes = self.engine.to_dict()["nodes"]
+            for node in nodes:
+                node["evidence"] = [example for example in node["evidence"]
+                                    if example.get(CONTEXT_KEY) not in remove]
+            self._rebuild(nodes)
+        stored, calls, contexts = 0, 0, []
+        for view in views:
+            if view.get("case") is None:
+                continue
+            accepted, judged = await self.accept(view["case"], view["context"], judge)
+            stored, calls = stored + accepted, calls + judged
+            contexts.append(self.case_for(view["case"], view["context"])[CONTEXT_KEY])
+        return stored, calls, list(dict.fromkeys(contexts))
 
     def _default_anchor(self, proposal, node_id):
         """Place guidance after the target's last fragment, or at the end for the root."""
