@@ -37,10 +37,13 @@ It follows the paper's workflow: find what is wrong, trace it to a decision, val
 
 **A diagnosis is eligible only when a `rescore` call the verifier made actually passed.** This is recorded by code, not taken from the model's own claim. Diagnoses not attributed to the skill are logged and dropped.
 
-In incremental mode the inspector can call `passing_examples` with the proposed target node.
-It gets up to six distinct scored successes whose saved skill views show that node supplying
-guidance. It uses these examples to narrow the proposed condition. The existing single retry
-still gives feedback when the engine rejects a condition.
+In incremental mode the inspector can call `passing_examples` with the proposed target node, at any level. It gets up to six distinct scored successes whose saved skill views show that node supplying guidance, and uses them to narrow the proposed condition. Set `verifier.passing_examples: false` to turn this off (decision I3).
+
+**Every rejected proposal gets one inspector retry** (always on, decision I4). The retry's feedback depends on what rejected the proposal:
+- **the engine:** the condition is not true for the failing case, or it matches a protected stored case. The feedback names up to 3 such documents;
+- **the checker:** a re-run document failed. The feedback names it (the failure still failing, or a success the rule broke) with an excerpt of its re-run.
+
+A retry records `retry_of` in the ledger, and a retry is not itself retried.
 
 ### What a proposal becomes
 
@@ -52,7 +55,8 @@ still gives feedback when the engine rejects a condition.
 
 - **Conditions** reuse existing feature predicates or define **learned features** (`lf_<name>`). A learned feature is a yes/no definition judged true/false/unknown by a separate **judge** model before every worker step. The judge reads (1) the worker's starting materials, from the benchmark's `judge_materials(task)`: for VAREX the task, the requested schema and the PDF's text layer (first 12,000 characters; a scanned PDF shows as having no text layer), and (2) the resolver query: the task at first, then the worker's last three messages. It does not see later tool outputs. Learning builds the same text for every stored and failing moment, so a feature is judged the same way during learning and at test time. Only `true` fires a rule; the original tree's regex features still read only the resolver query.
 - **Before inserting**, the learner judges the new feature on the failing context and on every cornerstone reaching the parent node. The judge must say `true` on the failing context.
-- **The engine then requires** that the conjunction holds on the failing case, excludes every cornerstone, and leaves every stored case's output unchanged. Otherwise nothing changes.
+- **The engine then requires** that the conjunction holds on the failing case. With `validation.changed_successes: "reject"` (classic RDR) it must also exclude every cornerstone and leave every stored case's output unchanged; otherwise nothing changes.
+- **With `"rerun"` (the default, decision C1),** the rule may fire on stored successes from learning, and so change their guidance. Those successes are not rejected: they are handed to the checker, which re-runs their documents (see Validation). Stored cases without a learning context keep classic protection. Batch mode always uses classic rejection.
 - An `add` under a node that rendered guidance and has no fired child is applied as a `replace` that keeps all of that node's fragments (the ledger notes it). Otherwise the new child would hide the node's guidance.
 
 ### Base tree (`base_tree`)
@@ -78,12 +82,18 @@ Each child carries its own copy of the skill's fragments, and the worker sees th
 ### Validation
 
 1. The candidate is snapshotted with `rdr_service prepare` into the configured store.
-2. The original run configuration is re-run for the fixed tasks plus up to `protected_limit` passing tasks whose cornerstones reach the changed node. It uses the reduced arm only, for `replicates` replicates, with `LearnedFeatureResolver` judging learned features each refresh.
-   In incremental mode, the checker first compares the current and candidate guidance on saved
-   passing views. It reruns every passing task with a changed view. The capped parent sample is
-   used when no saved view changes.
-3. The candidate is accepted when every fixed task passes in a majority of replicates and no protected task stops passing.
-4. Accepted candidates become the next immutable version.
+2. The original run configuration is re-run for the fixed tasks plus the protected passing tasks. It uses the reduced arm only, for `replicates` replicates (1 in the example config, decision C4), with `LearnedFeatureResolver` judging learned features each refresh. Which passing tasks are protected depends on `validation.changed_successes`:
+   - **`"rerun"` (the default, decisions C1 and C2):**
+     - every stored success the rule fires on;
+     - every passing task whose guidance changes when its saved views are replayed under the candidate tree.
+
+     There is no cap. Tasks whose guidance is unchanged are not re-run, since they would see identical advice.
+   - **`"reject"` (classic):** the passing tasks whose guidance changes on replay. When none changes, up to `protected_limit` passing tasks whose cornerstones reach the changed node.
+3. The candidate is accepted when every fixed task passes in a majority of replicates and no protected task stops passing. A rejection gives the inspector its retry.
+4. **In `"rerun"` mode, kept rules refresh their re-run successes (decision C3).** Each re-run success's stored cases are replaced by its passing re-run's views. The inspector's examples and the replay also use that newest passing trace. `rounds/rNNN/cornerstones_before.json` lets `redo-last-round` undo the swap.
+5. Accepted candidates become the next immutable version.
+
+Each candidate's `validation/cN/selection.json` records the fixed and protected tasks, the `changed_documents` and the mode.
 
 ## Learned bundles
 
@@ -178,9 +188,11 @@ Use the held-out split and a new `output_dir`, then `summarize` as usual. The ju
 | `proposals.json` | Merged proposals and their source episodes |
 | `ledger.json` | Each proposal's insertion result, validation passes/regressions and decision |
 | `report.md`, `report.json` | Tables of failures, rules, decisions and cost (`report`) |
-| `rounds/rNNN/` | Incremental mode: one round's worker run, scores, diagnoses, proposals, ledger and validation runs |
+| `rounds/rNNN/` | Incremental mode: one round's worker run, scores, diagnoses, proposals, ledger, validation runs, `rules.md` (that round's rules) and `cornerstones_before.json` (for `redo-last-round`) |
+| `rules.md` | Incremental mode: every proposed rule so far, kept or rejected, in full; rewritten after each round (decision V1) |
 | `rounds.json`, `state.json` | Incremental mode: per round, the documents, results, rules kept and tree version; progress for resuming |
 | `versions/vN/<skill>/` | Immutable accepted versions; `v0` is the original skill plus cornerstones |
+| `versions/vN/tree.html` | Incremental mode: an interactive page of version N's tree, with learned conditions' definitions and learned advice |
 | `validation/cN/` | Snapshot receipts and validation runs |
 
 ## Refused calls

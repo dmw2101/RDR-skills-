@@ -27,7 +27,8 @@
     },
     "max_calls": 30,
     "timeout_seconds": 900,
-    "concurrency": 1
+    "concurrency": 1,
+    "passing_examples": true
   },
   "judge": {
     "model": {
@@ -71,7 +72,8 @@
     "enabled": true,
     "service_url": "http://127.0.0.1:8765",
     "store": "experiments/snapshots",
-    "replicates": 2,
+    "replicates": 1,
+    "changed_successes": "rerun",
     "protected_limit": 3,
     "max_calls": 20,
     "timeout_seconds": 600

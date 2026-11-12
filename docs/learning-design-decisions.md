@@ -159,7 +159,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** the local models run at temperature 0, so repeat runs are nearly identical. One run halves the checker's cost. Revisit if decisions look inconsistent.
 - **Where:** config `validation.replicates`.
 - **Ablation:** `validation.replicates: 2` (or more).
-- **Status:** chosen 2026-11-13; applied in the local learning configs.
+- **Status:** in use since 2026-11-13, set in `examples/learning/varex.learner.json`, which the Colab setup copies. The code's own default is still 2 for configs that omit it.
 
 ## Decisions about visibility
 
