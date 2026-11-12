@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from rdr_engine.learned import CONTEXT_KEY
 from rdr_service.backend import RDRBackend
 from rdr_service.server import make_server
 from skill_agent.experiments import episode_filename
@@ -412,11 +413,82 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
                         {"status": "completed", "error": None}):
             self.assertFalse(was_interrupted(outcome), outcome)
 
-    async def test_a_too_broad_rule_gets_one_inspector_retry_naming_the_conflicting_document(self):
+    def use_broad_verifier(self, changed_successes):
         config = read_json(self.root / "learner.json")
         config["verifier"]["model"]["factory"] = f"{__name__}:BroadThenNarrowVerifier"
+        config["validation"]["changed_successes"] = changed_successes
         write_json(self.root / "learner.json", config)
         BroadThenNarrowVerifier.prompts = []
+
+    async def test_rerun_mode_keeps_a_broad_rule_whose_changed_success_still_passes(self):
+        # "names" passed on v0 and is stored; the broad rule (true for every PDF) changes its advice.
+        self.use_broad_verifier("rerun")
+        with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]):
+            state = await self.learner().learn()
+            learner = self.learner()
+            ledger = read_json(learner.round_dir(1) / "ledger.json")
+            self.assertEqual([e["decision"] for e in ledger], ["accepted"])  # No retry was needed.
+            self.assertEqual(len(BroadThenNarrowVerifier.prompts), 1)
+            [entry] = ledger
+            self.assertEqual(entry["proposal"]["conditions"][0]["new_feature"]["name"], "lf_is_pdf")
+            self.assertEqual((entry["level"], entry["changed_documents"]), (2, ["names"]))
+            self.assertEqual(entry["insert"]["judged"], {"lf_is_pdf": "true"})
+            self.assertEqual(sorted(entry["reruns"]), ["forms_a", "names"])
+            selection = read_json(learner.round_dir(1) / "validation" / "c0" / "selection.json")
+            self.assertEqual((selection["protected"], selection["mode"]), (["names"], "rerun"))
+            # names' stored cases now come from its passing re-run under the kept rule.
+            [rerun] = entry["refresh"]["records"].values()
+            self.assertIn("validation", rerun["file"])
+            origins = read_json(learner.root / "cornerstones.json")
+            names_contexts = [c for c, sources in origins.items() if any(s.startswith("names|") for s in sources)]
+            self.assertEqual(sorted(names_contexts), sorted(entry["refresh"]["added"]["names"]))
+            final = SkillWorkspace(learner.status()["current_skill"])
+            stored = {case[CONTEXT_KEY] for case in final.stored_cases() if CONTEXT_KEY in case}
+            self.assertTrue(set(entry["refresh"]["added"]["names"]) <= stored)
+            # The passing index (inspector examples, impact replay) follows the re-run.
+            self.assertEqual(learner._passing_index()["names"]["file"], learner.root / rerun["file"])
+            self.assertEqual(state["round"], 2)
+            self.assertEqual(await self.learner().learn(), state)  # Rerunning reuses everything.
+            # Undoing the round restores names' original stored cases and passing record.
+            before_round = read_json(learner.round_dir(1) / "cornerstones_before.json")
+            learner.redo_last_round()
+            self.assertEqual(read_json(learner.root / "cornerstones.json"), before_round)
+            self.assertNotIn("validation", str(learner._passing_index()["names"]["file"]))
+
+    async def test_a_checker_rejection_gets_one_retry_naming_the_failed_document(self):
+        self.use_broad_verifier("rerun")
+        validate = AsyncMock(side_effect=[
+            {"fixed": {"forms_a": True}, "regressions": ["names"], "passes": {"forms_a": [True], "names": [False]},
+             "accepted": False},
+            {"fixed": {"forms_a": True}, "regressions": [], "passes": {"forms_a": [True]}, "accepted": True}])
+        with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]), \
+                patch("trace_learner.incremental.validate_candidate", validate):
+            await self.learner().learn()
+            learner = self.learner()
+            ledger = read_json(learner.round_dir(1) / "ledger.json")
+            self.assertEqual([e["decision"] for e in ledger], ["rejected", "accepted"])
+            self.assertEqual(ledger[0]["reason"], "the checker's re-runs failed")
+            self.assertEqual(ledger[1]["retry_of"], 0)
+            self.assertEqual(len(BroadThenNarrowVerifier.prompts), 2)
+            feedback = BroadThenNarrowVerifier.prompts[1]
+            self.assertIn("checker rejected it", feedback)
+            self.assertIn("document names passed before", feedback)
+
+    async def test_passing_examples_can_be_switched_off(self):
+        self.use_broad_verifier("rerun")
+        config = read_json(self.root / "learner.json")
+        config["verifier"]["passing_examples"] = False
+        write_json(self.root / "learner.json", config)
+        with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]):
+            await self.learner().learn()
+        self.assertNotIn("passing_examples", BroadThenNarrowVerifier.prompts[0])
+        config["verifier"]["passing_examples"] = "yes"
+        write_json(self.root / "bad.json", config)
+        with self.assertRaisesRegex(ValueError, "passing_examples"):
+            load_learner_config(self.root / "bad.json")
+
+    async def test_a_too_broad_rule_gets_one_inspector_retry_naming_the_conflicting_document(self):
+        self.use_broad_verifier("reject")  # Classic RDR: a rule may not change a stored success.
         with patch.object(sys.modules[__name__], "ORDER", ["names", "forms_a"]):
             state = await self.learner().learn()
             learner = self.learner()
@@ -429,8 +501,8 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("- document names:", BroadThenNarrowVerifier.prompts[1])  # The clash is named.
             self.assertEqual((state["round"], learner.rounds()["1"]["accepted"]), (2, [1]))
             selection = read_json(learner.round_dir(1) / "validation" / "c1" / "selection.json")
-            self.assertEqual(selection, {"fixed": ["forms_a"], "protected": ["names"],
-                                         "impact_based": False})
+            self.assertEqual(selection, {"fixed": ["forms_a"], "protected": ["names"], "impact_based": False,
+                                         "changed_documents": [], "mode": "reject"})
             self.assertEqual(len(list((learner.round_dir(1) / "diagnoses").glob("*.retry.json"))), 1)
             # Rerunning reuses everything, including the retry.
             self.assertEqual(await self.learner().learn(), state)

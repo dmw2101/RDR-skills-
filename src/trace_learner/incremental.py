@@ -28,10 +28,10 @@ from skill_agent.storage import read_json, write_json
 
 from . import __version__
 from .consolidate import consolidate
-from .passing import PassingTraces, affected_tasks, saved_passing_records
+from .passing import PassingTraces, affected_tasks, load_passing_record
 from .pipeline import sample_views
 from .proposals import Proposal
-from .records import Interrupted, episode_key, skill_views, view_at, was_interrupted
+from .records import Interrupted, episode_key, skill_views, trace_steps, view_at, was_interrupted
 from .validate import validate_candidate
 from .verifier import verify_episode
 from .workspace import SkillWorkspace, copy_bundle
@@ -57,6 +57,9 @@ class IncrementalLearner:
         size = config["batch_size"]
         self.batches = [self.tasks[i:i + size] for i in range(0, len(self.tasks), size)]
         self.validation = config["validation"]
+        # Design switches; see docs/learning-design-decisions.md (I3, C1).
+        self.passing_examples = config["verifier"].get("passing_examples", True)
+        self.changed_successes = self.validation.get("changed_successes", "rerun")
         self.judge = FeatureJudge(factory(config["judge"]["model"]))
         self._materials = {}
 
@@ -160,15 +163,45 @@ class IncrementalLearner:
         write_json(marker, summary)
         return work, summary
 
+    def _passing_index(self, before=None):
+        """Each task's newest verified passing record from finished rounds (before ``before``).
+
+        A round's own passing attempts come first; a success the checker re-ran for a kept rule
+        then points at that re-run (its ledger entry's ``refresh``), whose guidance is current.
+        Derived from rounds.json and the ledgers, so redo-last-round needs no extra bookkeeping.
+        """
+        index = {}
+        for item in sorted(self.rounds().values(), key=lambda entry: entry["round"]):
+            number = item["round"]
+            if before is not None and number >= before:
+                continue
+            directory = self.round_dir(number)
+            for source, ok in item["passed"].items():
+                if ok is True:
+                    task, condition, replicate = source.rsplit("|", 2)
+                    index[task] = {"file": directory / "run" / "episodes" / episode_filename(
+                        task, condition, int(replicate)), "key": source, "round": number,
+                        "version": item["version_before"]}
+            ledger_path = directory / "ledger.json"
+            for entry in read_json(ledger_path) if ledger_path.exists() else []:
+                if entry["decision"] != "accepted":
+                    continue
+                for task, ref in ((entry.get("refresh") or {}).get("records") or {}).items():
+                    index[task] = {"file": self.root / ref["file"], "key": ref["key"], "round": number,
+                                   "version": item["version_after"]}
+        return index
+
     def _passing_traces(self, index, version, records, passed):
         traces = PassingTraces()
         tasks = {task["id"]: task for task in self.tasks}
-        for previous in sorted(self.rounds().values(), key=lambda item: item["round"]):
-            number = previous["round"]
-            if number < index:
-                historical = saved_passing_records(self.round_dir(number), previous["passed"])
-                traces.add_round(number, previous["version_before"], historical, previous["passed"],
-                                 tasks, self.materials)
+        current = {record["task_id"] for record in records if passed.get(episode_key(record)) is True}
+        newest = sorted(self._passing_index(before=index).items(), key=lambda item: (item[1]["round"], item[0]))
+        for task_id, ref in newest:
+            if task_id in current or task_id not in tasks:
+                continue
+            record = load_passing_record(ref["file"], ref["key"])
+            if record is not None:
+                traces.add_round(ref["round"], ref["version"], [record], {ref["key"]: True}, tasks, self.materials)
         traces.add_round(index, version, records, passed, tasks, self.materials)
         return traces
 
@@ -189,7 +222,8 @@ class IncrementalLearner:
                 outcome = await verify_episode(
                     model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                     workspace=workspace, max_calls=settings.get("max_calls", 30),
-                    timeout_seconds=settings.get("timeout_seconds", 900), passing_traces=passing_traces)
+                    timeout_seconds=settings.get("timeout_seconds", 900),
+                    passing_traces=passing_traces if self.passing_examples else None)
             if was_interrupted(outcome):  # Not a verdict: leave it unsaved so the rerun diagnoses again.
                 print(f"  inspector on {record['task_id']} rep={record['replicate']}: interrupted "
                       f"({outcome['error']}); not saved", flush=True)
@@ -249,7 +283,37 @@ class IncrementalLearner:
                      "Call rescore again with your corrected prediction, then submit_diagnosis.")
         return "\n".join(lines)
 
-    async def _retry(self, directory, version, record, task, item, entry, origins, workspace, passing_traces):
+    def _checker_feedback(self, item, entry, workdir):
+        """Why the checker rejected an inserted rule: each re-run document that failed, with an excerpt."""
+        validation = entry.get("validation") or {}
+        records = load_run(workdir / "run")[1] if (workdir / "run" / "manifest.json").exists() else []
+        first = {}
+        for record in records:
+            first.setdefault(record["task_id"], record)
+
+        def excerpt(task_id):
+            record = first.get(task_id)
+            if record is None:
+                return "(no re-run record)"
+            steps = trace_steps(record.get("events", []), limit=300)[-4:]
+            text = json.dumps({"prediction": record.get("prediction"), "last_steps": steps}, ensure_ascii=False)
+            return text if len(text) <= 1500 else text[:1500] + " ..."
+
+        lines = [f"Your proposal {json.dumps(item['proposal'], ensure_ascii=False)} was inserted, but the "
+                 "checker rejected it after re-running the documents it affects:"]
+        for task_id, fixed in (validation.get("fixed") or {}).items():
+            if not fixed:
+                lines.append(f"- document {task_id}, the failure this rule was meant to fix, still fails with the "
+                             f"rule. Its re-run: {excerpt(task_id)}")
+        for task_id in validation.get("regressions") or []:
+            lines.append(f"- document {task_id} passed before; the rule changed its advice and it now fails. "
+                         f"Its re-run: {excerpt(task_id)}")
+        lines.append("Revise the rule so it fixes THIS failing document (its advice may need to change) and its "
+                     "conditions are false for any document it broke, or its advice no longer harms them. Call "
+                     "rescore again with your corrected prediction, then submit_diagnosis.")
+        return "\n".join(lines)
+
+    async def _retry(self, directory, version, record, task, item, feedback, passing_traces):
         """One more inspector run with the rejection as feedback; returns a new proposal item or None."""
         source = item["sources"][0]
         path = directory / "diagnoses" / (quote(source, safe="") + ".retry.json")
@@ -257,12 +321,12 @@ class IncrementalLearner:
             outcome = read_json(path)
         else:
             settings = self.config["verifier"]
-            print(f"  inspector retry on {record['task_id']}: asking for a more specific condition", flush=True)
+            print(f"  inspector retry on {record['task_id']}: asking for a revised rule", flush=True)
             outcome = await verify_episode(
                 model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                 workspace=SkillWorkspace(self.version_dir(version)), max_calls=settings.get("max_calls", 30),
-                timeout_seconds=settings.get("timeout_seconds", 900),
-                feedback=self._feedback(item, entry, origins, workspace), passing_traces=passing_traces)
+                timeout_seconds=settings.get("timeout_seconds", 900), feedback=feedback,
+                passing_traces=passing_traces if self.passing_examples else None)
             if was_interrupted(outcome):
                 raise Interrupted(f"the inspector's retry on {record['task_id']} was interrupted "
                                   f"({outcome['error']}); run learn again to continue")
@@ -275,11 +339,57 @@ class IncrementalLearner:
         return {"sources": item["sources"], "proposal": outcome["diagnosis"]["proposal"], "retry": 1,
                 "diagnosis_file": path.name}
 
+    async def _refresh_cornerstones(self, workspace, workdir, tasks, origins):
+        """After a rule is kept: swap each re-run success's stored cases for its passing re-run's views.
+
+        Updates ``origins`` in place and returns what changed, for the ledger and the passing index.
+        """
+        refresh = {"records": {}, "removed": [], "added": {}, "judge_calls": 0}
+        if not tasks or not (workdir / "run" / "manifest.json").exists():
+            return refresh
+        for record in load_run(workdir / "run")[1]:
+            task_id = record["task_id"]
+            if task_id not in tasks or record["replicate"] != 0 or task_id in refresh["records"]:
+                continue
+            source = episode_key(record)
+            task = next(task for task in self.tasks if task["id"] == task_id)
+            remove = [context for context, sources in origins.items()
+                      if sources and {s.split("|")[0] for s in sources} == {task_id}]
+            views = sample_views(skill_views(record["events"], self.materials(task)),
+                                 self.config["cornerstones_per_episode"])
+            _, calls, contexts = await workspace.replace_cornerstones(remove, views, self.judge)
+            for context in remove:
+                origins.pop(context, None)
+            for context, sources in list(origins.items()):  # Shared situations keep their other tasks.
+                origins[context] = [s for s in sources if s.split("|")[0] != task_id]
+                if not origins[context]:
+                    del origins[context]
+            for context in contexts:
+                origins[context] = list(dict.fromkeys(origins.get(context, []) + [source]))
+            path = workdir / "run" / "episodes" / episode_filename(task_id, record["condition"], record["replicate"])
+            refresh["records"][task_id] = {"file": str(path.relative_to(self.root)), "key": source}
+            refresh["removed"] += remove
+            refresh["added"][task_id] = contexts
+            refresh["judge_calls"] += calls
+        return refresh
+
+    @staticmethod
+    def _level(workspace, node_id):
+        """Depth of a new rule under ``node_id``: 1 for a child of the root."""
+        depth = 1
+        while node_id not in (None, 0):
+            node_id = workspace.engine.nodes[node_id].parent
+            depth += 1
+        return depth
+
     async def _insert(self, directory, index, proposals, records, work, origins, version, passing_traces):
         """Insert and check each proposal in order; returns the folder of the resulting tree.
 
-        A proposal the engine rejects because its conditions are too broad (they match passing
-        cornerstones) or not true for the failing case gets one inspector retry with that feedback.
+        Every rejection gets one inspector retry with feedback (decision I4): the engine's (the
+        conditions are not true for the failing case, or match a protected stored case) or the
+        checker's (a re-run document still fails). In "rerun" mode (decision C1) a rule may change
+        stored successes; the checker re-runs them, and once the rule is kept their stored cases
+        are swapped for their passing re-run's (C3).
         """
         ledger_path = directory / "ledger.json"
         ledger = read_json(ledger_path) if ledger_path.exists() else []
@@ -287,6 +397,9 @@ class IncrementalLearner:
         for entry in ledger:  # Resume: continue from the last accepted candidate.
             if entry["decision"] == "accepted":
                 current = Path(entry["candidate"])
+                if entry.get("origins") is not None:  # Its re-run successes' stored cases were swapped.
+                    origins.clear()
+                    origins.update(entry["origins"])
         number = -1
         while number + 1 < len(proposals):
             number += 1
@@ -305,12 +418,17 @@ class IncrementalLearner:
             diagnosis = read_json(directory / "diagnoses" / diagnosis_file)["diagnosis"]
             view = view_at(record["events"], diagnosis["failing_turn"], self.materials(task))
             entry = {"round": index, "proposal_index": number, "sources": item["sources"],
-                     "proposal": item["proposal"]}
+                     "proposal": item["proposal"], "level": None, "retry_of": item.get("retry_of"),
+                     "changed_successes": self.changed_successes}
+            workdir = directory / "validation" / f"c{number}"
+            if proposal.target_node_id < len(workspace.engine.nodes):
+                entry["level"] = self._level(workspace, proposal.target_node_id)
             if view is None or view["case"] is None:
                 entry.update(decision="rejected", reason="no skill view at the failing turn")
             else:
                 result = await workspace.apply(proposal, view["case"], view["context"], self.judge,
-                                               {"sources": item["sources"], "round": index})
+                                               {"sources": item["sources"], "round": index},
+                                               changed_successes=self.changed_successes)
                 entry["insert"] = result.to_dict()
                 if result.status != "revised":
                     entry.update(decision="rejected", reason=result.reason)
@@ -319,7 +437,6 @@ class IncrementalLearner:
                     entry["tree"] = workspace.summary()
                     if self.validation.get("enabled"):
                         fixed = list(dict.fromkeys(s.split("|")[0] for s in item["sources"]))
-                        workdir = directory / "validation" / f"c{number}"
                         selection_path = workdir / "selection.json"
                         if selection_path.exists():
                             selection = read_json(selection_path)
@@ -329,19 +446,47 @@ class IncrementalLearner:
                                                                 workspace, self.judge, set(fixed))
                             except JudgeError as exc:
                                 raise Interrupted(f"candidate impact check interrupted: {exc}") from exc
-                            protected = impacted or self._protected(workspace, result.parent_id, set(fixed), origins)
-                            selection = {"fixed": fixed, "protected": protected, "impact_based": bool(impacted)}
+                            # Stored successes the rule now fires on (allowed in "rerun" mode).
+                            changed = [task_id for task_id in dict.fromkeys(
+                                source.split("|")[0] for context in result.changed
+                                for source in origins.get(context, [])) if task_id not in fixed]
+                            if self.changed_successes == "rerun":
+                                # Only tasks whose guidance changes; unchanged ones would see identical advice.
+                                protected = [task_id for task_id in dict.fromkeys(changed + impacted)
+                                             if task_id not in fixed]
+                            else:
+                                protected = impacted or self._protected(workspace, result.parent_id, set(fixed),
+                                                                        origins)
+                            selection = {"fixed": fixed, "protected": protected, "impact_based": bool(impacted),
+                                         "changed_documents": changed, "mode": self.changed_successes}
                             selection_path.parent.mkdir(parents=True, exist_ok=True)
                             write_json(selection_path, selection)
                         protected = selection["protected"]
+                        entry["changed_documents"] = selection.get("changed_documents", [])
                         (workdir / "run" / ".running").unlink(missing_ok=True)  # We hold the learner lock.
                         report = await validate_candidate(
                             skill_dir=candidate, base_config=self.run_config, hooks=self.hooks,
                             fixed_tasks=fixed, protected_tasks=protected, settings=self.validation,
                             workdir=workdir)
                         entry["validation"] = {k: report[k] for k in ("fixed", "regressions", "passes")}
+                        entry["reruns"] = report["passes"]
                         entry.update(decision="accepted" if report["accepted"] else "rejected",
                                      reason=None if report["accepted"] else "the checker's re-runs failed")
+                        if report["accepted"] and self.changed_successes == "rerun" and protected:
+                            # Later rules are checked against the guidance these successes get now.
+                            refresh = await self._refresh_cornerstones(workspace, workdir, set(protected), origins)
+                            entry["refresh"] = refresh
+                            if refresh["records"]:
+                                workspace.save()
+                                entry["tree"] = workspace.summary()
+                                # Restored on resume (see the loop above).
+                                entry["origins"] = {context: list(sources) for context, sources in origins.items()}
+                                for task_id, ref in refresh["records"].items():
+                                    rerun = load_passing_record(self.root / ref["file"], ref["key"])
+                                    if rerun is not None:
+                                        passing_traces.replace_task(
+                                            index, version + 1, rerun,
+                                            next(t for t in self.tasks if t["id"] == task_id), self.materials)
                     else:
                         entry.update(decision="accepted", reason="engine checks only (validation disabled)")
             if entry["decision"] == "accepted":
@@ -349,12 +494,17 @@ class IncrementalLearner:
                 current = candidate
             else:
                 shutil.rmtree(candidate.parent, ignore_errors=True)
-                result = entry.get("insert") or {}
-                retryable = result.get("conflicts") or "not true for the failing" in (result.get("reason") or "")
+                insert = entry.get("insert") or {}
+                engine_retry = bool(insert.get("conflicts")) or "not true for the failing" in (insert.get("reason") or "")
+                checker_retry = "validation" in entry  # Inserted, then rejected by the checker's re-runs.
                 already = any(p.get("retry") and p["sources"] == item["sources"] for p in proposals)
-                if retryable and not item.get("retry") and len(item["sources"]) == 1 and not already:
-                    retry = await self._retry(directory, version, record, task, item, entry, origins, workspace, passing_traces)
+                if (engine_retry or checker_retry) and not item.get("retry") and len(item["sources"]) == 1 \
+                        and not already:
+                    feedback = (self._checker_feedback(item, entry, workdir) if checker_retry
+                                else self._feedback(item, entry, origins, workspace))
+                    retry = await self._retry(directory, version, record, task, item, feedback, passing_traces)
                     if retry is not None:  # Saved before the ledger entry, so a resume finds it.
+                        retry["retry_of"] = number
                         proposals.append(retry)
                         saved = read_json(directory / "proposals.json")
                         write_json(directory / "proposals.json", {**saved, "proposals": proposals})
@@ -376,6 +526,9 @@ class IncrementalLearner:
                           self._passing_traces(index, version, records, passed))
         outcomes = await self._diagnose(directory, records, passed, version, passing_traces)
         proposals = await self._proposals(directory, outcomes)
+        before = directory / "cornerstones_before.json"  # Lets redo-last-round undo swapped stored cases.
+        if not before.exists():
+            write_json(before, read_json(self.root / "cornerstones.json"))
         origins = {**read_json(self.root / "cornerstones.json")}
         for context, sources in cornerstones["origins"].items():
             origins[context] = list(dict.fromkeys(origins.get(context, []) + sources))
@@ -451,10 +604,14 @@ class IncrementalLearner:
                 shutil.rmtree(directory / name, ignore_errors=True)
             if item["version_after"] != item["version_before"]:
                 shutil.rmtree(self.version_dir(item["version_after"]).parent, ignore_errors=True)
-            episodes = set(item["passed"])
-            origins = {context: [s for s in sources if s not in episodes]
-                       for context, sources in read_json(self.root / "cornerstones.json").items()}
-            write_json(self.root / "cornerstones.json", {c: s for c, s in origins.items() if s})
+            before = directory / "cornerstones_before.json"
+            if before.exists():  # Exact, including stored cases a kept rule's re-runs swapped.
+                write_json(self.root / "cornerstones.json", read_json(before))
+            else:  # Rounds finished before this snapshot existed.
+                episodes = set(item["passed"])
+                origins = {context: [s for s in sources if s not in episodes]
+                           for context, sources in read_json(self.root / "cornerstones.json").items()}
+                write_json(self.root / "cornerstones.json", {c: s for c, s in origins.items() if s})
             del rounds[str(index)]
             write_json(self.root / "rounds.json", rounds)
             state = {**state, "round": index, "current_version": item["version_before"]}

@@ -51,7 +51,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** the professors asked for past successes to guide drafting. At deeper levels the examples are exactly the cases a refinement must keep working. At the root they still show what normal cases look like.
 - **Where:** `passing.PassingTraces.examples`, `verifier.VerifierSession` (`passing_examples` tool), config `verifier.passing_examples` (default `true`).
 - **Ablation:** `verifier.passing_examples: false`.
-- **Status:** examples in use since 2026-11-13 (merge of `a71deb4`); config switch planned.
+- **Status:** in use since 2026-11-13 (examples from the merge of `a71deb4`; the switch was added the same day).
 
 ### I4. One retry, always on, for every rejection
 - **Decision:** when a rule is rejected, the inspector gets **one** more run with feedback, and this cannot be switched off. The triggers are:
@@ -64,7 +64,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** many rejections are fixable by narrowing. The professors asked for a smarter retrial.
 - **Where:** `incremental._insert` (`retryable`), `incremental._feedback`, `incremental._checker_feedback`.
 - **Ablation:** none (always on, by decision).
-- **Status:** engine-rejection retry in use since 2026-10-28 (`ea82ec0`); checker-rejection retry planned.
+- **Status:** in use. The engine-rejection retry dates from 2026-10-28 (`ea82ec0`); the checker-rejection retry was added 2026-11-13. A retry records `retry_of` (the proposal it revises) in the ledger.
 
 ## Decisions about the judge
 
@@ -134,7 +134,8 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** our rules give advice, not labels. Different advice can still give a correct answer, so rejecting every rule that touches a success throws away broad, useful rules such as "if the PDF is rotated, unrotate it". A cap may be added later if rerun costs are too high.
 - **Where:** `RDREngine.learn(..., changeable=...)`, `workspace._apply`, `incremental._insert`; config `validation.changed_successes` (`"rerun"` default, `"reject"`).
 - **Ablation:** `validation.changed_successes: "reject"` restores engine rejection, together with C2's fallback.
-- **Status:** planned (agreed 2026-11-13).
+- **Detail:** only stored cases from learning qualify. They carry a context, so their task can be re-run; any other stored case keeps classic protection. Batch mode (`pipeline.Learner`) always uses classic rejection.
+- **Status:** in use since 2026-11-13 (the default).
 
 ### C2. Only affected tasks are rerun
 - **Decision:** the checker reruns the failing task plus every success whose guidance would change. It finds these from the stored cases the rule fires on, and by replaying every saved success view under the old and new tree. Successes whose guidance is unchanged are not rerun, since they see identical guidance. The old fallback, which reran the 3 earliest successes when nothing changed, is **dropped**.
@@ -142,15 +143,15 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** a rerun of unchanged guidance cannot test the rule.
 - **Where:** `passing.affected_tasks`, `incremental._insert`.
 - **Ablation:** `validation.changed_successes: "reject"` restores the fallback.
-- **Status:** impact replay in use since 2026-11-13 (merge of `a71deb4`); dropping the fallback is planned.
+- **Status:** in use since 2026-11-13. Each candidate's `validation/cN/selection.json` lists the `protected` tasks, the `changed_documents` and the `mode`.
 
 ### C3. Stored references follow the rerun
 - **Decision:** after a rule is kept, each changed success's stored snapshots are **replaced** by snapshots from its passing rerun. The inspector's success examples and the impact replay also switch to that newest passing trace.
 - **Alternatives:** keep the original snapshots.
 - **Why:** later rules must be checked against the guidance and behaviour a task actually has now.
-- **Where:** `workspace.replace_cornerstones`, `incremental` (`passing_records.json`).
+- **Where:** `workspace.replace_cornerstones`, `incremental._refresh_cornerstones` (the ledger entry's `refresh` and `origins`), and `incremental._passing_index`, which derives each task's newest passing record from the rounds and their kept rules. `rounds/rNNN/cornerstones_before.json` lets `redo-last-round` undo the swap.
 - **Ablation:** none (part of C1).
-- **Status:** planned.
+- **Status:** in use since 2026-11-13.
 
 ### C4. One run per rerun task
 - **Decision:** the checker runs each affected task **once**.

@@ -18,7 +18,7 @@ from .proposals import Proposal
 from .records import Interrupted, episode_key, skill_views, view_at, was_interrupted
 from .validate import validate_candidate
 from .verifier import verify_episode
-from .workspace import SkillWorkspace, copy_bundle
+from .workspace import CHANGED_SUCCESSES, SkillWorkspace, copy_bundle
 
 CONFIG_KEYS = {"version", "name", "mode", "collect_run", "run_config", "batch_size", "skill_dir", "output_dir",
                "condition", "hooks", "verifier", "judge", "merge", "cornerstones_per_episode", "validation",
@@ -65,6 +65,12 @@ def load_learner_config(path):
         batch_size = config.setdefault("batch_size", 1)
         if type(batch_size) is not int or batch_size < 1:
             raise ValueError("batch_size must be a positive integer")
+    # Design switches (see docs/learning-design-decisions.md): the inspector's success examples (I3)
+    # and what a rule that changes stored successes gets (C1: re-run them, or classic rejection).
+    if not isinstance(config["verifier"].setdefault("passing_examples", True), bool):
+        raise ValueError("verifier.passing_examples must be true or false")
+    if config["validation"].setdefault("changed_successes", "rerun") not in CHANGED_SUCCESSES:
+        raise ValueError(f"validation.changed_successes must be one of {list(CHANGED_SUCCESSES)}")
     # Incremental learning runs the worker itself, so it always needs the service and store.
     if config["validation"].get("enabled") or mode == "incremental":
         for name in ("service_url", "store"):

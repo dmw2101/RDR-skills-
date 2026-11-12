@@ -29,6 +29,13 @@ class PassingTraces:
                     examples.pop(task_id, None)
                     examples[task_id] = (index, version, task, events, view)
 
+    def replace_task(self, index, version, record, task, materials):
+        """Use a task's newer passing record (e.g. a checker re-run) instead of its earlier ones."""
+        self.by_task.pop(task["id"], None)
+        for examples in self.by_node.values():
+            examples.pop(task["id"], None)
+        self.add_round(index, version, [record], {episode_key(record): True}, {task["id"]: task}, materials)
+
     def examples(self, node, exclude_task):
         examples = []
         for index, version, task, events, view in reversed(list(self.by_node.get(node, {}).values())):
@@ -51,21 +58,28 @@ class PassingTraces:
         return examples
 
 
+def load_passing_record(path, source):
+    """One saved, verified passing record, or None when the file is gone."""
+    try:
+        record = read_json(path)
+    except FileNotFoundError:
+        return None
+    if (episode_key(record) != source or record.get("record_sha256") != fingerprint(
+            {k: v for k, v in record.items() if k != "record_sha256"})):
+        raise ValueError(f"episode record changed: {path}")
+    return record
+
+
 def saved_passing_records(directory, passed):
     """Read individual verified records so one missing trace does not hide the others."""
     for source, ok in passed.items():
         if ok is not True:
             continue
         task, condition, replicate = source.rsplit("|", 2)
-        path = directory / "run" / "episodes" / episode_filename(task, condition, int(replicate))
-        try:
-            record = read_json(path)
-        except FileNotFoundError:
-            continue
-        if (episode_key(record) != source or record.get("record_sha256") != fingerprint(
-                {k: v for k, v in record.items() if k != "record_sha256"})):
-            raise ValueError(f"episode record changed: {path}")
-        yield record
+        record = load_passing_record(
+            directory / "run" / "episodes" / episode_filename(task, condition, int(replicate)), source)
+        if record is not None:
+            yield record
 
 
 async def affected_tasks(traces, baseline, candidate, judge, excluded):
