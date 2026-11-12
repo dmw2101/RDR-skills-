@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import replace
 from pathlib import Path
 
@@ -196,12 +196,21 @@ class RDREngine:
                 changed = True
         return changed
 
-    def learn(self, prediction: Prediction, feedback: Feedback) -> UpdateResult:
+    def learn(
+        self, prediction: Prediction, feedback: Feedback, changeable: Collection[str] = ()
+    ) -> UpdateResult:
         """Apply explicit feedback to a prediction from the current tree revision.
 
         Exceptions and unresolved proposals leave the tree unchanged. Callbacks
         must not re-enter the engine or mutate it from another thread.
+
+        changeable: identities (``key(case)``) of stored cases this revision may
+        change. They are not cornerstones for the new rule and are exempt from the
+        stored-output check; the caller takes responsibility for re-validating them
+        (the trace learner re-runs their tasks). The default keeps classic RDR,
+        where no stored case may change.
         """
+        changeable = frozenset(changeable)
         self._check_prediction(prediction)
         prediction = _copy_prediction(prediction)
         terminals = self._terminals(prediction.fired)
@@ -239,7 +248,7 @@ class RDREngine:
                 request = RuleRequest("stop", change.node_id, None)
             cornerstones = [
                 example for identity, (example, fired, _) in stored.items()
-                if request.parent_id in fired and identity != case_key
+                if request.parent_id in fired and identity != case_key and identity not in changeable
             ]
             if case_key in stored and request.parent_id in stored[case_key][1]:
                 attempts.append(0)
@@ -296,7 +305,7 @@ class RDREngine:
                 reason="The revised tree does not give the requested conclusions for this case",
             )
         for identity, (example, _, signature) in stored.items():
-            if identity == case_key:
+            if identity == case_key or identity in changeable:
                 continue
             conclusions, _, _ = self._infer(staged, example)
             if _signature(conclusions) != signature:

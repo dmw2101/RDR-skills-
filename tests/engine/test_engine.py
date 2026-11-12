@@ -25,6 +25,7 @@ from rdr_engine import (
     StalePredictionError,
     Stop,
 )
+from rdr_engine._json import key
 from rdr_engine.demo import (
     DeliveryAuthor, DeliveryEvaluator, DeliveryOracle, expected_labels, package,
 )
@@ -319,6 +320,36 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(author.generate_candidates.call_args.args[1], [{"a": True, "b": True}])
         self.assertEqual(author.select_condition.call_args.args[0], [flag("c")])
         self.assertEqual(labels(engine.predict({"a": True, "b": True})), {"x", "y"})
+
+    def test_changeable_stored_cases_may_change_but_others_still_block(self):
+        def engine_with(author):
+            engine = self.flag_engine(node(0, conclusion="d"), author=author)
+            engine.learn(engine.predict({"a": True}), Accept())          # will be changeable
+            engine.learn(engine.predict({"c": True}), Accept())          # unaffected by flag a
+            return engine
+        author = Mock()
+        author.generate_candidates.return_value = [flag("a")]
+        author.select_condition.return_value = [flag("a")]
+        new_case = {"a": True, "b": True}
+
+        strict = engine_with(author)
+        before = strict.to_dict()
+        result = strict.learn(strict.predict(new_case), Revise((Replace(0, "new"),)))
+        self.assertEqual(result.status, "unresolved")          # classic RDR: a stored case would change
+        self.assertEqual(strict.to_dict(), before)
+
+        relaxed = engine_with(author)
+        result = relaxed.learn(relaxed.predict(new_case), Revise((Replace(0, "new"),)),
+                               changeable={key({"a": True})})
+        self.assertEqual(result.status, "revised")
+        self.assertEqual(labels(relaxed.predict({"a": True})), {"new"})   # the allowed change happened
+        self.assertEqual(labels(relaxed.predict({"c": True})), {"d"})     # the other case is untouched
+
+        blocked = engine_with(author)
+        blocked.learn(blocked.predict({"a": True, "c": True}), Accept())  # matches but not changeable
+        result = blocked.learn(blocked.predict(new_case), Revise((Replace(0, "new"),)),
+                               changeable={key({"a": True})})
+        self.assertEqual(result.status, "unresolved")
 
     def test_only_individually_distinguishing_candidates_reach_selector(self):
         author = Mock()
