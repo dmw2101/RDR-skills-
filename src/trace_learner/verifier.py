@@ -41,7 +41,7 @@ class _Tool:
 class VerifierSession:
     """Read-only access to one episode plus gold-label tools; ends on submit_diagnosis."""
 
-    def __init__(self, *, task, record, hooks, workspace, passed=False):
+    def __init__(self, *, task, record, hooks, workspace, passed=False, passing_traces=None):
         self.task, self.record, self.hooks, self.workspace = task, record, hooks, workspace
         self.events = record.get("events", [])
         self.rescores = []
@@ -80,6 +80,12 @@ class VerifierSession:
                       Diagnosis.model_json_schema(), ensure_ascii=False)}},
                   ["diagnosis"], self._submit),
         ]
+        if passing_traces is not None:
+            async def passing_examples(args):
+                return {"examples": passing_traces.examples(args["node_id"], task["id"])}
+            tools.append(_Tool(
+                "passing_examples", "Read up to six verified passing traces for the given node.",
+                {"node_id": {"type": "integer", "minimum": 0}}, ["node_id"], passing_examples))
         self.tools = {tool.definition["function"]["name"]: tool for tool in tools}
 
     async def _read_trace(self, args):
@@ -163,10 +169,15 @@ def eligibility(outcome):
 
 
 async def verify_episode(*, model, task, record, hooks, workspace, max_calls=30, timeout_seconds=900,
-                         feedback=None):
+                         feedback=None, passing_traces=None):
     """feedback: why an earlier proposal for this episode was rejected, for one retry."""
-    session = VerifierSession(task=task, record=record, hooks=hooks, workspace=workspace)
+    session = VerifierSession(task=task, record=record, hooks=hooks, workspace=workspace,
+                              passing_traces=passing_traces)
     prompt = verifier_prompt(hooks.benchmark)
+    if passing_traces is not None:
+        prompt += ("\nBefore proposing a skill change, call passing_examples for the target node. "
+                   "Use the successful traces to narrow the condition to the distinguishing case. "
+                   "If the tool returns no examples, proceed with the failed trace.")
     if feedback:
         prompt += "\n\nPREVIOUS ATTEMPT (rejected)\n" + feedback
     result = await run_episode(model=model, session=session, skill_context=None,

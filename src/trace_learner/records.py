@@ -26,7 +26,7 @@ def was_interrupted(outcome):
             and INTERRUPTION.search(error) is not None)
 
 
-def skill_views(events, materials=None):
+def skill_views(events, materials=None, *, include_markdown=False):
     """Every resolved view with the model turn it was first shown on.
 
     context is the text the judge reads: the worker's starting materials (when the
@@ -49,6 +49,8 @@ def skill_views(events, materials=None):
                 "terminal_ids": metadata.get("terminal_ids", []),
                 "markdown_sha256": event.get("markdown_sha256"),
             })
+            if include_markdown:
+                views[-1]["markdown"] = event["response"].get("markdown") or ""
     return views
 
 
