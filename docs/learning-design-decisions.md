@@ -161,6 +161,28 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** `validation.replicates: 2` (or more).
 - **Status:** in use since 2026-11-13, set in `examples/learning/varex.learner.json`, which the Colab setup copies. The code's own default is still 2 for configs that omit it.
 
+## Decisions about serving and measurement
+
+### G1. The worker/judge model and the inspector model take turns on one GPU
+- **Decision:** the 4B (worker, checker, judge) and the 27B (inspector, merge) run as two local vLLM servers that cannot both fit in GPU memory. Before each call, `SwitchingClient` wakes the call's server and puts the other to sleep (vLLM sleep mode, level 1: weights move to CPU memory). A switch waits until no call to the other server is in flight.
+- **Alternatives:** both models loaded at once (forces a smaller inspector); the inspector on a hosted API (cost in two units).
+- **Why:** a strong 27B inspector with a capable worker on a 24 GB GPU. Test-time evaluation uses only the worker and judge, so no switching happens there.
+- **Where:** `skill_agent.models.SwitchingClient` (option `peers`); the learner's model configs.
+- **Ablation:** none (a serving choice, not a method choice).
+- **Status:** in use since 2026-11-13.
+
+### M1. Latency is measured per model call, apart from waits and switches
+- **Decision:** each model call records `latency_seconds`, the wall time of its successful HTTP request. Retry back-off (`retry_wait_seconds`) and model switches (`switch_seconds`) are recorded separately and never counted as latency. The judge's calls carry the same fields. `skill_agent summarize` reports per arm:
+  - `model_seconds` and `model_seconds_per_call`;
+  - `judge_seconds`;
+  - `model_switch_seconds` and `retry_wait_seconds`;
+  - `other_seconds`: tools, skill selection and overhead.
+- **Alternatives:** whole-episode time only, which mixes model time with tool time.
+- **Why:** the skill method changes what the model reads, so per-call model time isolates its effect on latency.
+- **Where:** `skill_agent.models.OpenAICompatibleClient._post`, `skill_agent.experiments.timing_summary`.
+- **Ablation:** none (measurement only).
+- **Status:** in use since 2026-11-13. Records from earlier runs report null model time.
+
 ## Decisions about visibility
 
 ### V1. Every proposed rule is logged in full, after every round

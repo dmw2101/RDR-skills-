@@ -167,4 +167,6 @@ class LearnedFeatureResolver:
             "materials_sha256": source_fingerprint(materials) if materials else None,
             "provider": response.metadata.get("provider"),
             "finish_reason": response.metadata.get("finish_reason"),
+            "latency_seconds": response.metadata.get("latency_seconds"),
+            "switch_seconds": response.metadata.get("switch_seconds"),
         }})

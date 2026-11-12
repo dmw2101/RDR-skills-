@@ -309,6 +309,38 @@ def automatic_skill_refreshes(events):
                for event in events)
 
 
+def timing_summary(episodes, model_events, skill_events):
+    """Where an arm's time went: the worker's model calls, the judge, model switches and the rest.
+
+    Uses the per-call ``latency_seconds`` the model client records (null when any call lacks it,
+    e.g. records from before it existed). ``other_seconds`` is everything else in the episodes:
+    tool commands, skill selection outside the judge, and harness overhead.
+    """
+    def total(events, key):
+        values = [(e.get("metadata") or {}).get(key) for e in events]
+        return None if not values or any(v is None for v in values) else sum(values)
+
+    judge = [((e["response"].get("metadata") or {}).get("feature_judge") or {}) for e in skill_events]
+    judge = [j for j in judge if j]
+    model_seconds = total(model_events, "latency_seconds")
+    switch_seconds = total(model_events, "switch_seconds") or 0.0
+    retry_wait = total(model_events, "retry_wait_seconds") or 0.0
+    judge_seconds = (sum(j["latency_seconds"] for j in judge)
+                     if judge and all(j.get("latency_seconds") is not None for j in judge) else (0.0 if not judge else None))
+    episode_seconds = sum(r["seconds"] for r in episodes)
+    selection_seconds = sum(e["seconds"] for e in skill_events)
+    return {
+        "model_seconds": model_seconds,
+        "model_seconds_per_call": (model_seconds / len(model_events)) if model_seconds is not None and model_events else None,
+        "judge_calls": len(judge),
+        "judge_seconds": judge_seconds,
+        "model_switch_seconds": switch_seconds + sum(j.get("switch_seconds") or 0.0 for j in judge),
+        "retry_wait_seconds": retry_wait,
+        "other_seconds": (episode_seconds - model_seconds - selection_seconds - switch_seconds - retry_wait
+                          if model_seconds is not None else None),
+    }
+
+
 def usage_summary(records):
     result = {}
     for condition in CONDITIONS:
@@ -354,6 +386,7 @@ def usage_summary(records):
             "episode_seconds": sum(r["seconds"] for r in episodes),
             "selection_seconds": sum(e["seconds"] for e in skill_events),
             "selected_markdown_characters": sum(len(e["response"]["markdown"]) for e in skill_events),
+            **timing_summary(episodes, model_events, skill_events),
         }
     return result
 

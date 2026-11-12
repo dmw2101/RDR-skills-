@@ -49,6 +49,12 @@ class ModelRetryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(HTTPStatusError, "HTTP 429 from h"):
             await self.complete(refusals)
 
+    async def test_each_call_records_its_own_latency_apart_from_retry_waits(self):
+        response, waits, _ = await self.complete([HTTPStatusError(429, "h"), REPLY])
+        self.assertEqual(response.metadata["retry_wait_seconds"], 5)  # The back-off, kept apart.
+        self.assertGreaterEqual(response.metadata["latency_seconds"], 0)
+        self.assertLess(response.metadata["latency_seconds"], 5)  # Only the successful request.
+
     def test_retry_after_header_parsing(self):
         self.assertEqual(_retry_after({"Retry-After": "12"}), 12.0)
         self.assertIsNone(_retry_after({"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}))
