@@ -161,6 +161,18 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** `validation.replicates: 2` (or more).
 - **Status:** in use since 2026-11-13, set in `examples/learning/varex.learner.json`, which the Colab setup copies. The code's own default is still 2 for configs that omit it.
 
+## Decisions about the data
+
+### D1. VAREX Flat is split about 50/50: learn on 150, test on 149
+- **Decision:** of the 299 VAREX Flat documents (sorted, shuffled with seed 42), learning uses the **first 150 held-out documents**. The final test uses the other **149**: the 30 dev documents plus held-out documents 151–269. No document is in both sets.
+- **Alternatives:**
+  - learn on the first 30 held-out documents and test on dev-30 (the earlier set-up, a leftover from the pilot's 30-document evaluation split);
+  - match Trace2Skill: learn on VRDU Registration Forms and test on all 299 VAREX Flat. This would need a VRDU adapter first, and it tests transfer between datasets rather than learning within one.
+- **Why:** 30 documents gave too few failures to learn from (the 10-document run had one learnable failure). Neither the VAREX paper nor Trace2Skill defines a VAREX training split; VAREX is test-only in both. Dev-30 goes in the test set because the learner never sees it. Our harness was tuned on it during the pilot, but that tuning is shared by every arm.
+- **Where:** `skill_agent prepare --heldout-limit 150` (`benchmarks/local-data/varex-heldout-150`). The test set needs a prepare option for "dev plus held-out from position 151", not yet written.
+- **Ablation:** none (a data choice).
+- **Status:** decided 2026-11-14. The first learning run on 150 documents started the same day.
+
 ## Decisions about the skill
 
 ### K1. The skill arms get the whole PDF skill package, not only SKILL.md
