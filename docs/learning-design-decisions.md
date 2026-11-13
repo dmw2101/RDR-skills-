@@ -161,6 +161,21 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** `validation.replicates: 2` (or more).
 - **Status:** in use since 2026-11-13, set in `examples/learning/varex.learner.json`, which the Colab setup copies. The code's own default is still 2 for configs that omit it.
 
+## Decisions about scoring
+
+### P1. A VAREX document passes only when every scored field is right
+- **Decision:** during learning, a VAREX document counts as passed only when the official scorer marks it a **perfect document**: every scored field correct. One wrong field makes it a failure. This one line decides:
+  - which documents go to the inspector as failures;
+  - whether the inspector's corrected answer counts as a fix (I2);
+  - whether the checker's reruns pass (C1, C2);
+  - which documents become stored successes (T4).
+- **Alternatives:** a field-accuracy threshold, such as at least 90% of scored fields correct; treating each wrong field as its own failure.
+- **Why:** a document with a wrong field is still a wrong extraction, and a rule cannot be kept while it leaves a field wrong. The strict line also gives the learner more failures to learn from. The cost is that the inspector may chase a single small mistake, including mistakes in the answer key itself: in the first learning run, one failure came from an answer key that was cut short.
+- **Where:** `trace_learner/benchmarks/varex.py` (`VarexHooks.outcomes` and `VarexHooks.rescore`), reading the `perfect_document` metric that `VarexAdapter.score` takes from the official scorer. Each benchmark defines its pass line in its own hooks.
+- **Ablation:** none. A threshold would need a new option in `VarexHooks`.
+- **Detail:** this governs learning only. Evaluation still reports both field-level accuracy (`normalized_field_em`) and perfect documents.
+- **Status:** in use since 2026-10-28 (`4272ccf`); recorded here 2026-11-14.
+
 ## Decisions about serving and measurement
 
 ### G1. The worker/judge model and the inspector model take turns on one GPU
