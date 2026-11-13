@@ -204,7 +204,8 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Decision:** the 4B (worker, checker, judge) and the 27B (inspector, merge) run as two local vLLM servers that cannot both fit in GPU memory. Before each call, `SwitchingClient` wakes the call's server and puts the other to sleep (vLLM sleep mode, level 1: weights move to CPU memory). A switch waits until no call to the other server is in flight.
 - **Alternatives:** both models loaded at once (forces a smaller inspector); the inspector on a hosted API (cost in two units).
 - **Why:** a strong 27B inspector with a capable worker on a 24 GB GPU. Test-time evaluation uses only the worker and judge, so no switching happens there.
-- **Where:** `skill_agent.models.SwitchingClient` (option `peers`); the learner's model configs.
+- **Context:** the 27B is served with a 65,536-token limit per request and 3 GiB of KV cache (84,650 tokens). With 32,768, the inspector's requests outgrew the limit: on document 50164 its prompt reached 42,786 tokens by turn 12, and the server refused the call with HTTP 400, so the failure produced no diagnosis. Each inspector tool output is clipped to 12,000 characters, but over a 30-call budget they add up. The 4B keeps 32,768.
+- **Where:** `skill_agent.models.SwitchingClient` (option `peers`); the learner's model configs; the GPU machine's `serve_27b.sh` (`--max-model-len`, `--kv-cache-memory-bytes`).
 - **Ablation:** none (a serving choice, not a method choice).
 - **Status:** in use since 2026-11-13.
 
