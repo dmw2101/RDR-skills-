@@ -20,6 +20,11 @@ class TinySession:
     peak = 0
     closed = 0
 
+    received = []
+
+    async def add_files(self, files):
+        TinySession.received.append(sorted(files))
+
     async def collect(self):
         await asyncio.sleep(.01)
         return {"done": True}
@@ -90,6 +95,31 @@ class ExperimentTests(unittest.IsolatedAsyncioTestCase):
             "run": {"output_dir": str(self.root / "run"), "split": "dev", "limit": 2,
                     "replicates": 1, "concurrency": 2, "max_calls": 3, "timeout_seconds": 10}}
         TinyModel.calls = TinySession.active = TinySession.peak = TinySession.closed = 0
+        TinySession.received = []
+
+    async def test_skill_files_reach_every_skill_arm_but_not_none(self):
+        (self.root / "forms.md").write_text("forms guide")
+        (self.root / "scripts").mkdir()
+        (self.root / "scripts/tool.py").write_text("print(1)")
+        self.config["skill"]["files"] = {"FORMS.md": str(self.root / "forms.md"),
+                                         "scripts": str(self.root / "scripts")}
+        await run_experiment(self.config)
+        # Two documents in full and reduced receive the files; the two none episodes do not.
+        self.assertEqual(TinySession.received, [["FORMS.md", "scripts"]] * 4)
+        hashes = read_json(self.root / "run/manifest.json")["skill_files"]
+        self.assertEqual(set(hashes), {"FORMS.md", "scripts"})
+        self.assertEqual(set(hashes["scripts"]), {"tool.py"})
+        self.assertEqual(len(hashes["FORMS.md"][""]), 64)
+
+    async def test_skill_file_names_cannot_hide_task_files(self):
+        for name in ("inputs", "answer.json", "a/b", ".."):
+            self.config["skill"]["files"] = {name: str(self.root / "full.md")}
+            with self.assertRaisesRegex(ValueError, "plain name"):
+                await run_experiment(self.config)
+        self.config["skill"]["files"] = {"FORMS.md": str(self.root / "missing.md")}
+        with self.assertRaisesRegex(ValueError, "not found"):
+            await run_experiment(self.config)
+        self.assertEqual(TinyModel.calls, 0)
 
     async def test_three_arm_run_concurrency_resume_and_second_benchmark(self):
         result = await run_experiment(self.config)

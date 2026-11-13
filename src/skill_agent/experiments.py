@@ -144,6 +144,39 @@ def dependency_versions():
     return versions
 
 
+def skill_files(skill):
+    """The skill's extra files, as {name in the worker's folder: source path}, checked.
+
+    `skill.files` maps a name such as "FORMS.md" or "scripts" to a file or folder. Every
+    arm except `none` finds them in its working folder, as a full skill package would
+    supply them. Names are plain top-level names that cannot hide the task's own files.
+    """
+    files = skill.get("files") or {}
+    if not isinstance(files, dict):
+        raise ValueError("skill.files must map file names to paths")
+    checked = {}
+    for name, source in files.items():
+        if (not isinstance(name, str) or not name or name in (".", "..") or "/" in name or "\\" in name
+                or name.casefold() in ("inputs", "answer.json")):
+            raise ValueError(f"skill file name {name!r} must be a plain name other than inputs or answer.json")
+        source = Path(source)
+        if not source.exists():
+            raise ValueError(f"skill file {name!r} not found: {source}")
+        checked[name] = source
+    return checked
+
+
+def skill_file_hashes(files):
+    """SHA-256 of every file under each entry, so a run records exactly what workers saw."""
+    hashes = {}
+    for name, source in files.items():
+        paths = [source] if source.is_file() else sorted(
+            p for p in source.rglob("*") if p.is_file() and "__pycache__" not in p.parts)
+        hashes[name] = {("" if p == source else p.relative_to(source).as_posix()):
+                        hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
+    return hashes
+
+
 def make_resolvers(config):
     skill = config["skill"]
     receipt = read_json(skill["receipt"])
@@ -171,8 +204,9 @@ async def run_experiment(config, *, resume=False):
     if len(names) != len(set(names)):
         raise ValueError("task IDs produce colliding episode filenames")
     runtime_provenance = await adapter.prepare_runtime()
-    receipt, resolvers, probe = None, {}, None
+    receipt, resolvers, probe, files = None, {}, None, {}
     if any(condition != "none" for condition in conditions):
+        files = skill_files(config["skill"])
         receipt, resolvers = make_resolvers(config)
         # Fail before spending inference tokens if service provenance is inconsistent.
         probe = SessionContext(config["skill"]["id"], receipt["artifact_id"], tasks[0]["task"],
@@ -202,6 +236,8 @@ async def run_experiment(config, *, resume=False):
                 "tasks": tasks, "system_prompt": adapter.system_prompt}
     if "reduced" in resolvers and hasattr(resolvers["reduced"], "provenance"):
         manifest["skill_selector"] = resolvers["reduced"].provenance
+    if files:  # Absent otherwise, so runs without skill files keep their run IDs.
+        manifest["skill_files"] = skill_file_hashes(files)
     run_id = fingerprint(manifest)
     root = Path(run["output_dir"])
     root.mkdir(parents=True, exist_ok=True)
@@ -248,6 +284,10 @@ async def run_experiment(config, *, resume=False):
                 try:
                     model = factory(config["model"])
                     session = await adapter.open_session(task)
+                    if files and condition != "none":
+                        if not hasattr(session, "add_files"):
+                            raise ValueError("this benchmark's sessions cannot receive skill files")
+                        await session.add_files(files)
                     setup_seconds = time.monotonic() - started
                     policy = (NoSkillPolicy() if condition == "none" else
                               (adapter.rolling_skill_policy() if hasattr(adapter, "rolling_skill_policy")

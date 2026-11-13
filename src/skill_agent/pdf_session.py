@@ -172,6 +172,19 @@ class VenvPDFSession:
             await self.close()
             raise
 
+    async def add_files(self, files):
+        """Copy extra skill files ({name: file or folder}) into the working folder."""
+        if self.directory is None:
+            raise RuntimeError("PDF session has not started")
+        for name, source in files.items():
+            source, target = Path(source), self.directory / name
+            if target.exists():
+                raise ValueError(f"{name} already exists in the working folder")
+            if source.is_dir():
+                shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__"))
+            else:
+                shutil.copyfile(source, target)
+
     async def collect(self):
         if self.directory is None:
             raise RuntimeError("PDF session has not started")

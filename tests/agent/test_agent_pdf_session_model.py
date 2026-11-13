@@ -70,6 +70,28 @@ class PDFSessionTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(directory.exists())
             await session.close()  # Idempotent cleanup.
 
+    async def test_skill_files_are_copied_beside_the_inputs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp)
+            pdf = temp / "original.pdf"
+            pdf.write_bytes(b"%PDF fake fixture")
+            (temp / "forms.md").write_text("forms guide")
+            (temp / "scripts/__pycache__").mkdir(parents=True)
+            (temp / "scripts/tool.py").write_text("print(1)")
+            (temp / "scripts/__pycache__/tool.pyc").write_bytes(b"cache")
+            session = await VenvPDFSession(pdf=pdf, schema={}, task="extract").start()
+            try:
+                await session.add_files({"FORMS.md": temp / "forms.md", "scripts": temp / "scripts"})
+                directory = session.directory
+                self.assertEqual((directory / "FORMS.md").read_text(), "forms guide")
+                self.assertEqual(sorted(p.name for p in (directory / "scripts").iterdir()), ["tool.py"])
+                self.assertEqual(sorted(p.name for p in (directory / "inputs").iterdir()),
+                                 ["document.pdf", "schema.json"])
+                with self.assertRaisesRegex(ValueError, "already exists"):
+                    await session.add_files({"FORMS.md": temp / "forms.md"})
+            finally:
+                await session.close()
+
     async def test_subprocess_time_and_output_limits(self):
         with self.assertRaises(TimeoutError):
             await process(sys.executable, "-c", "import time; time.sleep(10)", timeout=.05)

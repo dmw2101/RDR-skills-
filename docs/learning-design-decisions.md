@@ -161,6 +161,16 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** `validation.replicates: 2` (or more).
 - **Status:** in use since 2026-11-13, set in `examples/learning/varex.learner.json`, which the Colab setup copies. The code's own default is still 2 for configs that omit it.
 
+## Decisions about the skill
+
+### K1. The skill arms get the whole PDF skill package, not only SKILL.md
+- **Decision:** every arm except `none` finds Anthropic's `pdf` skill files in its working folder: `FORMS.md` (forms.md), `REFERENCE.md` (reference.md) and `scripts/` (8 scripts), from the pinned commit `3337550`. The skill text the tree serves is unchanged: `SKILL.md`, identical to `skills/pdf/initial.md`, 1,007 words. The worker reads the extra files only when it chooses to. This covers learning runs, the checker's reruns and every evaluation arm.
+- **Alternatives:** `SKILL.md` alone, as in the pilot, where its pointers ("read FORMS.md", "see REFERENCE.md") led to missing files; compiling the extra files into the tree, which would quadruple the skill text at the root.
+- **Why:** this is the skill as Anthropic ships it, and the package Trace2Skill evolved. `forms.md` and `extract_form_field_info.py` cover fillable form fields, the cause of the first learning run's only learnable failure (ri20-064). The upstream files are lower-case, but `SKILL.md` names them in capitals, so they are copied under the capitalised names it uses (Linux file names are case-sensitive).
+- **Where:** config `skill.files`; `skill_agent.experiments.skill_files`, `VenvPDFSession.add_files`. The files stay in the git-ignored `papers/Trace2Skill/skills/licensed/` folder (Anthropic's licence forbids redistribution) and are copied into each worker folder at run time.
+- **Ablation:** omit `skill.files`.
+- **Status:** in use from 2026-11-14. Results from earlier runs, including the pilot, used `SKILL.md` alone.
+
 ## Decisions about scoring
 
 ### P1. A VAREX document passes only when every scored field is right
