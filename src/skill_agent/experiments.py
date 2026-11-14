@@ -372,7 +372,7 @@ def timing_summary(episodes, model_events, skill_events):
     return {
         "model_seconds": model_seconds,
         "model_seconds_per_call": (model_seconds / len(model_events)) if model_seconds is not None and model_events else None,
-        "judge_calls": len(judge),
+        "judge_calls": sum(j.get("calls", 1) for j in judge),  # 0 when document values were reused.
         "judge_seconds": judge_seconds,
         "model_switch_seconds": switch_seconds + sum(j.get("switch_seconds") or 0.0 for j in judge),
         "retry_wait_seconds": retry_wait,

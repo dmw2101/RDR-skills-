@@ -92,6 +92,26 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** none.
 - **Status:** in use (since 2026-10-28, `3178ec5`, `7c577e8`).
 
+### J4. A condition about the document is judged once per document
+- **Decision:** each learned condition has a **scope**, chosen by the inspector when it writes the condition.
+  - `document`: a property of the starting materials alone. The judge reads only those materials, is asked **once per document**, and the answer is reused at every worker step. During learning, every stored snapshot of one document shares that one answer.
+  - `situation`: depends on the worker's recent messages. It is judged before every step on the materials plus those messages, as before. This is the default, so earlier trees behave as they did.
+- **Alternatives:** judge every condition before every step (the behaviour until now); judge once and let the judge also read the worker's messages.
+- **Why:** in the first 150-document run, one learned rule raised a worker run from 45 s to 206 s, of which 136 s was the judge (about 10.6 calls of 12.8 s). Its answers also changed from step to step on the same document (1 to 10 changes per document), and it said `true` once in 20 first runs. A condition about the document has one right answer, so it is asked once. Checking a candidate rule also needs one call per stored document instead of one per stored snapshot (94 calls for rule 26.1).
+- **Where:** `LearnedFeature.scope` (`rdr_engine/learned.py`), `NewFeature.scope` (`trace_learner/proposals.py`), `learned_features.document_context` / `judged_text`, `LearnedFeatureResolver.resolve` (`document_values`), `workspace._judge_contexts`; the inspector's prompt (`prompts/verifier.md`).
+- **Ablation:** none as a switch. Conditions written with `scope: "situation"` run the earlier behaviour.
+- **Caveat:** one judge answer now decides the rule for the whole document, and the judge samples (S1). A single wrong `unknown` hides the rule for that run.
+- **Status:** written 2026-11-14, not yet run on the GPU.
+
+### J5. The judge sees a PDF's filled form-field values
+- **Decision:** for VAREX, the judge's starting materials list the PDF's filled form fields (`name: value`, at most 3,000 characters) before the text layer. A PDF with no filled fields gets the same materials as before.
+- **Alternatives:** the text layer alone (the behaviour until now).
+- **Why:** pypdf's text layer leaves out filled AcroForm values. On document 4742 it held none of the 6 filled values, and on opm1637 only the labels. The inspector, which reads the PDF through the shell, wrote conditions about values the judge could not see, so rules 3.1 and 16.1 were rejected as "not true for the failing document".
+- **Where:** `skill_agent/benchmarks/varex.py` (`pdf_contents`, `form_values_text`, `VarexAdapter.judge_materials`).
+- **Ablation:** none.
+- **Caveat:** this changes the judged text for form PDFs, so stored snapshots from earlier runs no longer match new ones. Start a new learning run.
+- **Status:** written 2026-11-14, not yet run on the GPU.
+
 ## Decisions about the tree and the engine
 
 ### T1. Learning starts from a root-only tree
@@ -142,6 +162,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Alternatives:** rerun up to `protected_limit` successes reaching the changed node (the original behaviour); keep the fallback.
 - **Why:** a rerun of unchanged guidance cannot test the rule.
 - **Where:** `passing.affected_tasks`, `incremental._insert`.
+- **Detail:** the replay asks the judge for every saved view in one batch, 4 calls at a time (`workspace.replay_cases`). Until 2026-11-14 it asked one view after another, which took 12.7 of the 19 minutes spent checking rule 26.1.
 - **Ablation:** `validation.changed_successes: "reject"` restores the fallback.
 - **Status:** in use since 2026-11-13. Each candidate's `validation/cN/selection.json` lists the `protected` tasks, the `changed_documents` and the `mode`.
 

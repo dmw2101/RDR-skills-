@@ -158,6 +158,32 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         stored, calls = await self.workspace.accept({**EXTRACT, "lf_form_fields": "false"}, "run-time judged", self.judge)
         self.assertEqual(calls, 0)  # Values judged at run time are recorded, not re-judged.
 
+    async def test_document_scope_features_are_judged_once_per_document(self):
+        from skill_agent.learned_features import judge_context
+
+        workspace = SkillWorkspace(copy_bundle(ROOT / "skills/pdf", Path(self.temporary.name) / "scoped"))
+        plain, form = "Task: extract\nPDF text layer:\nTotals", "Task: extract\nFilled PDF form fields\nName: Pope"
+        for step in range(3):  # Three stored steps of one document without form fields.
+            await workspace.accept(EXTRACT, judge_context(f"worker step {step}", plain))
+        judge = KeywordJudge({"lf_form_fields": "form fields"})
+        scoped = proposal(conditions=[{"new_feature": {
+            "name": "lf_form_fields", "description": "The PDF has form fields.", "scope": "document"}}])
+        # The worker's own words mention form fields; a document-scope feature must ignore them.
+        result = await workspace.apply(scoped, EXTRACT, judge_context("I will look for form fields", plain), judge, {})
+        self.assertEqual(result.status, "unresolved")
+        self.assertEqual(result.judged, {"lf_form_fields": "false"})
+        judge.calls.clear()
+        result = await workspace.apply(scoped, EXTRACT, judge_context("worker step 9", form), judge, {})
+        self.assertEqual(result.status, "revised", result.reason)
+        # One call per document (the failing one and the stored one), not one per stored step.
+        self.assertEqual(len(judge.calls), 2)
+        self.assertTrue(all(text.endswith("</starting_materials>") for _, text in judge.calls))
+        # Later steps of the same documents reuse those answers.
+        cases = await workspace.replay_cases([(EXTRACT, judge_context("another step", form)),
+                                              (EXTRACT, judge_context("another step", plain))], judge)
+        self.assertEqual([case["lf_form_fields"] for case in cases], ["true", "false"])
+        self.assertEqual(len(judge.calls), 2)
+
     def test_diagnosis_schema_ties_proposals_to_skill_attributions(self):
         with self.assertRaises(ValueError):
             Diagnosis.model_validate_json(json.dumps({"attribution": "not_skill", "root_cause": "x",

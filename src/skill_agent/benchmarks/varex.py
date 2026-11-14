@@ -45,28 +45,56 @@ def download_scorer(scoring):
 
 
 PDF_TEXT_SCRIPT = (
-    "import sys\n"
+    "import json, sys\n"
     "import pypdf\n"
-    "pages = pypdf.PdfReader(sys.argv[1]).pages\n"
-    "sys.stdout.write('\\n'.join(f'--- page {i} ---\\n' + (page.extract_text() or '').strip()\n"
-    "                            for i, page in enumerate(pages, 1)))\n"
+    "reader = pypdf.PdfReader(sys.argv[1])\n"
+    "text = '\\n'.join(f'--- page {i} ---\\n' + (page.extract_text() or '').strip()\n"
+    "                 for i, page in enumerate(reader.pages, 1))\n"
+    "try:\n"
+    "    fields = reader.get_fields() or {}\n"
+    "except Exception:\n"
+    "    fields = {}\n"
+    "filled = [[str(name), str(field.get('/V'))] for name, field in fields.items()\n"
+    "          if field.get('/V') not in (None, '', '/Off')]\n"
+    "json.dump({'text': text, 'fields': filled}, sys.stdout)\n"
 )
+MAX_FORM_VALUE_CHARS = 3000  # The judge's materials are cut after their start; keep room for the text.
 
 
-def pdf_text(python_executable, pdf, timeout=60):
-    """The PDF's text layer, or a fixed note when there is none or it cannot be read."""
+def pdf_contents(python_executable, pdf, timeout=60):
+    """(text layer, filled form fields) of a PDF; a fixed note replaces a missing or unreadable text layer.
+
+    Filled AcroForm values are not part of the text layer (pypdf's extract_text leaves them
+    out), so they are read separately as [name, value] pairs.
+    """
     try:
         completed = subprocess.run([str(python_executable), "-X", "utf8", "-c", PDF_TEXT_SCRIPT, str(pdf)],
                                    capture_output=True, timeout=timeout, encoding="utf-8", errors="replace")
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return f"(text layer unavailable: {type(exc).__name__})"
+        return f"(text layer unavailable: {type(exc).__name__})", []
     if completed.returncode:
         lines = (completed.stderr or "").strip().splitlines()
-        return f"(text layer unavailable: {lines[-1] if lines else 'exit ' + str(completed.returncode)})"
-    text = completed.stdout
+        return f"(text layer unavailable: {lines[-1] if lines else 'exit ' + str(completed.returncode)})", []
+    contents = json.loads(completed.stdout)
+    text = contents["text"]
     if not re.sub(r"--- page \d+ ---", "", text).strip():
-        return "(no text layer: the PDF may be scanned images)"
-    return text
+        text = "(no text layer: the PDF may be scanned images)"
+    return text, contents["fields"]
+
+
+def pdf_text(python_executable, pdf, timeout=60):
+    """The PDF's text layer, or a fixed note when there is none or it cannot be read."""
+    return pdf_contents(python_executable, pdf, timeout)[0]
+
+
+def form_values_text(fields):
+    """Filled form fields as 'name: value' lines for the judge, or '' when the PDF has none."""
+    if not fields:
+        return ""
+    lines = "\n".join(f"{name}: {value}" for name, value in fields)
+    if len(lines) > MAX_FORM_VALUE_CHARS:
+        lines = lines[:MAX_FORM_VALUE_CHARS] + f"\n[... {len(lines) - MAX_FORM_VALUE_CHARS} more characters not shown]"
+    return f"Filled PDF form fields (field name: value):\n{lines}\n\n"
 
 
 def prepare_varex(destination, *, dev_limit=None, task_ids=None, heldout_limit=None):
@@ -198,16 +226,17 @@ class VarexAdapter:
     def judge_materials(self, task):
         """What the worker starts with, as text, for the learned-feature judge.
 
-        The task, the requested output schema and the PDF's text layer (pypdf in the
-        worker's venv). Public inputs only; gold labels are never read. Host-independent,
-        so learning and evaluation judge the same text.
+        The task, the requested output schema, the PDF's filled form fields (when it has
+        any) and its text layer (pypdf in the worker's venv). Public inputs only; gold labels
+        are never read. Host-independent, so learning and evaluation judge the same text.
         """
         cache = self.__dict__.setdefault("_materials", {})
         if task["id"] not in cache:
             public = self.root / "public" / task["id"]
             schema = json.dumps(read_json(public / "schema.json"), ensure_ascii=False)
+            text, fields = pdf_contents(self.python_executable, public / "document.pdf")
             cache[task["id"]] = (f"Task: {task['task']}\n\nRequested JSON schema:\n{schema}\n\n"
-                                 f"PDF text layer:\n{pdf_text(self.python_executable, public / 'document.pdf')}")
+                                 f"{form_values_text(fields)}PDF text layer:\n{text}")
         return cache[task["id"]]
 
     async def open_session(self, task):

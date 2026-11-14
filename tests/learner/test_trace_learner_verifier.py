@@ -191,6 +191,23 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("<recent_activity>\nworker: reading page 1\n</recent_activity>", judge.seen)
         self.assertIsNotNone(result.metadata["feature_judge"]["materials_sha256"])
 
+    async def test_document_scope_features_are_judged_once_and_reused(self):
+        judge = JudgeModel()
+        resolver = self.resolver({"lf_tables": {"description": "The PDF has tables.", "scope": "document"}}, judge)
+        for step in ("worker: step 1", "worker: step 2"):
+            result = await resolver.resolve(ResolveSkillRequest("pdf", step, {}, "artifact"),
+                                            materials="PDF text layer:\nhas tables")
+            self.assertEqual(result.markdown, "view lf_tables=true")
+        self.assertEqual(judge.calls, 1)
+        self.assertNotIn("recent_activity", judge.seen)  # Judged on the materials alone.
+        self.assertEqual(result.usage["model_calls"], 0)
+        self.assertEqual(result.metadata["feature_judge"]["reused"], ["lf_tables"])
+        self.assertEqual(result.metadata["feature_judge"]["latency_seconds"], 0)
+        # Another document is judged on its own materials.
+        await resolver.resolve(ResolveSkillRequest("pdf", "worker: step 1", {}, "artifact"),
+                               materials="PDF text layer:\nalso has tables")
+        self.assertEqual(judge.calls, 2)
+
     def test_judge_context_keeps_the_start_of_materials_and_the_end_of_recent_text(self):
         self.assertEqual(judge_context("recent"), "recent")  # Without materials: unchanged from before.
         text = judge_context("r" * (MAX_JUDGE_CHARS + 5) + "END", "BEGIN" + "m" * MAX_MATERIAL_CHARS)

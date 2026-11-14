@@ -120,6 +120,25 @@ class JudgeMaterialsTests(unittest.TestCase):
             canvas.save()
             self.assertEqual(pdf_text(sys.executable, blank), "(no text layer: the PDF may be scanned images)")
 
+    @unittest.skipUnless(importlib.util.find_spec("reportlab") and importlib.util.find_spec("pypdf"),
+                         "install the pdf-runtime extra for PDF integration")
+    def test_filled_form_values_reach_the_judge_materials(self):
+        from reportlab.pdfgen.canvas import Canvas
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pdf = self.write_task(root)
+            canvas = Canvas(str(pdf))
+            canvas.drawString(40, 750, "Applicant name")
+            canvas.acroForm.textfield(name="applicant", value="Richard Pope", x=40, y=700, width=200, height=20)
+            canvas.acroForm.textfield(name="empty", value="", x=40, y=660, width=200, height=20)
+            canvas.showPage()
+            canvas.save()
+            materials = self.adapter(root).judge_materials({"id": "doc1", "task": "Extract."})
+            self.assertIn("Filled PDF form fields (field name: value):\napplicant: Richard Pope\n\nPDF text layer:",
+                          materials)
+            self.assertNotIn("empty:", materials)
+
 
 @unittest.skipUnless(os.environ.get("SKILL_AGENT_NETWORK_TESTS") == "1", "opt-in network/scorer dependencies")
 class OfficialScorerParityTests(unittest.TestCase):

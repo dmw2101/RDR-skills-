@@ -84,7 +84,7 @@ def saved_passing_records(directory, passed):
 
 async def affected_tasks(traces, baseline, candidate, judge, excluded):
     """Compare guidance under both trees with the same facts for each saved view."""
-    changed = []
+    replays = []  # (task, case, context): each distinct view of a task once.
     for task_id, views in traces.by_task.items():
         if task_id in excluded:
             continue
@@ -93,12 +93,16 @@ async def affected_tasks(traces, baseline, candidate, judge, excluded):
             if view["case"] is None:
                 continue
             replay_key = fingerprint([view["case"], view["context"]])
-            if replay_key in seen:
-                continue
-            seen.add(replay_key)
-            case = await candidate.replay_case(view["case"], view["context"], judge)
-            previous = {name: case[name] for name in baseline.schema.features}
-            if baseline.render(previous).markdown != candidate.render(case).markdown:
-                changed.append(task_id)
-                break
+            if replay_key not in seen:
+                seen.add(replay_key)
+                replays.append((task_id, view["case"], view["context"]))
+    # One batch, so the judge's calls run side by side instead of one view after another.
+    cases = await candidate.replay_cases([(case, context) for _, case, context in replays], judge)
+    changed = []
+    for (task_id, _, _), case in zip(replays, cases):
+        if task_id in changed:
+            continue
+        previous = {name: case[name] for name in baseline.schema.features}
+        if baseline.render(previous).markdown != candidate.render(case).markdown:
+            changed.append(task_id)
     return changed

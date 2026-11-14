@@ -13,7 +13,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -32,6 +32,9 @@ class LearnedFeature(StrictModel):
     description: str = Field(min_length=1)
     examples: list[str] = Field(default_factory=list)
     counterexamples: list[str] = Field(default_factory=list)
+    # "document": about the starting materials only, judged once per document and reused at
+    # every step. "situation": about the worker's recent activity too, judged at every step.
+    scope: Literal["document", "situation"] = "situation"
 
 
 class LearnedFragment(StrictModel):

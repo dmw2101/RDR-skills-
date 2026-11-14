@@ -16,7 +16,7 @@ from rdr_engine.learned import (
 from rdr_engine.skill_cases import SkillConditionEvaluator
 from rdr_engine.skill_compiler import FeatureSchema, SkillBundle
 from rdr_engine.skill_renderer import SkillRenderer
-from skill_agent.learned_features import JudgeError
+from skill_agent.learned_features import JudgeError, judged_text
 
 from .proposals import Proposal
 
@@ -101,17 +101,16 @@ class SkillWorkspace:
         SkillConditionEvaluator(self.schema).validate_case({k: v for k, v in case.items() if k != CONTEXT_KEY})
         return case
 
+    async def replay_cases(self, views, judge):
+        """Resolve saved (observed case, context) views without modifying the engine or its
+        cornerstone evidence. Every missing judgment is asked for in one concurrent batch."""
+        contexts = [self.case_for(case, context)[CONTEXT_KEY] for case, context in views]
+        if self.layer.features:
+            await self._judge_contexts(list(dict.fromkeys(contexts)), sorted(self.layer.features), judge)
+        return [self.case_for(case, context) for case, context in views]
+
     async def replay_case(self, observed_case, context_text, judge):
-        """Resolve a saved view without modifying the engine or its cornerstone evidence."""
-        case = self.case_for(observed_case, context_text)
-        judgments = self.layer.judgments.setdefault(case[CONTEXT_KEY], {})
-        missing = {name: feature.model_dump() for name, feature in self.layer.features.items()
-                   if name not in judgments}
-        if missing:
-            values, _ = await judge.judge(missing, context_text)
-            judgments.update(values)
-            case.update(values)
-        return case
+        return (await self.replay_cases([(observed_case, context_text)], judge))[0]
 
     def stored_cases(self):
         seen, cases = set(), []
@@ -151,8 +150,8 @@ class SkillWorkspace:
         for feature in features:
             existing = self.layer.features.get(feature.name)
             spec = LearnedFeature(description=feature.description, examples=feature.examples,
-                                  counterexamples=feature.counterexamples)
-            if existing is not None and existing.description != spec.description:
+                                  counterexamples=feature.counterexamples, scope=feature.scope)
+            if existing is not None and (existing.description, existing.scope) != (spec.description, spec.scope):
                 raise ValueError(f"learned feature {feature.name} already exists with another definition")
             if existing is None and feature.name in self.schema.features:
                 raise ValueError(f"feature name {feature.name} is already in the skill schema")
@@ -166,27 +165,52 @@ class SkillWorkspace:
                     example.setdefault(name, "unknown")
         self._rebuild(nodes)
 
-    async def _ensure_judged(self, context_ids, names, judge):
-        """Judge missing (context, feature) pairs and refresh stored evidence with the values."""
+    async def _judge_contexts(self, context_ids, names, judge):
+        """Fill in missing (context, feature) judgments; returns (judge calls, contexts filled).
+
+        One call per distinct text. A document-scope feature is judged on the context's starting
+        materials alone (decision J4), so every context of one document shares a single answer:
+        one already judged for those materials is copied, never asked again.
+        """
         definitions = {name: self.layer.features[name].model_dump() for name in names}
-        todo = [(context_id, [n for n in names if n not in self.layer.judgments.get(context_id, {})])
-                for context_id in context_ids]
-        todo = [(context_id, missing) for context_id, missing in todo if missing]
+        known = {}  # judged text -> {feature: value}, for document-scope features judged earlier.
+        if any(spec["scope"] == "document" for spec in definitions.values()):
+            for context_id, values in self.layer.judgments.items():
+                for name, spec in definitions.items():
+                    text = judged_text(spec, self.layer.contexts[context_id])
+                    if name in values and text != self.layer.contexts[context_id]:
+                        known.setdefault(text, {}).setdefault(name, values[name])
+        pending, wanted = {}, []  # text -> features to ask; (context, feature, text) to fill in.
+        for context_id in context_ids:
+            context = self.layer.contexts[context_id]
+            for name in names:
+                if name in self.layer.judgments.get(context_id, {}):
+                    continue
+                text = judged_text(definitions[name], context)
+                wanted.append((context_id, name, text))
+                if name not in known.get(text, {}):
+                    pending.setdefault(text, {})[name] = definitions[name]
         semaphore, done = asyncio.Semaphore(JUDGE_CONCURRENCY), 0
 
-        async def one(context_id, missing):
+        async def one(text, features):
             nonlocal done
             async with semaphore:
-                values, _ = await judge.judge({n: definitions[n] for n in missing}, self.layer.contexts[context_id])
+                values, _ = await judge.judge(features, text)
             done += 1
-            if len(todo) > 5 and (done % 10 == 0 or done == len(todo)):
-                print(f"  judge: {done}/{len(todo)} situations answered", flush=True)
-            return context_id, values
+            if len(pending) > 5 and (done % 10 == 0 or done == len(pending)):
+                print(f"  judge: {done}/{len(pending)} situations answered", flush=True)
+            return text, values
 
-        for context_id, values in await asyncio.gather(*(one(c, m) for c, m in todo)):
-            self.layer.judgments.setdefault(context_id, {}).update(values)
-        calls = len(todo)
-        if calls:
+        for text, values in await asyncio.gather(*(one(t, f) for t, f in pending.items())):
+            known.setdefault(text, {}).update(values)
+        for context_id, name, text in wanted:
+            self.layer.judgments.setdefault(context_id, {})[name] = known[text][name]
+        return len(pending), len({context_id for context_id, _, _ in wanted})
+
+    async def _ensure_judged(self, context_ids, names, judge):
+        """Judge missing (context, feature) pairs and refresh stored evidence with the values."""
+        calls, filled = await self._judge_contexts(context_ids, names, judge)
+        if filled:
             def outputs():
                 return [[item.conclusion for item in self.engine.predict(case).conclusions]
                         for case in self.stored_cases()]

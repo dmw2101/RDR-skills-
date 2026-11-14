@@ -53,6 +53,9 @@ def _conditions(proposal, definitions):
         lines.append(f"- {prefix}")
         if feature:
             lines.append(f"  - Definition: {feature['description']}")
+            lines.append("  - Judged: " + ("once per document, from its starting materials"
+                                           if feature.get("scope") == "document" else
+                                           "before every worker step"))
             if feature.get("examples"):
                 lines.append("  - True for: " + "; ".join(feature["examples"]))
             if feature.get("counterexamples"):

@@ -47,6 +47,26 @@ def judge_context(recent, materials=None):
             "<recent_activity>\n" + recent + "\n</recent_activity>")
 
 
+MATERIALS_END = "\n</starting_materials>\n<recent_activity>\n"
+
+
+def document_context(context):
+    """The starting-materials part of a judge context, or None when it has none.
+
+    Document-scope features are judged on this text alone, at run time and during
+    learning, so their value cannot change from one step of a document to the next.
+    """
+    if not context.startswith("<starting_materials>\n") or MATERIALS_END not in context:
+        return None
+    return context[:context.index(MATERIALS_END)] + "\n</starting_materials>"
+
+
+def judged_text(spec, context):
+    """The text one feature is judged on: the materials alone for a document-scope feature."""
+    document = document_context(context) if spec.get("scope") == "document" else None
+    return context if document is None else document
+
+
 class JudgeError(ValueError):
     """Keep paid judge usage even when its answer is unusable."""
 
@@ -138,6 +158,7 @@ class LearnedFeatureResolver:
         self.judge = FeatureJudge(model)
         self.provenance = {"selector": "learned-feature-judge-v1", "model": judge_model}
         self.features = {}
+        self.document_values = {}  # (artifact, materials text) -> document-scope values, judged once.
 
     async def preflight(self, request):
         result = await self.inner.resolve(request)
@@ -152,21 +173,43 @@ class LearnedFeatureResolver:
         features = self.features[request.artifact_id]
         if not features:
             return await self.inner.resolve(request)
-        values, response = await self.judge.judge(features, judge_context(request.task, materials))
+        # One judge call per distinct text: the materials alone for document-scope features
+        # (asked once per document, then reused), the full context for the others (decision J4).
+        context = judge_context(request.task, materials)
+        groups = {}
+        for name, spec in features.items():
+            groups.setdefault(judged_text(spec, context), {})[name] = spec
+        values, responses, reused = {}, [], []
+        for text, group in groups.items():
+            key = (request.artifact_id, source_fingerprint(text)) if text != context else None
+            if key in self.document_values:
+                values.update(self.document_values[key])
+                reused += sorted(group)
+                continue
+            judged, response = await self.judge.judge(group, text)
+            responses.append(response)
+            values.update(judged)
+            if key is not None:
+                self.document_values[key] = judged
+
+        def total(source, name):
+            numbers = [getattr(response, source).get(name) for response in responses]
+            return None if any(number is None for number in numbers) else sum(numbers)
+
+        usage = {"model_calls": len(responses), "input_tokens": total("usage", "input_tokens"),
+                 "output_tokens": total("usage", "output_tokens"), "cost_usd": total("usage", "cost_usd")}
         try:
             result = await self.inner.resolve(ResolveSkillRequest(
                 request.skill_id, request.task, {**request.context, **values}, request.artifact_id))
         except Exception as exc:
-            raise JudgeError(f"skill lookup failed: {type(exc).__name__}: {exc}", response.usage) from exc
-        usage = response.usage
-        return replace(result, usage={
-            "model_calls": 1, "input_tokens": usage.get("input_tokens"),
-            "output_tokens": usage.get("output_tokens"), "cost_usd": usage.get("cost_usd"),
-        }, metadata={**result.metadata, "feature_judge": {
-            "values": values, "model": response.metadata.get("model"),
+            raise JudgeError(f"skill lookup failed: {type(exc).__name__}: {exc}", usage) from exc
+        last = responses[-1].metadata if responses else {}
+        return replace(result, usage=usage, metadata={**result.metadata, "feature_judge": {
+            "values": values, "model": last.get("model"),
             "materials_sha256": source_fingerprint(materials) if materials else None,
-            "provider": response.metadata.get("provider"),
-            "finish_reason": response.metadata.get("finish_reason"),
-            "latency_seconds": response.metadata.get("latency_seconds"),
-            "switch_seconds": response.metadata.get("switch_seconds"),
+            "provider": last.get("provider"),
+            "finish_reason": last.get("finish_reason"),
+            "calls": len(responses), "reused": reused,
+            "latency_seconds": total("metadata", "latency_seconds"),
+            "switch_seconds": total("metadata", "switch_seconds"),
         }})

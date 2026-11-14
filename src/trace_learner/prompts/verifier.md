@@ -36,12 +36,17 @@ Proposing an MCRDR change (skill_missing / skill_misleading only):
   situation; otherwise define a new_feature (name lf_<snake_case>) with a precise definition,
   examples and counterexamples. A new feature is answered true/false/unknown by a separate judge
   model before every agent step. The judge sees ONLY (1) the agent's starting materials: the task,
-  the requested output, and the input documents as text (a PDF's text layer, which is empty for
-  scanned PDFs; long materials are cut after their start), and (2) the agent's last three messages.
+  the requested output, and the input documents as text (a PDF's filled form-field values, then
+  its text layer, which is empty for scanned PDFs; long materials are cut after their start), and
+  (2) the agent's last three messages.
   It does not see later tool outputs. Conditions must be OBSERVABLE in that text before the failing
   decision, never the gold answer, the verdict, the eventual failure, or a task identifier.
   Properties of the input (its fields, tables, forms, layout words) are best, since they are
   visible from the first step. The new feature must be judged true at the failing turn.
+- scope of a new_feature: "document" when the condition is a property of the starting materials
+  alone. The judge then reads ONLY (1), answers once per document, and the rule holds or not for
+  the whole task. Prefer it. Use "situation" only when the condition truly depends on what the
+  agent has just said or planned; it is judged again before every step on (1) and (2).
 - guidance_text: a short, general procedure (a few sentences or bullets of Markdown) that would avoid
   this class of failure on other tasks, not this task's answer or values. Optionally anchor it after
   a related fragment with anchor_fragment_id.

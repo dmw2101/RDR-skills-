@@ -16,6 +16,10 @@ class NewFeature(StrictModel):
     description: str = Field(min_length=1, description="Precise definition, observable before the decision.")
     examples: list[str] = Field(default_factory=list, description="Visible situations where it is true.")
     counterexamples: list[str] = Field(default_factory=list, description="Visible situations where it is false.")
+    scope: Literal["document", "situation"] = Field(default="situation", description=(
+        "document: a property of the starting materials alone; judged once per document from them "
+        "and reused at every step. situation: depends on the agent's recent messages; judged at "
+        "every step. Prefer document."))
 
 
 class NewFeatureCondition(StrictModel):

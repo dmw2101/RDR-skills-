@@ -251,12 +251,14 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
 
         baseline = SimpleNamespace(schema=SimpleNamespace(features=["operation"]),
                                    render=lambda case: SimpleNamespace(markdown="Prior advice"))
-        replay = AsyncMock(side_effect=lambda case, context, judge: {
-            **case, "changed": context in {"context 7", "context 8"}})
-        candidate = SimpleNamespace(replay_case=replay, render=lambda case: SimpleNamespace(
+        replay = AsyncMock(side_effect=lambda views, judge: [
+            {**case, "changed": context in {"context 7", "context 8"}} for case, context in views])
+        candidate = SimpleNamespace(replay_cases=replay, render=lambda case: SimpleNamespace(
             markdown="New advice" if case["changed"] else "Prior advice"))
         self.assertEqual(await affected_tasks(traces, baseline, candidate, None, {"8"}), ["7"])
-        self.assertEqual(replay.await_count, 8)  # Identical replicates are replayed once per task.
+        # One batch for every view; identical replicates are replayed once per task.
+        self.assertEqual(replay.await_count, 1)
+        self.assertEqual(len(replay.await_args.args[0]), 8)
 
     async def test_impact_selected_regression_blocks_candidate(self):
         learner = self.learner()
