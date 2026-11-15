@@ -60,14 +60,14 @@ class LocalTransformersClient(OpenAICompatibleClient):
         )
         return len(tokens)
 
-    async def complete(self, messages, tools):
+    async def complete(self, messages, tools, seed=None):
         count = await asyncio.to_thread(self._input_tokens, messages, tools)
         if count + self.max_tokens > self.context_window:
             raise ValueError(
                 f"local context budget exceeded: {count} input + {self.max_tokens} output "
                 f"> {self.context_window}; no messages were truncated"
             )
-        response = await super().complete(messages, tools)
+        response = await super().complete(messages, tools, seed=seed)
         response.metadata["local_context_window"] = self.context_window
         return response
 

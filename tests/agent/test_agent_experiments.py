@@ -44,6 +44,17 @@ class TinyModel:
                               "cached_input_tokens": 0}, {})
 
 
+class SeededModel(TinyModel):
+    used = []
+
+    def __init__(self):
+        self.seed = 42
+
+    async def complete(self, messages, tools):
+        SeededModel.used.append(self.seed)
+        return await super().complete(messages, tools)
+
+
 class TinyAdapter:
     snapshot_fingerprint = "test-data-v1"
     system_prompt = "Complete the tiny benchmark task."
@@ -181,6 +192,15 @@ class ExperimentTests(unittest.IsolatedAsyncioTestCase):
         await run_experiment(self.config)
         with self.assertRaises(ValueError):
             await run_experiment(self.config)
+
+    async def test_each_repeat_of_a_task_gets_its_own_seed(self):
+        SeededModel.used = []
+        self.config["skill"] = {}
+        self.config["model"] = {"factory": f"{__name__}:SeededModel"}
+        self.config["run"].update(conditions=["none"], replicates=3)
+        result = await run_experiment(self.config)
+        # Repeat 0 keeps the configured seed; with one seed, repeats would be near-copies.
+        self.assertEqual(sorted(SeededModel.used), sorted([42, 43, 44] * (result["episodes"] // 3)))
 
     async def test_no_skill_only_needs_no_skill_files_or_service(self):
         from skill_agent.__main__ import doctor

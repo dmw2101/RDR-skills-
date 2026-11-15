@@ -37,21 +37,26 @@ class PassingTraces:
         self.add_round(index, version, [record], {episode_key(record): True}, {task["id"]: task}, materials)
 
     def examples(self, node, exclude_task):
-        examples = []
+        examples, shown = [], {}  # shown: guidance text -> the first example that carried it.
         for index, version, task, events, view in reversed(list(self.by_node.get(node, {}).values())):
             if task["id"] == exclude_task:
                 continue
             turn = view["turn"]
-            steps = trace_steps(events, max(0, turn - 1), turn + 1, limit=500)
+            steps = trace_steps(events, max(0, turn - 1), turn + 1, limit=300)
             markdown = view["markdown"]
-            if len(markdown) > 1800:
-                markdown = markdown[:900] + "\n...\n" + markdown[-900:]
+            if markdown in shown:  # Often the same guidance six times over; say so once (decision I5).
+                guidance = fragments = f"same as the example for task {shown[markdown]}"
+            else:
+                shown[markdown] = task["id"]
+                guidance, fragments = markdown, view["fragment_ids"]
+                if len(guidance) > 1800:
+                    guidance = guidance[:900] + "\n...\n" + guidance[-900:]
             examples.append({
-                "task_id": task["id"], "task": task["task"][:1000],
+                "task_id": task["id"], "task": task["task"][:300],
                 "round": index + 1, "tree_version": version, "turn": turn,
-                "context": view["context"][:1200], "guidance": markdown,
-                "fragment_ids": view["fragment_ids"],
-                "trace_excerpt": "\n".join(json.dumps(step, ensure_ascii=False) for step in steps)[:2000],
+                "context": view["context"][:600], "guidance": guidance,
+                "fragment_ids": fragments,
+                "trace_excerpt": "\n".join(json.dumps(step, ensure_ascii=False) for step in steps)[:800],
             })
             if len(examples) == 6:
                 break

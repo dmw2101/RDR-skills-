@@ -8,7 +8,7 @@ from skill_agent.learned_features import (MAX_JUDGE_CHARS, MAX_MATERIAL_CHARS, F
                                           LearnedFeatureResolver, judge_context)
 from skill_agent.models import ModelResponse
 from trace_learner.records import skill_views, trace_steps, view_at
-from trace_learner.verifier import verify_episode
+from trace_learner.verifier import MAX_TOOL_CHARS, verify_episode
 from trace_learner.workspace import SkillWorkspace, copy_bundle
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -108,6 +108,67 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         errors = [e["result"]["error"] for e in outcome["events"] if e["type"] == "tool" and "error" in e["result"]]
         self.assertEqual(len(errors), 2)
         self.assertTrue(outcome["eligible"])
+
+    async def test_first_prompt_carries_the_standard_results(self):
+        model = ScriptedModel([call("rescore", {"prediction": {"total": "12"}}),
+                               call("submit_diagnosis", {"diagnosis": DIAGNOSIS})])
+        outcome = await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                                       workspace=self.workspace, max_calls=10)
+        self.assertTrue(outcome["eligible"])
+        first = model.requests[0][0][1]["content"]
+        self.assertIn("ALREADY RUN FOR YOU", first)
+        for title in ("compare_with_ground_truth", "ground_truth:\n{\"ground_truth\": {\"total\": \"12\"}}",
+                      "skill_views", "show_tree"):
+            self.assertIn(title, first)
+        self.assertIn('"fragment_ids": "same as turn 0"', first)  # Unchanged guidance is not listed twice.
+
+    async def test_long_tool_outputs_are_cut_with_a_note(self):
+        record = episode()
+        record["events"][3]["result"] = "x" * 50_000
+        record["events"][2]["message"]["reasoning"] = "r" * 50_000
+        for _ in range(8):  # Ten long turns in one read_trace call.
+            record["events"] += record["events"][1:4]
+        model = ScriptedModel([call("read_trace", {"from_turn": 0, "to_turn": 9}),
+                               call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])
+        outcome = await verify_episode(model=model, task=self.task, record=record, hooks=Hooks(),
+                                       workspace=self.workspace, max_calls=10)
+        result = next(e["result"] for e in outcome["events"] if e["type"] == "tool")
+        self.assertEqual(len(result["output_cut"]), MAX_TOOL_CHARS)
+        self.assertIn("more characters were not shown", result["note"])
+
+    async def test_a_proposal_the_engine_would_refuse_is_returned_for_correction(self):
+        def with_proposal(**changes):
+            return {**DIAGNOSIS, "proposal": {**DIAGNOSIS["proposal"], **changes}}
+
+        bad = [with_proposal(conditions=[{"field": "operation", "op": "in", "value": ["extract_content"]}]),
+               with_proposal(conditions=[{"field": "page_count", "op": "eq", "value": "1"}]),
+               with_proposal(target_node_id=99),
+               with_proposal(target_node_id=3),  # Guidance of node 3 was not rendered at the failing turn.
+               with_proposal(remove_fragment_ids=["no_such_fragment"]),
+               with_proposal(anchor_fragment_id="no_such_fragment")]
+        outcome = await self.verify([*(call("submit_diagnosis", {"diagnosis": d}) for d in bad),
+                                     call("rescore", {"prediction": {"total": "12"}}),
+                                     call("submit_diagnosis", {"diagnosis": with_proposal(conditions=[
+                                         {"field": "operation", "op": "contains", "value": "extract_content"}])})])
+        errors = [e["result"]["error"] for e in outcome["events"] if e["type"] == "tool" and "error" in e["result"]]
+        self.assertEqual(len(errors), len(bad))
+        self.assertTrue(all(error.startswith("invalid proposal, fix and resubmit") for error in errors))
+        self.assertIn("use contains for a multiple-value feature", errors[0])
+        self.assertIn("unknown feature 'page_count'", errors[1])
+        self.assertIn("does not exist", errors[2])
+        self.assertIn("rendered at the failing turn; those nodes are [1, 2]", errors[3])
+        self.assertTrue(outcome["eligible"])  # The corrected proposal goes through in the same session.
+
+    async def test_the_inspector_is_warned_once_before_its_budget_runs_out(self):
+        model = ScriptedModel([call("read_trace", {"from_turn": 0, "to_turn": 0})] * 3
+                              + [call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])
+        outcome = await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                                       workspace=self.workspace, max_calls=5)
+        warnings = [e for e in outcome["events"] if e["type"] == "user_message"]
+        self.assertEqual([w["turn"] for w in warnings], [2])  # Three calls left, said once.
+        self.assertIn("BUDGET WARNING", warnings[0]["content"])
+        self.assertEqual(model.requests[2][0][-1], {"role": "user", "content": warnings[0]["content"]})
+        self.assertEqual(outcome["status"], "completed")
 
     async def test_missing_submission_fails_the_verifier_episode(self):
         outcome = await self.verify([{"role": "assistant", "content": "I think it is fine."}])
@@ -253,7 +314,22 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
                                  JudgeModel(call("report_features", {"lf_tables": "maybe"})))
         with self.assertRaises(JudgeError) as caught:
             await resolver.resolve(ResolveSkillRequest("pdf", "x", {}, "artifact"))
-        self.assertEqual(caught.exception.usage["model_calls"], 1)
+        self.assertEqual(caught.exception.usage["model_calls"], 3)  # Asked three times before giving up.
+
+    async def test_an_unusable_judge_answer_is_asked_again_with_another_seed(self):
+        class Flaky:
+            seed, seeds = 42, []
+
+            async def complete(self, messages, tools, seed=None):
+                self.seeds.append(seed)
+                good = call("report_features", {"lf_tables": "true"})
+                return ModelResponse(good if seed else {"role": "assistant", "content": "hmm"}, dict(USAGE), {})
+
+        model = Flaky()
+        values, response = await FeatureJudge(model).judge({"lf_tables": {"description": "Has tables."}}, "x")
+        self.assertEqual(values, {"lf_tables": "true"})
+        self.assertEqual(model.seeds, [None, 43])  # The first call uses the client's own seed.
+        self.assertEqual(response.metadata["judge_retries"], 1)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,10 @@
 
 import argparse
 import asyncio
+import contextlib
 import json
+import sys
+import time
 
 from skill_agent.learned_features import JudgeError
 
@@ -12,6 +15,24 @@ from .records import Interrupted
 from .report import incremental_report, learning_report
 
 BATCH_STAGES = ("init", "verify", "consolidate", "insert")
+
+
+class _Stamped:
+    """Standard output with the wall-clock time before every line, so a run's log shows where time went."""
+
+    def __init__(self, stream):
+        self.stream, self.line_start = stream, True
+
+    def write(self, text):
+        for part in text.splitlines(keepends=True):
+            if self.line_start:
+                self.stream.write(time.strftime("[%Y-%m-%d %H:%M:%S] "))
+            self.stream.write(part)
+            self.line_start = part.endswith("\n")
+        return len(text)
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
 
 
 def main(argv=None):
@@ -48,7 +69,8 @@ def run(parser, args):
             parser.error(f"'{args.command}' is a batch-mode stage; incremental mode uses 'learn'")
         learner = IncrementalLearner(config)
         if args.command == "learn":
-            asyncio.run(learner.learn())
+            with contextlib.redirect_stdout(_Stamped(sys.stdout)):
+                asyncio.run(learner.learn())
         elif args.command == "redo-last-round":
             learner.redo_last_round()
     else:

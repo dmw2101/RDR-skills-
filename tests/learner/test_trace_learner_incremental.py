@@ -171,11 +171,11 @@ class BroadThenNarrowVerifier(VerifierModel):
 
 
 class JudgeModel:
-    cut_off_next = False  # Answer once as if it ran out of output tokens.
+    cut_off_next = 0  # Answer this many times as if it ran out of output tokens.
 
     async def complete(self, messages, tools):
         if JudgeModel.cut_off_next:
-            JudgeModel.cut_off_next = False
+            JudgeModel.cut_off_next -= 1
             return ModelResponse({"role": "assistant", "content": "Let me think"}, dict(USAGE),
                                  {"finish_reason": "length"})
         names = tools[0]["function"]["parameters"]["required"]
@@ -222,7 +222,7 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             "validation": {"enabled": True, "service_url": url, "store": str(store), "replicates": 2}})
         VerifierModel.episodes, VerifierModel.refuse_next = 0, False
         AgentModel.calls, AgentModel.refuse_at = 0, None
-        JudgeModel.cut_off_next = False
+        JudgeModel.cut_off_next = 0
 
     def learner(self):
         return IncrementalLearner(load_learner_config(self.root / "learner.json"))
@@ -409,9 +409,10 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_an_unusable_judge_answer_stops_learning_instead_of_rejecting_the_rule(self):
         # Round 1's tree has no learned features yet, so the first judge call is the rule's insertion.
-        JudgeModel.cut_off_next = True
+        JudgeModel.cut_off_next = 99  # Every attempt of the judge call, not only the first.
         with self.assertRaisesRegex(JudgeError, "ran out of output tokens"):
             await self.learner().learn()
+        JudgeModel.cut_off_next = 0
         learner = self.learner()
         self.assertFalse((learner.round_dir(0) / "ledger.json").exists())  # No rejection was recorded.
         self.assertEqual(learner.state()["round"], 0)

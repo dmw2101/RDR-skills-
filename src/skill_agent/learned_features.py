@@ -70,17 +70,22 @@ def judged_text(spec, context):
 class JudgeError(ValueError):
     """Keep paid judge usage even when its answer is unusable."""
 
-    def __init__(self, message, usage):
+    def __init__(self, message, usage, calls=1):
         super().__init__(message)
-        self.usage = {"model_calls": 1, "input_tokens": usage.get("input_tokens"),
+        self.usage = {"model_calls": calls, "input_tokens": usage.get("input_tokens"),
                       "output_tokens": usage.get("output_tokens"), "cost_usd": usage.get("cost_usd")}
 
 
 class FeatureJudge:
-    """One model call returns true/false/unknown for every requested learned feature."""
+    """One model call returns true/false/unknown for every requested learned feature.
 
-    def __init__(self, model):
-        self.model = model
+    An answer that cannot be used (cut off, malformed, incomplete) is asked for again, up to
+    ``attempts`` times in all, with a different seed each time: with a fixed seed the same
+    request would give the same bad answer. Only then is it a JudgeError (decision J3).
+    """
+
+    def __init__(self, model, attempts=3):
+        self.model, self.attempts = model, attempts
 
     async def judge(self, features, text):
         """features: {name: {description, examples, counterexamples}} -> (values, response)."""
@@ -96,45 +101,63 @@ class FeatureJudge:
             "parameters": {"type": "object", "properties": {
                 name: {"type": "string", "enum": list(JUDGED_VALUES)} for name in sorted(features)},
                 "required": sorted(features), "additionalProperties": False}}}
-        response = await self.model.complete([
+        messages = [
             {"role": "system", "content": JUDGE_INSTRUCTIONS},
             {"role": "user", "content": "<conditions>\n" + definitions + "\n</conditions>\n\n"
                                         "<visible_context>\n" + text + "\n</visible_context>"},
-        ], [tool])
-        try:
-            reason = response.metadata.get("finish_reason")
-            if reason == "length":
-                raise ValueError("judge response was cut off: it ran out of output tokens "
-                                 "(raise the judge model's max_tokens)")
-            if reason == "content_filter":
-                raise ValueError("judge response was blocked by the provider's content filter")
-            calls = response.message.get("tool_calls") or []
-            names = [call.get("function", {}).get("name") for call in calls]
-            if any(name != "report_features" for name in names):
-                raise ValueError(f"judge called {names}; expected only report_features")
-            # Some models split one answer over several report_features calls (e.g. one per
-            # condition) or repeat it; the parts are merged unless they contradict each other.
-            values = {}
-            for raw in ([call["function"].get("arguments") for call in calls] if calls
-                        else [response.message.get("content")]):
-                try:
-                    part = json.loads(raw)
-                except (TypeError, ValueError) as exc:
-                    raise ValueError(f"judge did not return valid JSON ({len(calls)} tool call(s))") from exc
-                if not isinstance(part, dict):
-                    raise ValueError("judge did not return a JSON object")
-                for name, value in part.items():
-                    if values.get(name, value) != value:
-                        raise ValueError(f"judge gave conflicting answers for {name}")
-                    values[name] = value
-            invalid = {name: value for name, value in values.items() if value not in JUDGED_VALUES}
-            if set(values) != set(features) or invalid:
-                raise ValueError(f"judge did not report every feature as true/false/unknown (missing "
-                                 f"{sorted(set(features) - set(values))}, unexpected "
-                                 f"{sorted(set(values) - set(features))}, invalid {invalid})")
-        except ValueError as exc:
-            raise JudgeError(str(exc), response.usage) from exc
-        return values, response
+        ]
+        seed = getattr(self.model, "seed", None)
+        for attempt in range(self.attempts):
+            if attempt and seed is not None:
+                response = await self.model.complete(messages, [tool], seed=seed + attempt)
+            else:
+                response = await self.model.complete(messages, [tool])
+            try:
+                values = self._values(response, features)
+            except ValueError as exc:
+                # Kept in the log: the answer itself is saved nowhere else.
+                print(f"  judge answer unusable ({exc}); attempt {attempt + 1}/{self.attempts}; it said: "
+                      f"{json.dumps(response.message, ensure_ascii=False, default=str)[:600]}", flush=True)
+                if attempt + 1 == self.attempts:
+                    raise JudgeError(str(exc), response.usage, calls=self.attempts) from exc
+                continue
+            response.metadata["judge_retries"] = attempt
+            return values, response
+
+    @staticmethod
+    def _values(response, features):
+        """The judged values in one model response; ValueError says why it cannot be used."""
+        reason = response.metadata.get("finish_reason")
+        if reason == "length":
+            raise ValueError("judge response was cut off: it ran out of output tokens "
+                             "(raise the judge model's max_tokens)")
+        if reason == "content_filter":
+            raise ValueError("judge response was blocked by the provider's content filter")
+        calls = response.message.get("tool_calls") or []
+        names = [call.get("function", {}).get("name") for call in calls]
+        if any(name != "report_features" for name in names):
+            raise ValueError(f"judge called {names}; expected only report_features")
+        # Some models split one answer over several report_features calls (e.g. one per
+        # condition) or repeat it; the parts are merged unless they contradict each other.
+        values = {}
+        for raw in ([call["function"].get("arguments") for call in calls] if calls
+                    else [response.message.get("content")]):
+            try:
+                part = json.loads(raw)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"judge did not return valid JSON ({len(calls)} tool call(s))") from exc
+            if not isinstance(part, dict):
+                raise ValueError("judge did not return a JSON object")
+            for name, value in part.items():
+                if values.get(name, value) != value:
+                    raise ValueError(f"judge gave conflicting answers for {name}")
+                values[name] = value
+        invalid = {name: value for name, value in values.items() if value not in JUDGED_VALUES}
+        if set(values) != set(features) or invalid:
+            raise ValueError(f"judge did not report every feature as true/false/unknown (missing "
+                             f"{sorted(set(features) - set(values))}, unexpected "
+                             f"{sorted(set(values) - set(features))}, invalid {invalid})")
+        return values
 
 
 class LearnedFeatureResolver:

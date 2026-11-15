@@ -283,6 +283,9 @@ async def run_experiment(config, *, resume=False):
                 started = time.monotonic()
                 try:
                     model = factory(config["model"])
+                    if replicate and getattr(model, "seed", None) is not None:
+                        # Decision S1: with one fixed seed, repeats of a document would be near-copies.
+                        model.seed += replicate
                     session = await adapter.open_session(task)
                     if files and condition != "none":
                         if not hasattr(session, "add_files"):

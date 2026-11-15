@@ -44,5 +44,13 @@ class VarexHooks:
         passed = bool(perfect) and perfect[0]["numerator"] == perfect[0]["denominator"]
         return {"passed": passed, "fields": fields}
 
+    @staticmethod
+    def failure_summary(result):
+        """A scored prediction reduced to the fields that are wrong, for the inspector's first prompt."""
+        fields = result.get("fields") or []
+        wrong = [row for row in fields if row.get("exact_match_normalized") != "1"]
+        return {**{k: v for k, v in result.items() if k != "fields"},
+                "fields_scored": len(fields), "wrong_fields": wrong}
+
     async def open_inspection(self, task):
         return await self.adapter.open_session(task)

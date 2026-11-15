@@ -262,6 +262,12 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                 await policy.before_model(skill_context, turn)
                 skill_text = "\n\n".join(text for text in skill_context.active_skills.values() if text)
             # Full/reduced compose the active view; no-skill omits the entire skill interface.
+            if hasattr(session, "progress_note"):
+                # A session may warn its model that the budget is nearly spent (decision I7).
+                note = session.progress_note(max_calls - turn, timeout_seconds - (time.monotonic() - started))
+                if note:
+                    events.append({"type": "user_message", "turn": turn, "content": note})
+                    history.append({"role": "user", "content": note})
             active = "\n\n<active_skill>\n" + skill_text + "\n</active_skill>" if skill_text else ""
             messages = [{"role": "system", "content": instructions + active}, *history]
             definitions = [tool.definition for tool in tools.values()]
@@ -287,7 +293,7 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                 return
             for call in calls:
                 name = call["function"]["name"]
-                args = {}
+                args, tool_started = {}, time.monotonic()
                 try:
                     args = json.loads(call["function"]["arguments"])
                     if not isinstance(args, dict):
@@ -299,7 +305,8 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                     output = {"error": str(exc)}
                     if name != "request_skill" and hasattr(session, "record_invalid_tool_call"):
                         session.record_invalid_tool_call(name, args if isinstance(args, dict) else {}, output)
-                event = {"type": "tool", "name": name, "call": call, "result": output}
+                event = {"type": "tool", "name": name, "call": call, "result": output,
+                         "seconds": time.monotonic() - tool_started}
                 if hasattr(session, "customer_response"):
                     event["turn"] = turn
                 events.append(event)

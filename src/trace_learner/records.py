@@ -47,6 +47,7 @@ def skill_views(events, materials=None, *, include_markdown=False):
                 "case": metadata.get("case"),
                 "fragment_ids": metadata.get("fragment_ids", []),
                 "terminal_ids": metadata.get("terminal_ids", []),
+                "fired_ids": [step["node_id"] for step in metadata.get("trace", []) if step.get("matched")],
                 "markdown_sha256": event.get("markdown_sha256"),
             })
             if include_markdown:

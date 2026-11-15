@@ -66,6 +66,30 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** none (always on, by decision).
 - **Status:** in use. The engine-rejection retry dates from 2026-10-28 (`ea82ec0`); the checker-rejection retry was added 2026-11-13. A retry records `retry_of` (the proposal it revises) in the ledger.
 
+### I5. The inspector's inputs are bounded and the standard ones are given up front
+- **Decision:** every inspector tool output is cut after **12,000 characters**, with a note asking for a narrower request. `read_trace` clips each field to 2,000 characters; `skill_views` and `passing_examples` list repeated guidance once. The results of `compare_with_ground_truth` (wrong fields only), `ground_truth`, `skill_views` and `show_tree` are placed in the first prompt, so no model call is spent on them. The example config's time limit is 1,800 s (was 900 s).
+- **Alternatives:** no cut (the behaviour until now: only the prediction was clipped); a larger context limit for the 27B.
+- **Why:** in the first 150-document run, single outputs reached 46,000 characters (`read_trace`), 44,000 (`skill_views`) and 37,000 (`passing_examples`). Prompts grew to 65,536 tokens: 2 inspections were cut off, 1 got HTTP 400 and 3 hit the 900 s limit after 10 to 14 calls. About 68 of 151 inspector minutes produced nothing.
+- **Where:** `verifier._Tool.execute` (`MAX_TOOL_CHARS`), `VerifierSession.briefing`, `passing.PassingTraces.examples`, the hooks' optional `failure_summary`; config `verifier.timeout_seconds`.
+- **Ablation:** none.
+- **Status:** written 2026-11-14, not yet run on the GPU.
+
+### I6. A proposal is checked by code when it is submitted
+- **Decision:** `submit_diagnosis` refuses a proposal the engine would reject without asking the judge: a target node that does not exist or was not rendered (replace, stop) or did not fire (add) at the failing turn, an unknown feature, a wrong operator or value, a fragment the node does not render, an unknown anchor. The inspector gets the reason and resubmits in the same session.
+- **Alternatives:** reject after the session and spend the one retry (I4) on it; no retry at all (the behaviour until now, as for rule 23.1's `in` on a multi-value feature).
+- **Why:** these mistakes need no model to find, and a retry costs 7 to 15 minutes.
+- **Where:** `verifier.proposal_problems`, `VerifierSession._submit`.
+- **Ablation:** none.
+- **Status:** written 2026-11-14, not yet run on the GPU.
+
+### I7. The inspector is warned once before its budget runs out
+- **Decision:** when 3 model calls or 6 minutes remain, the inspector gets one message telling it to stop investigating and submit: now if a rescore already passed, otherwise after at most one more rescore.
+- **Alternatives:** no warning (the behaviour until now).
+- **Why:** the inspector could not see its time or call budget. In the first 150-document run, 4 of 13 inspections ran out without submitting anything.
+- **Where:** `VerifierSession.progress_note` (`WARN_CALLS_LEFT`, `WARN_SECONDS_LEFT`); `runtime.run_episode` asks any session that has a `progress_note` before each model call and records the message as a `user_message` event.
+- **Ablation:** none.
+- **Status:** written 2026-11-15, not yet run on the GPU.
+
 ## Decisions about the judge
 
 ### J1. The judge reads the worker's starting materials and recent activity
@@ -89,8 +113,9 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Alternatives:** count it as a rejection.
 - **Why:** a broken call says nothing about the rule.
 - **Where:** `JudgeError` handling in `workspace.apply` and `incremental`.
+- **Detail (2026-11-15):** before it counts as a failure, the judge call is repeated, up to **3** attempts in all, each retry with a different seed (seed + attempt). With one fixed seed (S1) the same request would return the same bad answer, so a restart alone could fail again. Each unusable answer is printed in the log, since it is saved nowhere else. In the first 150-document run a single malformed answer stopped learning and left the GPU idle for about 10 hours.
 - **Ablation:** none.
-- **Status:** in use (since 2026-10-28, `3178ec5`, `7c577e8`).
+- **Status:** in use (since 2026-10-28, `3178ec5`, `7c577e8`); the in-place retry is `FeatureJudge(attempts=3)`, not yet run on the GPU.
 
 ### J4. A condition about the document is judged once per document
 - **Decision:** each learned condition has a **scope**, chosen by the inspector when it writes the condition.
@@ -225,7 +250,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Decision:** the 4B (worker, checker, judge) and the 27B (inspector, merge) run as two local vLLM servers that cannot both fit in GPU memory. Before each call, `SwitchingClient` wakes the call's server and puts the other to sleep (vLLM sleep mode, level 1: weights move to CPU memory). A switch waits until no call to the other server is in flight.
 - **Alternatives:** both models loaded at once (forces a smaller inspector); the inspector on a hosted API (cost in two units).
 - **Why:** a strong 27B inspector with a capable worker on a 24 GB GPU. Test-time evaluation uses only the worker and judge, so no switching happens there.
-- **Context:** the 27B is served with a 65,536-token limit per request and 3 GiB of KV cache (84,650 tokens). With 32,768, the inspector's requests outgrew the limit: on document 50164 its prompt reached 42,786 tokens by turn 12, and the server refused the call with HTTP 400, so the failure produced no diagnosis. Each inspector tool output is clipped to 12,000 characters, but over a 30-call budget they add up. The 4B keeps 32,768.
+- **Context:** the 27B is served with a 65,536-token limit per request and 3 GiB of KV cache (84,650 tokens). With 32,768, the inspector's requests outgrew the limit: on document 50164 its prompt reached 42,786 tokens by turn 12, and the server refused the call with HTTP 400, so the failure produced no diagnosis. Until I5 (2026-11-14) inspector tool outputs were not clipped (only the prediction was), and over a 30-call budget they added up. The 4B keeps 32,768.
 - **Where:** `skill_agent.models.SwitchingClient` (option `peers`); the learner's model configs; the GPU machine's `serve_27b.sh` (`--max-model-len`, `--kv-cache-memory-bytes`).
 - **Ablation:** none (a serving choice, not a method choice).
 - **Status:** in use since 2026-11-13.
@@ -238,7 +263,8 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
   - `other_seconds`: tools, skill selection and overhead.
 - **Alternatives:** whole-episode time only, which mixes model time with tool time.
 - **Why:** the skill method changes what the model reads, so per-call model time isolates its effect on latency.
-- **Where:** `skill_agent.models.OpenAICompatibleClient._post`, `skill_agent.experiments.timing_summary`.
+- **Detail (2026-11-15):** `trace_learner learn` prefixes every log line with the date and time, and every tool event records its own `seconds`. The first 150-document run's time breakdown had to be rebuilt from file modification times.
+- **Where:** `skill_agent.models.OpenAICompatibleClient._post`, `skill_agent.experiments.timing_summary`; `trace_learner.__main__._Stamped`, `runtime.run_episode`.
 - **Ablation:** none (measurement only).
 - **Status:** in use since 2026-11-13. Records from earlier runs report null model time.
 
@@ -249,6 +275,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Alternatives:** temperature 0 (greedy). It was the harness default since 2026-10-16 (`9cf9829`), set before any model was chosen, with no recorded reason. Qwen's cards advise against greedy decoding for thinking models, and the 4B looped in the smoke test under it. The 4B card's "precise coding" preset (temperature 0.6, no presence penalty) is the other candidate for the worker.
 - **Why:** these are the model maker's recommendations. They match Trace2Skill's Qwen3.5 settings (`gen_config/qwen3.5_35B_122B_thinking_reasoning.json`), and the presence penalty works against repetition loops.
 - **Where:** model options `temperature`, `top_p`, `top_k`, `min_p`, `presence_penalty` and `repetition_penalty` (`OpenAICompatibleClient`); the GPU's generated configs.
+- **Detail (2026-11-15):** repeat *r* of a document runs its worker with `seed + r` (repeat 0 keeps 42). Until then every repeat used seed 42, so repeats of one document could be near-copies instead of independent samples. This matters for the checker when `validation.replicates` is above 1 and for the final test. The judge keeps its configured seed. Where: `skill_agent.experiments.run_experiment`.
 - **Ablation:** set `temperature: 0` and drop the other options.
 - **Status:** in use since 2026-11-13. It affects C4: single runs are now noisier, so revisit how many runs the checker and the final comparison use.
 
