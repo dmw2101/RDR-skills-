@@ -110,7 +110,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 ## Decisions about the judge
 
 ### J1. The judge reads the worker's starting materials and recent activity
-- **Decision:** the judge sees the task, the requested output and the input document's text (first 12,000 characters), plus the resolver query: the task at first, then the worker's last three messages. It does not see later tool outputs. The same text is built during learning and at run time.
+- **Decision:** the judge sees the task, the requested output and the input document's text (first 12,000 characters), plus the resolver query: the task at first, then the task followed by the worker's last three messages (K3; before 2026-11-16 the later queries held the three messages alone). It does not see later tool outputs. The same text is built during learning and at run time.
 - **Alternatives:** the resolver query only.
 - **Why:** conditions such as "the PDF has no text layer" need the document. Building the text the same way keeps learning and test-time judgments identical.
 - **Where:** `learned_features.judge_context`, the adapter's `judge_materials`.
@@ -137,7 +137,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 ### J4. A condition about the document is judged once per document
 - **Decision:** each learned condition has a **scope**, chosen by the inspector when it writes the condition.
   - `document`: a property of the starting materials alone. The judge reads only those materials, is asked **once per document**, and the answer is reused at every worker step. During learning, every stored snapshot of one document shares that one answer.
-  - `situation`: depends on the worker's recent messages. It is judged before every step on the materials plus those messages, as before. This is the default, so earlier trees behave as they did.
+  - `situation`: depends on the worker's recent messages. It is judged before every step on the materials plus the resolver query (the task and those messages, see K3), as before. This is the default, so earlier trees behave as they did.
 - **Alternatives:** judge every condition before every step (the behaviour until now); judge once and let the judge also read the worker's messages.
 - **Why:** in the first 150-document run, one learned rule raised a worker run from 45 s to 206 s, of which 136 s was the judge (about 10.6 calls of 12.8 s). Its answers also changed from step to step on the same document (1 to 10 changes per document), and it said `true` once in 20 first runs. A condition about the document has one right answer, so it is asked once. Checking a candidate rule also needs one call per stored document instead of one per stored snapshot (94 calls for rule 26.1).
 - **Where:** `LearnedFeature.scope` (`rdr_engine/learned.py`), `NewFeature.scope` (`trace_learner/proposals.py`), `learned_features.document_context` / `judged_text`, `LearnedFeatureResolver.resolve` (`document_values`), `workspace._judge_contexts`; the inspector's prompt (`prompts/verifier.md`).
