@@ -187,6 +187,15 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** change `cornerstones_per_episode`.
 - **Status:** in use (since `4272ccf`).
 
+### T5. On a root-only tree, every rule condition is a learned, judged one
+- **Decision:** when `base_tree` is `"root_only"`, the inspector is not shown the original skill's conditions (`operation`, `source_kind`): they are left out of the tree's feature list and of the per-turn condition values it reads. Its instructions say to write every condition as a learned condition, and a proposal that uses an original condition is refused at submit time with a message (the I6 check), so the inspector corrects it in the same session. The root has no conditions and always fires, so the judge alone decides which learned rules fire.
+- **Alternatives:** letting the inspector reuse the original conditions (the behaviour until now); having the judge answer the original conditions in place of the keyword match, which needs a list-valued judge answer and about one more judge call per worker run.
+- **Why:** the root-only tree tests whether learning needs the skill split into conditional rules up front (T1). The compile step that cuts the skill into fragments also carries a hand-made list of conditions and a hand-written keyword matcher. With those still on offer, a "learned" rule could lean on them: the rule kept in the root-only smoke run of 2026-11-16 was `operation contains "extract_content"` plus one judged condition. On VAREX that condition is always true, so earlier results are unaffected, but the tree was not learned from the skill text alone.
+- **Where:** `trace_learner.verifier` (`learned_only`, `LEARNED_ONLY_INSTRUCTIONS`, `proposal_problems`), set from `base_tree` in `trace_learner.incremental`.
+- **Ablation:** none as a separate switch; it follows `base_tree`.
+- **Detail:** the service still computes the original conditions by keyword match for every request, and stored cases still record them; no rule on a root-only tree reads them. Not covered: the merge step used with batch sizes above 1.
+- **Status:** written 2026-11-16, not yet run on the GPU.
+
 ## Decisions about the checker
 
 ### C1. Changed successes are rerun, not rejected
