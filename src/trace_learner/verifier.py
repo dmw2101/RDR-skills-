@@ -56,11 +56,19 @@ class _Tool:
                         "narrower turn range, or head/grep/a page range in the shell."}
 
 
-def proposal_problems(proposal, workspace, view):
+LEARNED_ONLY_INSTRUCTIONS = (
+    "\nThis tree started as the whole skill at a lone root, so it has no predefined features. Write "
+    "every condition as a learned feature: reuse one that show_tree lists, as "
+    '{"field": "lf_<name>", "op": "eq", "value": "true"}, or define a new_feature. If the kind of '
+    "task matters to your rule, say so in a new_feature's definition.")
+
+
+def proposal_problems(proposal, workspace, view, *, learned_only=False):
     """Why a proposal cannot be inserted, found by code alone (decision I6); [] when none.
 
     These are the mistakes the engine would reject without ever asking the judge: a wrong
     target node, an unknown feature or operator, a fragment the node does not have.
+    learned_only (decision T5): the original skill's features may not be used either.
     """
     problems, nodes, schema = [], workspace.engine.nodes, workspace.schema
     target = proposal.target_node_id
@@ -92,6 +100,11 @@ def proposal_problems(proposal, workspace, view):
             continue
         predicate = condition.model_dump()
         spec = schema.features.get(predicate["field"])
+        if learned_only and not predicate["field"].startswith(FEATURE_PREFIX):
+            learned = sorted(name for name in schema.features if name.startswith(FEATURE_PREFIX))
+            problems.append(f"feature {predicate['field']!r} cannot be used on this tree; only learned features "
+                            f"can (existing ones: {learned}). Define what you need as a new_feature")
+            continue
         if spec is None:
             known = sorted(name for name in schema.features if not name.startswith(FEATURE_PREFIX))
             problems.append(f"unknown feature {predicate['field']!r}; existing features are {known} plus the "
@@ -109,8 +122,11 @@ def proposal_problems(proposal, workspace, view):
 class VerifierSession:
     """Read-only access to one episode plus gold-label tools; ends on submit_diagnosis."""
 
-    def __init__(self, *, task, record, hooks, workspace, passed=False, passing_traces=None):
+    def __init__(self, *, task, record, hooks, workspace, passed=False, passing_traces=None,
+                 learned_only=False):
         self.task, self.record, self.hooks, self.workspace = task, record, hooks, workspace
+        # Decision T5: on a root-only tree the inspector neither sees nor uses the original features.
+        self.learned_only = learned_only
         self.events = record.get("events", [])
         self.rescores = []
         self.diagnosis = None
@@ -168,7 +184,7 @@ class VerifierSession:
         """One entry per view; fragment IDs are listed only when they differ from the turn before."""
         views, last = [], None
         for view in skill_views(self.events):
-            item = {"turn": view["turn"], "context": view["context"][-600:], "case": view["case"],
+            item = {"turn": view["turn"], "context": view["context"][-600:], "case": self._visible(view["case"]),
                     "terminal_ids": view["terminal_ids"], "fragment_ids": view["fragment_ids"]}
             if last is not None and view["fragment_ids"] == last["fragment_ids"]:
                 item["fragment_ids"] = f"same as turn {last['turn']}"
@@ -176,6 +192,12 @@ class VerifierSession:
                 last = view
             views.append(item)
         return {"views": views}
+
+    def _visible(self, by_feature):
+        """A mapping keyed by feature name, without the original features when they are hidden."""
+        if not self.learned_only:
+            return by_feature
+        return {name: value for name, value in by_feature.items() if name.startswith(FEATURE_PREFIX)}
 
     async def _show_fragment(self, args):
         catalog = self.workspace.catalog
@@ -189,7 +211,7 @@ class VerifierSession:
                   "fragments": (n.conclusion or {}).get("fragments", []), "cornerstones": len(n.evidence)}
                  for n in self.workspace.engine.nodes]
         features = {name: spec.model_dump() for name, spec in self.workspace.schema.features.items()}
-        return {"nodes": nodes, "features": features}
+        return {"nodes": nodes, "features": self._visible(features)}
 
     async def _ground_truth(self, args):
         return {"ground_truth": self.hooks.ground_truth(self.task)}
@@ -262,7 +284,8 @@ class VerifierSession:
             raise ValueError("failing_turn is outside the transcript")
         if diagnosis.proposal is not None:
             problems = proposal_problems(diagnosis.proposal, self.workspace,
-                                         view_at(self.events, diagnosis.failing_turn))
+                                         view_at(self.events, diagnosis.failing_turn),
+                                         learned_only=self.learned_only)
             if problems:
                 raise ValueError("invalid proposal, fix and resubmit: " + "; ".join(problems))
         self.diagnosis, self.finished = diagnosis, True
@@ -295,11 +318,16 @@ def eligibility(outcome):
 
 
 async def verify_episode(*, model, task, record, hooks, workspace, max_calls=30, timeout_seconds=900,
-                         feedback=None, passing_traces=None):
-    """feedback: why an earlier proposal for this episode was rejected, for one retry."""
+                         feedback=None, passing_traces=None, learned_only=False):
+    """feedback: why an earlier proposal for this episode was rejected, for one retry.
+
+    learned_only: hide the original skill's features and refuse proposals that use them (decision T5).
+    """
     session = VerifierSession(task=task, record=record, hooks=hooks, workspace=workspace,
-                              passing_traces=passing_traces)
+                              passing_traces=passing_traces, learned_only=learned_only)
     prompt = verifier_prompt(hooks.benchmark)
+    if learned_only:
+        prompt += LEARNED_ONLY_INSTRUCTIONS
     if passing_traces is not None:
         prompt += ("\nBefore proposing a skill change, call passing_examples for the target node. "
                    "Use the successful traces to narrow the condition to the distinguishing case. "

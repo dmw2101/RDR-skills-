@@ -171,6 +171,32 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("rendered at the failing turn; those nodes are [1, 2]", errors[3])
         self.assertTrue(outcome["eligible"])  # The corrected proposal goes through in the same session.
 
+    async def test_a_root_only_tree_hides_and_refuses_the_original_features(self):
+        # Decision T5: every condition of a rule on a root-only tree is a learned, judged one.
+        base = {**DIAGNOSIS, "proposal": {**DIAGNOSIS["proposal"], "conditions": [
+            {"field": "operation", "op": "contains", "value": "extract_content"},
+            DIAGNOSIS["proposal"]["conditions"][0]]}}
+        model = ScriptedModel([call("show_tree", {}), call("skill_views", {}),
+                               call("submit_diagnosis", {"diagnosis": base}),
+                               call("rescore", {"prediction": {"total": "12"}}),
+                               call("submit_diagnosis", {"diagnosis": DIAGNOSIS})])
+        outcome = await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                                       workspace=self.workspace, max_calls=10, learned_only=True)
+        system, first = model.requests[0][0][0]["content"], model.requests[0][0][1]["content"]
+        self.assertIn("no predefined features", system)
+        self.assertIn('"features": {}', first)  # (This test's tree is the compiled one, so its nodes still show theirs.)
+        self.assertIn('"case": {}', first)
+        results = [e["result"] for e in outcome["events"] if e["type"] == "tool"]
+        self.assertEqual(results[0]["features"], {})
+        self.assertEqual([view["case"] for view in results[1]["views"]], [{}, {}])
+        self.assertIn("feature 'operation' cannot be used on this tree", results[2]["error"])
+        self.assertTrue(outcome["eligible"])
+        # Without the switch the same proposal is accepted and the features are shown.
+        outcome = await self.verify([call("show_tree", {}), call("rescore", {"prediction": {"total": "12"}}),
+                                     call("submit_diagnosis", {"diagnosis": base})])
+        self.assertIn("operation", next(e["result"] for e in outcome["events"] if e["type"] == "tool")["features"])
+        self.assertTrue(outcome["eligible"])
+
     async def test_the_inspector_is_warned_once_before_its_budget_runs_out(self):
         model = ScriptedModel([call("read_trace", {"from_turn": 0, "to_turn": 0})] * 3
                               + [call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])

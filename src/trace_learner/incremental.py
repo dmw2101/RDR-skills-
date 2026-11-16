@@ -225,7 +225,8 @@ class IncrementalLearner:
                     model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                     workspace=workspace, max_calls=settings.get("max_calls", 30),
                     timeout_seconds=settings.get("timeout_seconds", 900),
-                    passing_traces=passing_traces if self.passing_examples else None)
+                    passing_traces=passing_traces if self.passing_examples else None,
+                    learned_only=self.base_tree == "root_only")
             if was_interrupted(outcome):  # Not a verdict: leave it unsaved so the rerun diagnoses again.
                 print(f"  inspector on {record['task_id']} rep={record['replicate']}: interrupted "
                       f"({outcome['error']}); not saved", flush=True)
@@ -328,7 +329,8 @@ class IncrementalLearner:
                 model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                 workspace=SkillWorkspace(self.version_dir(version)), max_calls=settings.get("max_calls", 30),
                 timeout_seconds=settings.get("timeout_seconds", 900), feedback=feedback,
-                passing_traces=passing_traces if self.passing_examples else None)
+                passing_traces=passing_traces if self.passing_examples else None,
+                learned_only=self.base_tree == "root_only")
             if was_interrupted(outcome):
                 raise Interrupted(f"the inspector's retry on {record['task_id']} was interrupted "
                                   f"({outcome['error']}); run learn again to continue")

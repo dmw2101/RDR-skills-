@@ -156,7 +156,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 ## Decisions about the tree and the engine
 
 ### T1. Learning starts from a root-only tree
-- **Decision:** the whole skill sits at a lone root, and every child is learned.
+- **Decision:** the whole skill sits at a lone root, and every child is learned. Learned rules use learned conditions only (T5).
 - **Alternatives:** the compiled flat tree (an unconditional general node plus one node per compiled rule).
 - **Why:** tests whether learning needs the skill split into conditional rules up front.
 - **Where:** config `base_tree` (`"root_only"` or `"compiled"`); `SkillBundle.reshape`.
