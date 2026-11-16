@@ -49,7 +49,7 @@ async def doctor(config):
             "automatic Bank guidance each turn; original visible request and recent conversation; "
             "classifier usage included; request_skill only acknowledges requests"
             if hasattr(resolver, "actions") and config["run"].get("skill_loading") == "rolling" else
-            "automatic before every model call; task first, then last three assistant turns; "
+            "automatic before every model call; task first, then task plus last three assistant turns; "
             "request_skill only acknowledges requests"
             if config["run"].get("skill_loading") == "rolling" else
             "model-initiated only; no skill is injected before the first model call")

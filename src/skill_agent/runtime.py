@@ -39,8 +39,8 @@ SKILL_REQUEST_INSTRUCTIONS = (
 
 AUTOMATIC_SKILL_INSTRUCTIONS = (
     "Procedural guidance is supplied automatically in <active_skill> when available. "
-    "The initial view uses the task; subsequent views use the last three assistant turns' "
-    "available reasoning/planning text, with tool arguments as fallback. Each refresh replaces "
+    "The initial view uses the task; subsequent views use the task and the last three assistant "
+    "turns' available reasoning/planning text, with tool arguments as fallback. Each refresh replaces "
     "the active view, rather than appending another skill document. Use the supplied guidance "
     "to complete the task; if no guidance is available, continue with the other tools.\n"
     "<skill_catalog> lists the available topics. request_skill remains callable for compatibility, "
@@ -114,19 +114,29 @@ def planning_text(message):
 
 
 class RollingSkillPolicy:
-    """Refresh automatically from a fixed three-response window, without an LLM selector."""
+    """Refresh automatically from the task and a fixed three-response window, without an LLM selector.
+
+    keep_task (decision K3): the task text stays in every query, so the conditions it sets hold
+    for the whole attempt and a rule that fired at the start cannot drop out mid-task. The
+    recent turns can only add to them. False restores the recent-turns-only query.
+    """
 
     automatic_guidance = True
     instructions = AUTOMATIC_SKILL_INSTRUCTIONS
+
+    def __init__(self, *, keep_task=True):
+        self.keep_task = keep_task
 
     async def before_model(self, session, turn):
         recent = [event for event in session.events if event["type"] == "model_response"][-3:]
         texts = [planning_text(event["message"]) for event in recent]
         query = "\n\n".join(text for text in texts if text)
+        source = "task" if not query else "task_and_recent_model_turns" if self.keep_task else "recent_model_turns"
+        if query and self.keep_task:
+            query = session.task + "\n\n" + query
         selection = {"policy": "rolling", "turn": turn,
-                     "source_turns": [event["turn"] for event in recent],
-                     "input_source": "recent_model_turns" if query else "task"}
-        # A focused task avoids inheriting old feature values or appending the original task.
+                     "source_turns": [event["turn"] for event in recent], "input_source": source}
+        # A focused query (task=...) does not inherit old observed feature values.
         await session.load_skill(task=query or session.task, selection=selection)
 
 

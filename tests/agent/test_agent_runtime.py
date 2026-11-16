@@ -128,6 +128,26 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("initial guidance", json.dumps(model.requests[1]))
         self.assertEqual(len([e for e in state.events if e["type"] == "skill"]), 2)
 
+    async def test_rolling_query_keeps_the_task_on_every_refresh(self):
+        # Decision K3: the task's conditions must hold for the whole attempt.
+        from skill_agent.runtime import RollingSkillPolicy
+        tasks = []
+        class Recording:
+            async def resolve(self, request):
+                tasks.append(request.task)
+                return ResolvedSkill("text", "snapshot", source_fingerprint("whole skill"), "v1")
+        for keep, later in ((True, "Read the PDF\n\nnow writing the JSON file"), (False, "now writing the JSON file")):
+            tasks.clear()
+            state = context(Recording())
+            policy = RollingSkillPolicy(keep_task=keep)
+            await policy.before_model(state, 0)
+            state.events.append({"type": "model_response", "turn": 0,
+                                 "message": {"role": "assistant", "content": "now writing the JSON file"}})
+            await policy.before_model(state, 1)
+            self.assertEqual(tasks, ["Read the PDF", later])
+        self.assertEqual(state.events[-1]["selection"]["input_source"], "recent_model_turns")
+        self.assertTrue(RollingSkillPolicy().keep_task)
+
     async def test_model_initiated_request_can_use_same_load_operation(self):
         resolved = []
         class Changing:

@@ -252,7 +252,16 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Where:** `rdr_engine.skill_renderer.SkillRenderer.render` (`LEARNED_RULES_HEADER`), `skill_agent.runtime.LEARNED_RULES_INSTRUCTIONS`, `prompts/verifier.md`. A proposal's `anchor_fragment_id` is still accepted but no longer decides the position.
 - **Ablation:** none as a switch.
 - **Detail:** the instruction text changes the system prompt of every skill arm, so results are not comparable with runs before this commit.
-- **Status:** written 2026-11-16, not yet run on the GPU.
+- **Status:** written 2026-11-16; first used in the smoke runs of the same day (1 rule proposed and kept on each tree).
+
+### K3. The task text stays in every guidance refresh
+- **Decision:** in rolling loading, the text that picks the worker's guidance before each step is the task followed by the worker's last three responses (the first step uses the task alone, as before). The original skill's conditions (for PDF: `operation`, `source_kind`) are keyword matches on that text, so whatever the task sets holds for the whole attempt; the recent responses can only add operations. The judge's "recent activity" for conditions that are not about the document now starts with the task too.
+- **Alternatives:** the last three responses alone (the behaviour until now); working out the conditions once at the first step and freezing them, which would stop the guidance following a task that moves to another operation.
+- **Why:** a learned rule's base condition could turn false mid-task. In the expanded-tree smoke run of 2026-11-16 the kept rule fired on turns 0 to 6 and not on turns 7 and 8, because the worker's last three responses no longer contained a word like "extract" or "read". The advice block then leaves the prompt, possibly just before the answer is written, and a checker rerun can fail for that reason alone.
+- **Where:** `skill_agent.runtime.RollingSkillPolicy` (`keep_task`). Each refresh records `input_source`: `task`, `task_and_recent_model_turns`, or `recent_model_turns`.
+- **Ablation:** none as a config switch; `RollingSkillPolicy(keep_task=False)` in code.
+- **Detail:** one sentence of the automatic-loading instructions changed to say this, so the system prompt of rolling arms differs from earlier runs. On the expanded tree, every operation the task names now stays rendered for the whole attempt.
+- **Status:** written 2026-11-16; first used in `learn-4b-rootonly150-v2`.
 
 ## Decisions about scoring
 
