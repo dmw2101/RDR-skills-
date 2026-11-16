@@ -90,6 +90,14 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** none.
 - **Status:** written 2026-11-15, not yet run on the GPU.
 
+### I8. An inspector answer without a tool call is asked again
+- **Decision:** when the inspector answers without calling a tool, it gets a short message telling it to act (submit, or make the one check it still needs). This happens at most **twice** per inspection; a third such answer ends the inspection as before.
+- **Alternatives:** end the inspection at the first such answer (the behaviour until now).
+- **Why:** in the 5-document smoke run of 2026-11-16, the retry inspection of 50164 spent all 8,192 output tokens thinking, called no tool, and the whole 672 s inspection was lost. It was not a context overflow (20,180 input tokens).
+- **Where:** `VerifierSession.customer_response` (`MAX_NUDGES`), through the existing follow-up hook in `runtime.run_episode`.
+- **Ablation:** none.
+- **Status:** written 2026-11-16, not yet run on the GPU.
+
 ## Decisions about the judge
 
 ### J1. The judge reads the worker's starting materials and recent activity

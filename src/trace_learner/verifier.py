@@ -20,6 +20,7 @@ TRACE_FIELD_CHARS = 2000
 # about a minute and its longest ones several, so the warning leaves room for a final answer.
 WARN_CALLS_LEFT = 3
 WARN_SECONDS_LEFT = 360
+MAX_NUDGES = 2  # Decision I8: answers without a tool call that are asked again before giving up.
 
 
 def verifier_prompt(benchmark):
@@ -115,6 +116,7 @@ class VerifierSession:
         self.diagnosis = None
         self.finished = False
         self.warned = False
+        self.nudges = 0
         self.inspection = None
         self.prompt = (
             f"Task ID: {task['id']}\nCondition: {record['condition']}, replicate {record['replicate']}\n"
@@ -208,6 +210,17 @@ class VerifierSession:
                 "of yours already passed, call submit_diagnosis now. Otherwise make at most one more "
                 "rescore, then call submit_diagnosis with the best-supported attribution (not_skill or "
                 "unexplained when you could not establish a skill cause).")
+
+    async def customer_response(self, message):
+        """The inspector answered without calling a tool, usually cut off mid-thought at its output
+        limit: ask it to act, twice at most, instead of ending the inspection (decision I8)."""
+        if self.diagnosis is not None or self.nudges >= MAX_NUDGES:
+            return None
+        self.nudges += 1
+        return ("Your last message called no tool (it may have been cut off at the output limit), so "
+                "nothing was recorded. Do not reason at length. Call one tool now: submit_diagnosis if "
+                "a rescore of yours passed or you can attribute the failure, otherwise the single "
+                "next check you need.")
 
     async def briefing(self):
         """What every inspection starts by asking for, computed up front so no model call is spent on it."""

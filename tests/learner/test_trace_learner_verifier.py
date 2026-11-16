@@ -174,6 +174,17 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         outcome = await self.verify([{"role": "assistant", "content": "I think it is fine."}])
         self.assertEqual(outcome["status"], "failed")
         self.assertFalse(outcome["eligible"])
+        # It was asked to act twice before the inspection was given up.
+        self.assertEqual(sum(e["type"] == "user_message" for e in outcome["events"]), 2)
+
+    async def test_an_answer_without_a_tool_call_is_asked_again(self):
+        outcome = await self.verify([{"role": "assistant", "content": None, "reasoning": "thinking " * 4000},
+                                     call("rescore", {"prediction": {"total": "12"}}),
+                                     call("submit_diagnosis", {"diagnosis": DIAGNOSIS})])
+        self.assertEqual(outcome["status"], "completed", outcome["error"])
+        self.assertTrue(outcome["eligible"])
+        nudge = next(e for e in outcome["events"] if e["type"] == "user_message")
+        self.assertIn("called no tool", nudge["content"])
 
     def test_views_follow_rolling_and_model_initiated_turns(self):
         events = episode()["events"]
