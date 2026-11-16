@@ -53,18 +53,28 @@ class LearnedLayerTests(unittest.TestCase):
         case = {"operation": ["extract_content"], "source_kind": "unknown", "lf_flag": flag}
         return SkillRenderer().render(engine.predict(case), engine, catalog)
 
-    def test_learned_fragment_renders_after_its_anchor_only_when_the_rule_fires(self):
-        fragment, node_fragments = self.learn()
-        rendered = self.render("true")
-        self.assertIn("\n\nLEARNED GUIDANCE\n", rendered.markdown)
-        ids = list(rendered.selected_ids)
-        self.assertEqual(ids.index(fragment.id), ids.index(node_fragments[-1]) + 1)
-        for value in ("false", "unknown"):
-            self.assertNotIn("LEARNED GUIDANCE", self.render(value).markdown)
+    def check_block_first(self, anchor):
+        from rdr_engine.skill_renderer import LEARNED_RULES_HEADER
 
-    def test_unanchored_learned_fragment_renders_last(self):
-        self.learn(anchor=None)
-        self.assertTrue(self.render("true").markdown.endswith("LEARNED GUIDANCE\n"))
+        fragment, node_fragments = self.learn(anchor=anchor)
+        rendered = self.render("true")
+        self.assertTrue(rendered.markdown.startswith(
+            f"<learned_rules>\n{LEARNED_RULES_HEADER}\n\nLEARNED GUIDANCE\n</learned_rules>\n\n"))
+        self.assertEqual(rendered.selected_ids[0], fragment.id)
+        # The skill's own text follows the block, unchanged.
+        skill_text = rendered.markdown.split("</learned_rules>\n\n", 1)[1]
+        self.assertNotIn("LEARNED GUIDANCE", skill_text)
+        self.assertTrue(set(node_fragments) <= set(rendered.selected_ids))
+        for value in ("false", "unknown"):
+            plain = self.render(value).markdown
+            self.assertNotIn("LEARNED GUIDANCE", plain)
+            self.assertNotIn("<learned_rules>", plain)
+
+    def test_learned_fragment_renders_first_in_its_own_block_only_when_the_rule_fires(self):
+        self.check_block_first("node")
+
+    def test_an_unanchored_learned_fragment_renders_in_the_same_block(self):
+        self.check_block_first(None)  # The anchor no longer decides the position.
 
     def test_tampering_and_missing_layer_are_rejected(self):
         self.learn()

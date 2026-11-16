@@ -96,6 +96,9 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(requests[0][1:-1], requests[1][1:-1])
         # Tool receipts differ by condition; task and model request remain shared.
         self.assertTrue(requests[0][0]["content"].startswith("base\n\n" + SKILL_REQUEST_INSTRUCTIONS))
+        # Every skill arm is told how to treat learned rules (decision K2).
+        self.assertIn("<learned_rules> block", SKILL_REQUEST_INSTRUCTIONS)
+        self.assertIn("check the answer against each rule", SKILL_REQUEST_INSTRUCTIONS)
         self.assertIn("whole skill", requests[0][0]["content"])
         self.assertIn("selected text", requests[1][0]["content"])
 

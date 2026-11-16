@@ -37,7 +37,9 @@ class Proposal(StrictModel):
         "Conjunction that distinguishes the failing situation. Existing feature predicates "
         "or new learned features; never the gold answer or the outcome."))
     guidance_text: str | None = Field(default=None, description="New general procedure (Markdown).")
-    anchor_fragment_id: str | None = Field(default=None, description="Show guidance after this fragment.")
+    anchor_fragment_id: str | None = Field(default=None, description=(
+        "Optional: a related fragment of the original skill. It no longer decides where the guidance "
+        "is shown (learned guidance has its own block, first)."))
     remove_fragment_ids: list[str] = Field(default_factory=list,
                                            description="replace only: inherited fragments to drop.")
     rationale: str = Field(min_length=1)
@@ -68,7 +70,8 @@ class Proposal(StrictModel):
 
 
 class Diagnosis(StrictModel):
-    attribution: Literal["skill_missing", "skill_misleading", "not_skill", "unexplained"]
+    # answer_key_error: the gold answer itself is wrong, so no faithful attempt can pass (decision I9).
+    attribution: Literal["skill_missing", "skill_misleading", "not_skill", "answer_key_error", "unexplained"]
     failing_turn: int | None = Field(default=None, ge=0)
     root_cause: str = Field(min_length=1)
     evidence: list[str] = Field(default_factory=list)

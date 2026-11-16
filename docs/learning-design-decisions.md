@@ -98,6 +98,14 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** none.
 - **Status:** written 2026-11-16, not yet run on the GPU.
 
+### I9. A wrong answer key ends the inspection with no rule
+- **Decision:** the inspector has a fifth attribution, `answer_key_error`: the gold answer itself is wrong (cut off, not in the input, or contradicting it), so no faithful output can pass. It submits that with its evidence and no proposal, and is told to stop as soon as it establishes this. Such a diagnosis is never eligible, so no rule is tried, no checker run is made and no retry is spent. The prompt also says a rescore must not be made to pass by copying gold values the input does not contain.
+- **Alternatives:** leave it to `skill_missing` with a caveat (the behaviour until now).
+- **Why:** on document 50164 the gold value for one field is cut off mid-sentence. The inspector noticed ("even an ideal agent caps at 7/8") but still proposed a rule, having "proved" its fix by rescoring the gold values. Under P1 no rule can pass there, and both learning runs spent an inspection, a checker run and a retry inspection on it (about 30 minutes in the smoke run).
+- **Where:** `proposals.Diagnosis.attribution`, `verifier.eligibility`, `prompts/verifier.md` (step 3).
+- **Ablation:** none.
+- **Status:** written 2026-11-16, not yet run on the GPU.
+
 ## Decisions about the judge
 
 ### J1. The judge reads the worker's starting materials and recent activity
@@ -236,6 +244,15 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Where:** config `skill.files`; `skill_agent.experiments.skill_files`, `VenvPDFSession.add_files`. The files stay in the git-ignored `papers/Trace2Skill/skills/licensed/` folder (Anthropic's licence forbids redistribution) and are copied into each worker folder at run time.
 - **Ablation:** omit `skill.files`.
 - **Status:** in use from 2026-11-14. Results from earlier runs, including the pilot, used `SKILL.md` alone.
+
+### K2. Learned advice is shown first, in its own block, and the worker is told to follow it
+- **Decision:** when learned rules fire, their advice is rendered **first**, inside `<learned_rules>` with a one-line header saying the rules come from earlier mistakes, apply to this task and win over the general guidance. Only the advice of rules whose conditions were judged true is in the block; with none, there is no block. The skill's own fragments follow in their original order, unchanged. The worker's skill instructions (both loading modes, so every skill arm reads the same text) say these rules are requirements, to read them before the first action, and to check the answer against each rule before finishing. The inspector is told its advice is shown this way and to write short, checkable instructions.
+- **Alternatives:** the advice placed inside the skill text after an anchor fragment, or at the end without one (the behaviour until now); the advice alone, hiding the skill when a rule fires; the advice repeated as a late reminder message.
+- **Why:** in the 5-document smoke run of 2026-11-16, all 3 proposed rules were rejected although each rule fired and its advice was in the worker's prompt on every turn. The advice was 300 to 900 characters inside about 8,400 characters of general PDF guidance (at 22% and 89% of the way through), and the worker's behaviour did not change: it merged blocks the advice said to keep apart, and stripped `$` signs the advice said to keep.
+- **Where:** `rdr_engine.skill_renderer.SkillRenderer.render` (`LEARNED_RULES_HEADER`), `skill_agent.runtime.LEARNED_RULES_INSTRUCTIONS`, `prompts/verifier.md`. A proposal's `anchor_fragment_id` is still accepted but no longer decides the position.
+- **Ablation:** none as a switch.
+- **Detail:** the instruction text changes the system prompt of every skill arm, so results are not comparable with runs before this commit.
+- **Status:** written 2026-11-16, not yet run on the GPU.
 
 ## Decisions about scoring
 

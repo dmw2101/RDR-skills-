@@ -9,6 +9,12 @@ from .skill_compiler import Fragment, FragmentCatalog, _table_rows
 from .types import EvaluationStep, Prediction
 
 
+LEARNED_RULES_HEADER = (
+    "These rules were learned from earlier mistakes on tasks like this one, and their conditions "
+    "hold for this task. Follow them. Where they differ from the general guidance below, they win."
+)
+
+
 @dataclass(frozen=True)
 class RenderedSkill:
     markdown: str
@@ -50,20 +56,12 @@ class SkillRenderer:
                     active.add(required)
                     pending.append(required)
 
-        learned_order = {fragment.id: index for index, fragment in enumerate(catalog.learned)}
-
-        def position(fragment_id: str) -> tuple[float, float, int, int, str]:
-            # Learned guidance follows its anchor (or the end), after any base fragment there.
-            if fragment_id in base:
-                fragment = base[fragment_id]
-                return (fragment.order, fragment.end, 0, 0, fragment.id)
-            anchor = base.get(learned[fragment_id].anchor)
-            if anchor is None:
-                return (float("inf"), float("inf"), 1, learned_order[fragment_id], fragment_id)
-            return (anchor.order, anchor.end, 1, learned_order[fragment_id], fragment_id)
-
-        ordered = sorted(active, key=position)
-        selected = [base[item] for item in ordered if item in base]
+        # Learned guidance is shown first, in a block of its own, in the order it was learned;
+        # the skill's own fragments follow in their original order.
+        learned_ids = [fragment.id for fragment in catalog.learned if fragment.id in active]
+        ordered = sorted((item for item in active if item in base),
+                         key=lambda item: (base[item].order, base[item].end, item))
+        selected = [base[item] for item in ordered]
         rows = _table_rows(catalog.skill_input.lines)
         header_id_by_span = {
             (fragment.start, fragment.end): fragment.id
@@ -81,25 +79,25 @@ class SkillRenderer:
         pieces: list[str] = []
         previous: Fragment | None = None
         for fragment_id in ordered:
-            fragment = base.get(fragment_id)
-            if pieces:
-                if fragment is None or previous is None:
-                    separator = "\n\n"  # Learned guidance is always its own block.
-                else:
-                    same_table = (
-                        table_header(previous) is not None
-                        and table_header(previous) == table_header(fragment)
-                    )
-                    separator = "\n" if same_table or fragment.start == previous.end + 1 else "\n\n"
-                pieces.append(separator)
-            pieces.append(by_id[fragment_id].text.rstrip("\r\n"))
+            fragment = base[fragment_id]
+            if previous is not None:
+                same_table = (
+                    table_header(previous) is not None
+                    and table_header(previous) == table_header(fragment)
+                )
+                pieces.append("\n" if same_table or fragment.start == previous.end + 1 else "\n\n")
+            pieces.append(fragment.text.rstrip("\r\n"))
             previous = fragment
         markdown = "".join(pieces)
+        if learned_ids:
+            rules = "\n\n".join(learned[item].text.rstrip("\r\n") for item in learned_ids)
+            block = f"<learned_rules>\n{LEARNED_RULES_HEADER}\n\n{rules}\n</learned_rules>"
+            markdown = block + ("\n\n" + markdown if markdown else "")
         if markdown:
             markdown += "\n"
         return RenderedSkill(
             markdown,
-            tuple(ordered),
+            tuple(learned_ids + ordered),
             tuple(item.node_id for item in prediction.conclusions),
             prediction.trace,
         )

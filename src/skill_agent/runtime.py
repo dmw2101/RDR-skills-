@@ -49,6 +49,18 @@ AUTOMATIC_SKILL_INSTRUCTIONS = (
 )
 
 
+# Appended to both skill instructions (decision K2), so every skill arm reads the same text.
+LEARNED_RULES_INSTRUCTIONS = (
+    "\n<active_skill> may begin with a <learned_rules> block. Those rules come from earlier failed "
+    "attempts on tasks like this one and have been checked to apply to this task, so they are "
+    "requirements, not suggestions: follow them even when your usual approach or the general guidance "
+    "says otherwise. Read them before your first action. Before you write or finalize your answer, "
+    "read them again and check the answer against each rule, correcting anything that does not comply."
+)
+SKILL_REQUEST_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
+AUTOMATIC_SKILL_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
+
+
 class Tool(Protocol):
     definition: dict
     async def execute(self, arguments: dict) -> dict: ...

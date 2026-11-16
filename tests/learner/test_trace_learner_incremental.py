@@ -631,7 +631,9 @@ class RootOnlyIncrementalTests(unittest.IsolatedAsyncioTestCase):
         names = final.render(final.case_for(base, judge_context(TASK, MATERIALS["names"]))).markdown
         self.assertIn(MARKER, forms)
         self.assertNotIn(MARKER, names)
-        self.assertTrue(forms.startswith(names.rstrip()[:200]))  # The skill is kept with the new advice.
+        # The new advice comes first in its own block; the whole skill is kept after it.
+        self.assertTrue(forms.startswith("<learned_rules>\n"))
+        self.assertEqual(forms.split("</learned_rules>\n\n", 1)[1], names)
         self.assertEqual(learner.state()["base_tree"], "root_only")
 
     async def test_an_output_folder_keeps_its_base_tree(self):

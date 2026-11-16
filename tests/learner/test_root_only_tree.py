@@ -102,7 +102,9 @@ class RootOnlyWorkspaceTests(unittest.IsolatedAsyncioTestCase):
         with_rule, without = self.text("The tool listed 12 form fields"), self.text("Extract totals from invoice 0")
         self.assertIn("get_fields()", with_rule)
         self.assertNotIn("get_fields()", without)
-        self.assertTrue(with_rule.startswith(without.rstrip()[:200]))  # The skill itself is unchanged.
+        # The advice comes first in its own block; the skill itself follows, unchanged.
+        self.assertTrue(with_rule.startswith("<learned_rules>\n"))
+        self.assertEqual(with_rule.split("</learned_rules>\n\n", 1)[1], without)
 
     async def test_the_tree_grows_in_breadth_and_in_depth(self):
         # Breadth: two unrelated failures become two siblings under the root.

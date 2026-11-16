@@ -99,6 +99,18 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
             "attribution": "not_skill", "root_cause": "OCR noise"}})])
         self.assertFalse(outcome["eligible"])
         self.assertEqual(outcome["ineligible_reason"], "attributed to not_skill")
+        # A wrong answer key ends the inspection with no rule, even after a passing rescore.
+        outcome = await self.verify([call("rescore", {"prediction": {"total": "12"}}),
+                                     call("submit_diagnosis", {"diagnosis": {
+                                         "attribution": "answer_key_error", "root_cause": "gold value is cut off"}})])
+        self.assertEqual(outcome["status"], "completed")
+        self.assertFalse(outcome["eligible"])
+        self.assertEqual(outcome["ineligible_reason"], "attributed to answer_key_error")
+        outcome = await self.verify([call("submit_diagnosis", {"diagnosis": {**DIAGNOSIS, "attribution": "answer_key_error"}}),
+                                     call("submit_diagnosis", {"diagnosis": {
+                                         "attribution": "answer_key_error", "root_cause": "gold value is cut off"}})])
+        errors = [e["result"]["error"] for e in outcome["events"] if e["type"] == "tool" and "error" in e["result"]]
+        self.assertIn("only skill-attributed diagnoses may propose a change", errors[0])
 
     async def test_invalid_diagnosis_is_returned_for_correction(self):
         outcome = await self.verify([
