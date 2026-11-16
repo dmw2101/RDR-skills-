@@ -276,8 +276,11 @@ class VerifierSession:
     async def _submit(self, args):
         if self.diagnosis is not None:
             raise ValueError("diagnosis already submitted")
+        submitted = args["diagnosis"]
+        # A long diagnosis sometimes arrives as JSON text instead of an object; it is the same answer.
+        encoded = submitted if isinstance(submitted, str) else json.dumps(submitted)
         try:
-            diagnosis = Diagnosis.model_validate_json(json.dumps(args["diagnosis"]))
+            diagnosis = Diagnosis.model_validate_json(encoded)
         except ValidationError as exc:
             raise ValueError(f"invalid diagnosis, fix and resubmit: {exc}") from exc
         if diagnosis.failing_turn is not None and diagnosis.failing_turn >= max(turn_count(self.events), 1):

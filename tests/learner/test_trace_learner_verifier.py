@@ -121,6 +121,17 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(errors), 2)
         self.assertTrue(outcome["eligible"])
 
+    async def test_a_diagnosis_sent_as_json_text_is_accepted(self):
+        # The 27B sometimes encodes a long diagnosis as a string; refusing it made it submit filler.
+        outcome = await self.verify([call("rescore", {"prediction": {"total": "12"}}),
+                                     call("submit_diagnosis", {"diagnosis": json.dumps(DIAGNOSIS)})])
+        self.assertTrue(outcome["eligible"])
+        self.assertEqual(outcome["diagnosis"]["root_cause"], DIAGNOSIS["root_cause"])
+        outcome = await self.verify([call("submit_diagnosis", {"diagnosis": "not json"}),
+                                     call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])
+        errors = [e["result"]["error"] for e in outcome["events"] if e["type"] == "tool" and "error" in e["result"]]
+        self.assertIn("invalid diagnosis, fix and resubmit", errors[0])
+
     async def test_first_prompt_carries_the_standard_results(self):
         model = ScriptedModel([call("rescore", {"prediction": {"total": "12"}}),
                                call("submit_diagnosis", {"diagnosis": DIAGNOSIS})])

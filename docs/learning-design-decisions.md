@@ -79,6 +79,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Alternatives:** reject after the session and spend the one retry (I4) on it; no retry at all (the behaviour until now, as for rule 23.1's `in` on a multi-value feature).
 - **Why:** these mistakes need no model to find, and a retry costs 7 to 15 minutes.
 - **Where:** `verifier.proposal_problems`, `VerifierSession._submit`.
+- **Detail (2026-11-16):** a diagnosis sent as JSON text instead of an object is read as the same answer. In round 2 of `learn-4b-rootonly150-v2` the 27B sent its (correct, 6,000-character) diagnosis as text five times and was refused each time. It then "tested" the tool with a filler object ("medium length description padding …"), which was accepted as its diagnosis: rule 2.1 was filler, the 20-minute inspection was lost and the one retry (I4) was spent.
 - **Ablation:** none.
 - **Status:** written 2026-11-14, not yet run on the GPU.
 
