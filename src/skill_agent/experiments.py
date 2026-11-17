@@ -304,7 +304,7 @@ async def run_experiment(config, *, resume=False):
                               PreloadedSkillPolicy(sorted(files)) if condition == "preloaded" else
                               (adapter.rolling_skill_policy() if hasattr(adapter, "rolling_skill_policy")
                                else RollingSkillPolicy()) if loading == "rolling" else
-                              OnceSkillPolicy() if loading == "initial" else
+                              OnceSkillPolicy(sorted(files)) if loading == "initial" else
                               ModelInitiatedSkillPolicy())
                     result = await run_episode(model=model, session=session, skill_context=context,
                                                system_prompt=adapter.system_prompt, policy=policy,

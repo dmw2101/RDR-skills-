@@ -197,9 +197,43 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result.status, "budget_exhausted")
             self.assertEqual(result.prediction, {"answer": 42} if keep else None)
 
+    async def test_root_only_tree_gets_exactly_the_full_skill_prompt(self):
+        # Decision H5: same wrapping, so the base tree differs from the full skill only by sampling;
+        # learned rules add their block and one protocol line, nothing else.
+        import tempfile
+        from pathlib import Path
+        from rdr_engine.skill_compiler import SkillBundle
+        from skill_agent.runtime import LEARNED_RULES_BULLET, OnceSkillPolicy, PreloadedSkillPolicy
+        from trace_learner.workspace import SkillWorkspace, copy_bundle
+        root = Path(__file__).resolve().parents[2] / "skills/pdf"
+        full = (root / "initial.md").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as temp:
+            copy = copy_bundle(root, Path(temp) / "pdf")
+            SkillBundle.reshape(copy, "root_only")
+            tree = SkillWorkspace(copy).render({"operation": [], "source_kind": "unknown"}).markdown
+        learned = "<learned_rules>\nThese rules were learned.\n\nCopy values verbatim.\n</learned_rules>\n\n" + tree
+
+        async def system_prompt(text, policy):
+            state = SessionContext("pdf", "snapshot", "Read the PDF", StaticSkillResolver("pdf", "snapshot", text),
+                                   source_fingerprint(text))
+            model = FakeModel()
+            await run_episode(model=model, session=FakeSession(), skill_context=state, system_prompt="base",
+                              policy=policy)
+            return model.requests[0][0]["content"], [t["function"]["name"] for t in model.definitions[0]]
+        files = ["FORMS.md", "REFERENCE.md", "scripts"]
+        full_prompt, full_tools = await system_prompt(full, PreloadedSkillPolicy(files))
+        tree_prompt, tree_tools = await system_prompt(tree, OnceSkillPolicy(files))
+        self.assertEqual(tree_prompt, full_prompt)
+        self.assertEqual(tree_tools, full_tools)
+        learned_prompt, _ = await system_prompt(learned, OnceSkillPolicy(files))
+        self.assertIn(LEARNED_RULES_BULLET, learned_prompt)
+        self.assertNotIn(LEARNED_RULES_BULLET, tree_prompt)
+        self.assertEqual(learned_prompt.replace(LEARNED_RULES_BULLET, "").replace(
+            "<learned_rules>\nThese rules were learned.\n\nCopy values verbatim.\n</learned_rules>\n\n", ""), full_prompt)
+
     async def test_once_policy_builds_guidance_only_before_the_first_step(self):
         # Decision K4: one view from the task, kept for the whole attempt.
-        from skill_agent.runtime import ONCE_SKILL_INSTRUCTIONS, OnceSkillPolicy
+        from skill_agent.runtime import OnceSkillPolicy
         tasks = []
         class Recording:
             async def resolve(self, request):
@@ -223,8 +257,9 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([event["selection"]["policy"] for event in skills], ["initial"])
         self.assertEqual(len(model.requests), 3)
         for request in model.requests:  # The same guidance stays in every step's prompt.
-            self.assertIn("fixed guidance", request[0]["content"])
-            self.assertIn(ONCE_SKILL_INSTRUCTIONS, request[0]["content"])
+            self.assertEqual(request[0], model.requests[0][0])
+            self.assertIn("<skill_content>\nfixed guidance\n</skill_content>", request[0]["content"])
+        self.assertEqual([t["function"]["name"] for t in model.definitions[0]], ["ping"])  # No request_skill.
 
     async def test_model_initiated_request_can_use_same_load_operation(self):
         resolved = []

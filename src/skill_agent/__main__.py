@@ -52,8 +52,8 @@ async def doctor(config):
             "automatic before every model call; task first, then task plus last three assistant turns; "
             "request_skill only acknowledges requests"
             if config["run"].get("skill_loading") == "rolling" else
-            "automatic once, before the first model call, from the task; never refreshed; "
-            "request_skill only acknowledges requests"
+            "automatic once, before the first model call, from the task; never refreshed; shown like the "
+            "full skill (no request_skill tool or catalog)"
             if config["run"].get("skill_loading") == "initial" else
             "model-initiated only; no skill is injected before the first model call")
     except Exception as exc:

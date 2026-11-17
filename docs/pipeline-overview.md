@@ -81,9 +81,8 @@ sequenceDiagram
 | Part | Contents | Changes between steps? |
 |---|---|---|
 | System prompt 1 | The benchmark's instructions | No |
-| System prompt 2 | Skill instructions: guidance arrives automatically (rebuilt, or fixed under `initial`); learned rules are requirements (K2) | No |
-| System prompt 3 | `<skill_catalog>`: the skill's topic list | No |
-| System prompt 4 | `<active_skill>`: the guidance (section 4) | `rolling`: rebuilt every step. `initial`: no |
+| System prompt 2 (`initial`, H5) | The full skill's "Relevant Skill" section: what skills are, the skill files in the folder, the "Mandatory Skill Usage Protocol" (plus the learned-rules line, K2, when rules fire), and the guidance (section 4) in `<skill_content>`. No `request_skill` tool, no catalog | No |
+| System prompt 2–4 (`rolling` only) | Skill instructions (guidance arrives automatically; learned rules are requirements, K2), `<skill_catalog>`, and the guidance in `<active_skill>` | The guidance is rebuilt every step |
 | First message | The task sentence, where the PDF and schema files are, where to write `answer.json`, and the output schema | No |
 | Conversation | Its own earlier messages and every tool result | Grows each step |
 | Tools | `shell` in a working folder holding the PDF, the schema and the skill's extra files (K1) | No |

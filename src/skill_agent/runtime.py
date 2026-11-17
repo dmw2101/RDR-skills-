@@ -49,18 +49,6 @@ AUTOMATIC_SKILL_INSTRUCTIONS = (
 )
 
 
-# Decision K4: guidance built once, before the first model call, and kept for the whole attempt.
-ONCE_SKILL_INSTRUCTIONS = (
-    "Procedural guidance is supplied automatically in <active_skill> when available. "
-    "It is chosen once, from the task and its input materials, before your first step, and stays "
-    "the same for the whole task. Use the supplied guidance to complete the task; if no guidance "
-    "is available, continue with the other tools.\n"
-    "<skill_catalog> lists the available topics. request_skill remains callable for compatibility, "
-    "but in this automatic mode it only acknowledges your request: it does not resolve guidance "
-    "or change the supplied view. You do not need to call it to receive guidance."
-)
-
-
 # Appended to both skill instructions (decision K2), so every skill arm reads the same text.
 LEARNED_RULES_INSTRUCTIONS = (
     "\n<active_skill> may begin with a <learned_rules> block. Those rules come from earlier failed "
@@ -71,7 +59,6 @@ LEARNED_RULES_INSTRUCTIONS = (
 )
 SKILL_REQUEST_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
 AUTOMATIC_SKILL_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
-ONCE_SKILL_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
 
 
 # Decision H4: the plain-skill baseline, adapted from Trace2Skill's preloaded-skill agent
@@ -88,8 +75,18 @@ PRELOADED_SKILL_SECTION = (
     "- During your task execution, if the skill contains relevant guidance, you must follow it.\n"
     "- Only act on your own judgement if:\n"
     "    - No skill is relevant to the task, OR\n"
-    "    - The skill does not cover the specific operation you need to perform.\n\n"
+    "    - The skill does not cover the specific operation you need to perform.\n"
+    "{learned}\n"
     "<skill_content>\n{content}\n</skill_content>"
+)
+# Decision H5 (with K2): added to the protocol only when the guidance carries learned rules, so a
+# tree with none gives the worker exactly the full skill's prompt.
+LEARNED_RULES_BULLET = (
+    "- The <skill_content> begins with a <learned_rules> block. Those rules come from earlier failed "
+    "attempts on tasks like this one and have been checked to apply to this task, so they are "
+    "requirements, not suggestions: follow them even when your usual approach or the general guidance "
+    "says otherwise. Read them before your first action. Before you write or finalize your answer, "
+    "read them again and check the answer against each rule, correcting anything that does not comply.\n"
 )
 
 
@@ -105,7 +102,9 @@ def strip_front_matter(markdown):
 def preloaded_skill_section(markdown, files=()):
     resources = ("- The resources SKILL.md refers to (" + ", ".join(files) + ") are in the current working "
                  "folder. You can read or run them there.\n") if files else ""
-    return PRELOADED_SKILL_SECTION.format(resources=resources, content=strip_front_matter(markdown).rstrip())
+    content = strip_front_matter(markdown).strip()
+    learned = LEARNED_RULES_BULLET if content.startswith("<learned_rules>") else ""
+    return PRELOADED_SKILL_SECTION.format(resources=resources, learned=learned, content=content)
 
 
 class Tool(Protocol):
@@ -191,12 +190,16 @@ class OnceSkillPolicy:
     """Build guidance once from the task before the first model call; never refresh (decision K4).
 
     The single view is the same one a rolling run starts with, so judged conditions are asked
-    once per attempt instead of before every step.
+    once per attempt instead of before every step. Decision H5: the view is shown exactly as the
+    full-skill baseline shows SKILL.md (PreloadedSkillPolicy's wrapping: no request_skill tool, no
+    catalog), with one more protocol line only when learned rules fire. files: as for that policy.
     """
 
-    automatic_guidance = True
+    preloaded = True
     selection_mode = "initial"
-    instructions = ONCE_SKILL_INSTRUCTIONS
+
+    def __init__(self, files=()):
+        self.files = tuple(files)
 
     async def before_model(self, session, turn):
         if turn == 0:
