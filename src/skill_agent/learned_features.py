@@ -2,6 +2,8 @@
 
 import json
 from dataclasses import replace
+from datetime import datetime, timezone
+from pathlib import Path
 
 from .contracts import ResolveSkillRequest, source_fingerprint
 from .models import OpenAICompatibleClient
@@ -84,8 +86,25 @@ class FeatureJudge:
     request would give the same bad answer. Only then is it a JudgeError (decision J3).
     """
 
-    def __init__(self, model, attempts=3):
+    def __init__(self, model, attempts=3, log=None):
+        """log: a JSON-lines file that gets one line per model call (decision M2); None keeps none."""
         self.model, self.attempts = model, attempts
+        self.log = Path(log) if log else None
+
+    def _record(self, kind, response, usable=True):
+        """Tokens and latency of one judge call, for runs whose judge calls are saved nowhere else."""
+        if self.log is None:
+            return
+        metadata, usage = response.metadata or {}, response.usage or {}
+        line = {"time": datetime.now(timezone.utc).isoformat(timespec="seconds"), "kind": kind,
+                "usable": usable, "input_tokens": usage.get("input_tokens"),
+                "output_tokens": usage.get("output_tokens"), "latency_seconds": metadata.get("latency_seconds"),
+                "switch_seconds": metadata.get("switch_seconds"),
+                "retry_wait_seconds": metadata.get("retry_wait_seconds"),
+                "finish_reason": metadata.get("finish_reason")}
+        self.log.parent.mkdir(parents=True, exist_ok=True)
+        with self.log.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(line) + "\n")
 
     async def judge(self, features, text):
         """features: {name: {description, examples, counterexamples}} -> (values, response)."""
@@ -115,6 +134,7 @@ class FeatureJudge:
             try:
                 values = self._values(response, features)
             except ValueError as exc:
+                self._record("judge", response, usable=False)
                 # Kept in the log: the answer itself is saved nowhere else.
                 print(f"  judge answer unusable ({exc}); attempt {attempt + 1}/{self.attempts}; it said: "
                       f"{json.dumps(response.message, ensure_ascii=False, default=str)[:600]}", flush=True)
@@ -122,6 +142,7 @@ class FeatureJudge:
                     raise JudgeError(str(exc), response.usage, calls=self.attempts) from exc
                 continue
             response.metadata["judge_retries"] = attempt
+            self._record("judge", response)
             return values, response
 
     async def explain(self, features, text, limit=1500):
@@ -140,6 +161,7 @@ class FeatureJudge:
                                         "it (quote a few words), or what is missing."},
         ]
         response = await self.model.complete(messages, [])
+        self._record("explain", response)
         content = (response.message.get("content") or "").strip()
         return content if len(content) <= limit else content[:limit] + " ..."
 

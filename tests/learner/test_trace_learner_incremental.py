@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 from rdr_engine.learned import CONTEXT_KEY
 from rdr_service.backend import RDRBackend
 from rdr_service.server import make_server
-from skill_agent.experiments import episode_filename
+from skill_agent.experiments import episode_filename, load_run
 from skill_agent.http import HTTPStatusError
 from skill_agent.learned_features import JudgeError, judge_context
 from skill_agent.models import ModelResponse
@@ -334,6 +334,21 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report["costs"]["2 inspector"]["model_calls"], 3)
         self.assertIn("| 1 | forms_a | 0 | v0 | failed | skill_missing |",
                       (learner.root / "report.md").read_text(encoding="utf-8"))
+        # Decision M2: calls and tokens of every role, the learner's own judge calls from their log.
+        usage = report["usage"]
+        self.assertEqual(usage["inspector"]["model_calls"], 3)
+        self.assertEqual(usage["inspector"]["input_tokens"], 3 * USAGE["input_tokens"])
+        self.assertEqual(usage["inspector"]["output_tokens"], 3 * USAGE["output_tokens"])
+        worker_calls = sum(e["type"] == "model_response" for item in learner.rounds().values()
+                           for r in load_run(learner.round_dir(item["round"]) / "run")[1] for e in r["events"])
+        self.assertEqual(usage["worker (learning attempts)"]["model_calls"], worker_calls)
+        self.assertGreater(worker_calls, 0)
+        logged = (learner.root / "judge_calls.jsonl").read_text(encoding="utf-8").splitlines()
+        self.assertTrue(logged)
+        self.assertEqual(usage["judge (learner: stored cases, rules, condition tests)"]["model_calls"], len(logged))
+        self.assertEqual(json.loads(logged[0])["input_tokens"], USAGE["input_tokens"])
+        self.assertIn("checker re-runs: worker", usage)
+        self.assertIn("## Model calls, tokens and latency", (learner.root / "report.md").read_text(encoding="utf-8"))
 
         # Every proposed rule is readable in full after each round (decision V1).
         round_log = (learner.round_dir(0) / "rules.md").read_text(encoding="utf-8")

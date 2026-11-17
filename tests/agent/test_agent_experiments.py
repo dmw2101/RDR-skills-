@@ -240,6 +240,23 @@ class AccountingTests(unittest.TestCase):
         self.assertIsNone(usage["resolver_model_calls"])
         self.assertEqual(usage["agent_model_calls"], 1)
 
+    def test_worker_and_judge_tokens_are_reported_apart(self):
+        # Decision M2.
+        judged = {"type": "skill", "seconds": 1, "response": {
+            "markdown": "x", "usage": {"model_calls": 1, "input_tokens": 300, "output_tokens": 20, "cost_usd": None},
+            "metadata": {"feature_judge": {"calls": 1, "latency_seconds": 2.0}}}}
+        reused = {**judged, "response": {**judged["response"], "usage": {"model_calls": 0, "input_tokens": 0,
+                                                                         "output_tokens": 0, "cost_usd": None},
+                                         "metadata": {"feature_judge": {"calls": 0, "latency_seconds": 0.0}}}}
+        record = {"condition": "reduced", "status": "completed", "seconds": 5, "events": [
+            {"type": "model_request"}, judged, {"type": "skill_request"}, {"type": "skill_request"}, reused,
+            {"type": "model_response", "message": {"role": "assistant", "content": "done"},
+             "usage": {"input_tokens": 1000, "output_tokens": 50, "cost_usd": None, "cached_input_tokens": None},
+             "metadata": {"latency_seconds": 3.0}}]}
+        usage = usage_summary([record])["reduced"]
+        self.assertEqual((usage["worker_input_tokens"], usage["worker_output_tokens"]), (1000, 50))
+        self.assertEqual((usage["judge_input_tokens"], usage["judge_output_tokens"]), (300, 20))
+
     def test_bootstrap_keeps_pairs_and_replicates(self):
         rows = [{"task_id": d, "condition": c, "replicate": r, "metric": "accuracy",
                  "numerator": int(c != "none"), "denominator": 1}

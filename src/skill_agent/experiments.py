@@ -396,6 +396,24 @@ def timing_summary(episodes, model_events, skill_events):
     }
 
 
+def role_tokens(model_events, skill_events):
+    """Decision M2: the worker's and the judge's tokens apart (input_tokens/output_tokens add both).
+
+    Null when any call lacks the count, as for the combined totals.
+    """
+    def total(usages, key):
+        values = [usage.get(key) for usage in usages]
+        return None if any(v is None for v in values) else sum(values)
+
+    worker = [e.get("usage") or {} for e in model_events]
+    judge = [e["response"].get("usage") or {} for e in skill_events
+             if ((e["response"].get("metadata") or {}).get("feature_judge") or {}).get("calls")]
+    return {"worker_input_tokens": total(worker, "input_tokens"),
+            "worker_output_tokens": total(worker, "output_tokens"),
+            "judge_input_tokens": total(judge, "input_tokens"),
+            "judge_output_tokens": total(judge, "output_tokens")}
+
+
 def usage_summary(records):
     result = {}
     for condition in CONDITIONS:
@@ -436,6 +454,7 @@ def usage_summary(records):
                                          + [e["usage"] for e in skill_errors if "usage" in e]) else None),
             "input_tokens": total("input_tokens"), "output_tokens": total("output_tokens"),
             "cost_usd": total("cost_usd"),
+            **role_tokens(model_events, skill_events),
             "cached_input_tokens": (sum(e["usage"]["cached_input_tokens"] for e in model_events)
                                     if model_requests == len(model_events) and all(e["usage"].get("cached_input_tokens") is not None for e in model_events) else None),
             "episode_seconds": sum(r["seconds"] for r in episodes),

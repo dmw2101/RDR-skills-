@@ -62,7 +62,9 @@ class IncrementalLearner:
         # Design switches; see docs/learning-design-decisions.md (I3, C1).
         self.passing_examples = config["verifier"].get("passing_examples", True)
         self.changed_successes = self.validation.get("changed_successes", "rerun")
-        self.judge = FeatureJudge(factory(config["judge"]["model"]))
+        # Decision M2: the learner's own judge calls (stored cases, rules, condition tests) are logged;
+        # its calls inside worker and checker runs are already in those runs' records.
+        self.judge = FeatureJudge(factory(config["judge"]["model"]), log=self.root / "judge_calls.jsonl")
         self._materials = {}
 
     # -- paths and saved state ----------------------------------------------------------------

@@ -401,6 +401,18 @@ These apply to every arm alike (no skill, full skill, preloaded skill, tree arms
 - **Ablation:** none (measurement only).
 - **Status:** in use since 2026-11-13. Records from earlier runs report null model time.
 
+### M2. Calls, input/output tokens and latency are reported per LLM role
+- **Decision:** every run reports, for each LLM role, its model calls, input tokens, output tokens and model time (the sum of per-call latency, M1):
+  - **Test arms:** `skill_agent summarize` gives each arm's `worker_input_tokens`, `worker_output_tokens`, `judge_input_tokens` and `judge_output_tokens` beside the combined `input_tokens`/`output_tokens`, `model_seconds` and `judge_seconds`.
+  - **Learning:** the learning report (`report.json`, `report.md`) has a "Model calls, tokens and latency" table with one row per role: worker (learning attempts), judge in those attempts, inspector (first inspections and retries), the learner's own judge calls, merge, and the checker's re-runs (worker and judge), plus a total.
+  - The learner's own judge calls (stored cases, rule checks, the impact replay, `test_conditions` and its reasons) were saved nowhere before. Each now appends one line to `judge_calls.jsonl` in the learning folder: time, kind, whether usable, tokens, latency, switch time.
+- **Alternatives:** cost only (the behaviour until now), which is not recorded for local models.
+- **Why:** the results go to the supervisors with the latency and token cost of each method, and the learning run's cost must be broken down by role.
+- **Where:** `skill_agent.learned_features.FeatureJudge(log=...)`, `IncrementalLearner.judge`; `skill_agent.experiments.role_tokens`; `trace_learner.report` (`_record_usage`, `_judge_log_usage`, `usage_table`, `incremental_report`).
+- **Ablation:** none (measurement only).
+- **Detail:** calls whose tokens or latency were not recorded are counted in a separate column and left out of the totals. The merge saves no latency. `judge_calls.jsonl` keeps the calls of rounds later redone, since they were made.
+- **Status:** written 2026-11-17, not yet run on the GPU. Learning runs before this have no `judge_calls.jsonl`.
+
 ### S1. Sampling follows each model card, not greedy decoding
 - **Decision:** every role samples with its model card's recommended thinking-mode settings and a fixed `seed: 42`:
   - **Qwen3.5-4B** (worker, checker, judge): temperature 1.0, top_p 0.95, top_k 20, min_p 0, presence_penalty 1.5 (the card's "thinking, general" preset).
