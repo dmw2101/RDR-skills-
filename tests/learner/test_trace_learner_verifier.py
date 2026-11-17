@@ -176,6 +176,9 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         draft = {"conditions": [{"name": "lf_forms", "description": "The PDF has filled form fields."},
                                 {"name": "lf_tables", "description": "The PDF has a totals table."}]}
         replies = [call("test_conditions", draft, index) for index in range(6)]
+        # The list sent as JSON text, and a single bare object, are read as the same request.
+        replies[2] = call("test_conditions", {"conditions": json.dumps(draft["conditions"])}, 2)
+        replies[3] = call("test_conditions", {"conditions": draft["conditions"][0]}, 3)
         # An invalid draft is returned for correction and does not use up a test.
         replies.insert(1, call("test_conditions", {"conditions": [{"name": "bad name", "description": "x"}]}, 6))
         replies.append(call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}}, 7))
@@ -184,6 +187,8 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
                                        workspace=self.workspace, max_calls=10, materials=materials, judge=judge)
         results = [e["result"] for e in outcome["events"] if e["type"] == "tool"]
         self.assertEqual(results[0]["verdicts"], {"lf_forms": "true", "lf_tables": "false"})
+        self.assertEqual(results[3]["verdicts"], {"lf_forms": "true", "lf_tables": "false"})  # JSON text.
+        self.assertEqual(results[4]["verdicts"], {"lf_forms": "true"})  # One bare object.
         self.assertIn("Name: Pope", results[0]["reasons"])
         self.assertIn("invalid condition", results[1]["error"])
         self.assertEqual(results[5]["tests_left"], 0)

@@ -122,6 +122,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Where:** `VerifierSession._test_conditions` (`MAX_CONDITION_TESTS`), `FeatureJudge.explain`; `verify_episode(judge=...)`, passed by `incremental` (`IncrementalLearner.judge`).
 - **Ablation:** none as a switch; without a judge or materials the tool is not offered.
 - **Caveat:** the judge samples (S1), so a verdict may differ when the rule is checked. The tool's note says to make conditions plainly true. The reason comes from a separate call and may disagree with the verdict.
+- **Detail (2026-11-17, smoke test `learn-4b-rootonly-smoke5-v3`):** on document 40158 the inspector sent the conditions as JSON text in 3 of its 5 calls, and each was refused. The list as JSON text, and a single bare condition object, are now read as the same request. In that inspection the two accepted tests both came back true, and the rule was kept on its first try (11 min, against 22 min plus a 14-minute retry for the same document on 16 Nov). Each reason call took 28 to 36 s and about 1,200 to 1,600 output tokens, against 7 to 11 s for a verdict.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
 ### I12. More of the standard inputs are in the first message

@@ -213,8 +213,17 @@ class VerifierSession:
         if self.tests >= MAX_CONDITION_TESTS:
             raise ValueError(f"test limit reached ({MAX_CONDITION_TESTS}); submit your diagnosis")
         conditions = args.get("conditions")
+        # The 27B often sends the list as JSON text (as with submit_diagnosis, I6), or one bare object.
+        if isinstance(conditions, str):
+            try:
+                conditions = json.loads(conditions)
+            except ValueError:
+                pass
+        if isinstance(conditions, dict):
+            conditions = [conditions]
         if not isinstance(conditions, list) or not conditions:
-            raise ValueError("conditions must be a nonempty list of new_feature definitions")
+            raise ValueError("conditions must be a nonempty JSON array of new_feature definitions "
+                             '(objects with name and description), for example [{"name": "lf_x", ...}]')
         features = {}
         for raw in conditions:
             try:
