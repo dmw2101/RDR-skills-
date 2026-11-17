@@ -287,6 +287,15 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Ablation:** none (a data choice).
 - **Status:** decided 2026-11-14. The first learning run on 150 documents started the same day.
 
+### D2. The next learning run uses held-out documents 31–60, and dev-30 is the test set
+- **Decision:** the learning run of 17 Nov (`learn-4b-rootonly3160`) learns from scratch, on the root-only tree, from held-out documents 31–60 (positions in the prepared 150, taken in order). Every arm (no skill, full skill, root-only base, learned tree) is tested on the same 30 dev documents, one run each.
+- **Alternatives:** learn again from held-out documents 1–30; test on held-out 151–269 (D1).
+- **Why:** the inspector fixes I10 to I14 were designed from what happened on held-out documents 1–30 in `learn-4b-rootonly150-v2`, and the smoke test used 5 of them. Learning on them again would flatter the learning-phase numbers (rejections, rules kept). Documents 31–60 were chosen by position, not by content. They overlap neither documents 1–30, nor dev-30, nor held-out 151–269. Dev-30 is the test set because results go to the supervisors next to the earlier dev-30 pilot.
+- **Where:** `run.task_ids` in the server config `learn-4b-rootonly3160.json`; the dev-30 configs `dev30-v3-*.json`.
+- **Ablation:** none (a data choice).
+- **Caveat:** the harness fixes H1 to H3 came from crashes and lost answers in the dev-30 pilot, so dev-30 influenced the harness. They apply to every arm alike and follow Trace2Skill's and SkillOpt's set-up, but a report on dev-30 should say so.
+- **Status:** decided 2026-11-17; the learning run starts that evening after the dev-30 baselines.
+
 ## Decisions about the skill
 
 ### K1. The skill arms get the whole PDF skill package, not only SKILL.md
