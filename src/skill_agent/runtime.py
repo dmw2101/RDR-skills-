@@ -378,8 +378,12 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                 skill_text = "\n\n".join(text for text in skill_context.active_skills.values() if text)
             # Full/reduced compose the active view; no-skill omits the entire skill interface.
             if hasattr(session, "progress_note"):
-                # A session may warn its model that the budget is nearly spent (decision I7).
-                note = session.progress_note(max_calls - turn, timeout_seconds - (time.monotonic() - started))
+                # A session may warn its model that the budget is nearly spent (decision I7), including
+                # its context: the last request's input plus output is the conversation's size so far.
+                last = next((e.get("usage") or {} for e in reversed(events) if e["type"] == "model_response"), {})
+                context_tokens = (last.get("input_tokens") or 0) + (last.get("output_tokens") or 0)
+                note = session.progress_note(max_calls - turn, timeout_seconds - (time.monotonic() - started),
+                                             context_tokens=context_tokens)
                 if note:
                     events.append({"type": "user_message", "turn": turn, "content": note})
                     history.append({"role": "user", "content": note})

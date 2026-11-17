@@ -23,13 +23,17 @@ BRIEFING_EXAMPLES_CHARS = 8000
 MAX_CONDITION_TESTS = 5  # Decision I11: judge tests of draft conditions per inspection.
 MAX_GUIDANCE_CHARS = 600  # Decision I14: a rule's advice is a few short instructions.
 # Decision I13: a retry continues the first inspection only while its conversation leaves room in the
-# 27B's 65,536-token window for the feedback and a few more turns; otherwise it starts afresh.
-RESUME_MAX_INPUT_TOKENS = 40_000
+# 27B's window (98,304 tokens since 17 Nov, G1) for the feedback and a few more turns; otherwise it
+# starts afresh.
+RESUME_MAX_INPUT_TOKENS = 60_000
 RESUME_MAX_CALLS = 12
 # Decision I7: when this little is left, the inspector is told once to submit. A 27B call takes
 # about a minute and its longest ones several, so the warning leaves room for a final answer.
 WARN_CALLS_LEFT = 3
 WARN_SECONDS_LEFT = 360
+# Decision I7 (17 Nov): also when its conversation nears the 27B's 98,304-token window: one full output
+# (8,192 tokens) and about one more turn (10,000) must still fit after the warning.
+WARN_CONTEXT_TOKENS = 80_000
 MAX_NUDGES = 2  # Decision I8: answers without a tool call that are asked again before giving up.
 
 
@@ -300,13 +304,18 @@ class VerifierSession:
             return {"passed": False, "note": f"no prediction was collected (status {self.record['status']})"}
         return await self.hooks.rescore(self.task, prediction)
 
-    def progress_note(self, calls_left, seconds_left):
-        """One warning when the inspection is about to run out of calls or time (decision I7)."""
-        if self.warned or (calls_left > WARN_CALLS_LEFT and seconds_left > WARN_SECONDS_LEFT):
+    def progress_note(self, calls_left, seconds_left, context_tokens=0):
+        """One warning when the inspection is about to run out of calls, time or context (decision I7).
+
+        context_tokens: the last request's input plus output tokens, i.e. the conversation's size.
+        """
+        if self.warned or (calls_left > WARN_CALLS_LEFT and seconds_left > WARN_SECONDS_LEFT
+                           and context_tokens < WARN_CONTEXT_TOKENS):
             return None
         self.warned = True
-        return (f"BUDGET WARNING: about {calls_left} model call(s) and {max(0, int(seconds_left // 60))} "
-                "minute(s) remain; after that this inspection is lost. Stop investigating. If a rescore "
+        return (f"BUDGET WARNING: about {calls_left} model call(s), {max(0, int(seconds_left // 60))} "
+                f"minute(s) and room for about {max(0, 98_304 - context_tokens):,} tokens of conversation "
+                "remain; after that this inspection is lost. Stop investigating. If a rescore "
                 "of yours already passed, call submit_diagnosis now. Otherwise make at most one more "
                 "rescore, then call submit_diagnosis with the best-supported attribution (not_skill or "
                 "unexplained when you could not establish a skill cause).")

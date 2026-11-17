@@ -234,7 +234,7 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         # Too long a first conversation, or none, starts a fresh inspection with the feedback in its prompt.
         for event in first["events"]:
             if event["type"] == "model_response":
-                event["usage"] = {**event["usage"], "input_tokens": 50_000}
+                event["usage"] = {**event["usage"], "input_tokens": 70_000}  # Over RESUME_MAX_INPUT_TOKENS.
         for previous in (first, None):
             model = ScriptedModel([call("rescore", {"prediction": {"total": "12"}}),
                                    call("submit_diagnosis", {"diagnosis": DIAGNOSIS}, 1)])
@@ -317,6 +317,23 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("BUDGET WARNING", warnings[0]["content"])
         self.assertEqual(model.requests[2][0][-1], {"role": "user", "content": warnings[0]["content"]})
         self.assertEqual(outcome["status"], "completed")
+
+    async def test_the_inspector_is_warned_when_its_conversation_nears_the_context_window(self):
+        # Decision I7 (17 Nov): the last request's input plus output passes WARN_CONTEXT_TOKENS.
+        from trace_learner.verifier import WARN_CONTEXT_TOKENS
+
+        class Growing(ScriptedModel):
+            async def complete(self, messages, tools):
+                response = await super().complete(messages, tools)
+                response.usage["input_tokens"] = WARN_CONTEXT_TOKENS * len(self.requests) // 2
+                return response
+        model = Growing([call("read_trace", {"from_turn": 0, "to_turn": 0})] * 3
+                        + [call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])
+        outcome = await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                                       workspace=self.workspace, max_calls=30)
+        warnings = [e for e in outcome["events"] if e["type"] == "user_message"]
+        self.assertEqual([w["turn"] for w in warnings], [2])  # After the second call reached the limit.
+        self.assertIn("tokens of conversation remain", warnings[0]["content"])
 
     async def test_missing_submission_fails_the_verifier_episode(self):
         outcome = await self.verify([{"role": "assistant", "content": "I think it is fine."}])
