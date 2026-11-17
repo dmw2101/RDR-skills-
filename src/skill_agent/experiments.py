@@ -18,7 +18,8 @@ from . import __version__
 from .storage import read_json, write_json
 from .contracts import fingerprint, source_fingerprint
 from .resolvers import StaticSkillResolver
-from .runtime import ModelInitiatedSkillPolicy, NoSkillPolicy, RollingSkillPolicy, SessionContext, run_episode
+from .runtime import (ModelInitiatedSkillPolicy, NoSkillPolicy, OnceSkillPolicy, RollingSkillPolicy,
+                      SessionContext, run_episode)
 
 CONDITIONS = ("none", "full", "reduced")
 
@@ -98,8 +99,8 @@ def load_config(path):
         raise ValueError("limit must be positive or null")
     if run["split"] not in ("dev", "heldout"):
         raise ValueError("split must be dev or heldout")
-    if run["skill_loading"] not in ("model_initiated", "rolling"):
-        raise ValueError("skill_loading must be model_initiated or rolling")
+    if run["skill_loading"] not in ("model_initiated", "rolling", "initial"):
+        raise ValueError("skill_loading must be model_initiated, rolling or initial")
     if run.get("task_ids") is not None:
         ids = run["task_ids"]
         if (not isinstance(ids, list) or not ids
@@ -292,9 +293,13 @@ async def run_experiment(config, *, resume=False):
                             raise ValueError("this benchmark's sessions cannot receive skill files")
                         await session.add_files(files)
                     setup_seconds = time.monotonic() - started
+                    loading = run.get("skill_loading")
+                    if loading == "initial" and hasattr(adapter, "rolling_skill_policy"):
+                        raise ValueError("this benchmark supports only rolling or model_initiated skill loading")
                     policy = (NoSkillPolicy() if condition == "none" else
                               (adapter.rolling_skill_policy() if hasattr(adapter, "rolling_skill_policy")
-                               else RollingSkillPolicy()) if run.get("skill_loading") == "rolling" else
+                               else RollingSkillPolicy()) if loading == "rolling" else
+                              OnceSkillPolicy() if loading == "initial" else
                               ModelInitiatedSkillPolicy())
                     result = await run_episode(model=model, session=session, skill_context=context,
                                                system_prompt=adapter.system_prompt, policy=policy,
@@ -348,7 +353,7 @@ def model_skill_calls(events):
 
 
 def automatic_skill_refreshes(events):
-    return sum(event["type"] == "skill" and event.get("selection", {}).get("policy") == "rolling"
+    return sum(event["type"] == "skill" and event.get("selection", {}).get("policy") in ("rolling", "initial")
                for event in events)
 
 

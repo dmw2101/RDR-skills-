@@ -258,3 +258,12 @@ class AccountingTests(unittest.TestCase):
             write_json(path, config)
             with self.assertRaises(ValueError):
                 load_config(path)
+            del config["run"]["concurency"]
+            for loading in ("model_initiated", "rolling", "initial"):  # initial: decision K4.
+                config["run"]["skill_loading"] = loading
+                write_json(path, config)
+                self.assertEqual(load_config(path)["run"]["skill_loading"], loading)
+            config["run"]["skill_loading"] = "once"
+            write_json(path, config)
+            with self.assertRaises(ValueError):
+                load_config(path)

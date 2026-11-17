@@ -54,7 +54,8 @@ def _conditions(proposal, definitions):
         if feature:
             lines.append(f"  - Definition: {feature['description']}")
             lines.append("  - Judged: " + ("once per document, from its starting materials"
-                                           if feature.get("scope") == "document" else
+                                           # No scope recorded: proposed after decision K4.
+                                           if feature.get("scope", "document") == "document" else
                                            "before every worker step"))
             if feature.get("examples"):
                 lines.append("  - True for: " + "; ".join(feature["examples"]))

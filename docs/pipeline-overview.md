@@ -52,6 +52,11 @@ flowchart TD
 The worker works in a loop. One step is one model call; it asks for a tool call, gets the result, and
 decides the next step. The run ends when it replies without a tool call, or after 20 steps.
 
+**Two ways to load the guidance** (config `skill_loading`):
+- `rolling` (K3): the guidance is rebuilt before every step, as in the diagram below.
+- `initial` (K4): the guidance is built once, before step 1, from the task, and kept for the whole run.
+  The judge and tree-service calls in the diagram then happen only before the first step.
+
 ```mermaid
 sequenceDiagram
     participant H as Harness (code)
@@ -74,16 +79,18 @@ sequenceDiagram
 | Part | Contents | Changes between steps? |
 |---|---|---|
 | System prompt 1 | The benchmark's instructions | No |
-| System prompt 2 | Skill instructions: guidance arrives automatically; learned rules are requirements (K2) | No |
+| System prompt 2 | Skill instructions: guidance arrives automatically (rebuilt, or fixed under `initial`); learned rules are requirements (K2) | No |
 | System prompt 3 | `<skill_catalog>`: the skill's topic list | No |
-| System prompt 4 | `<active_skill>`: the guidance (section 4) | Rebuilt every step |
+| System prompt 4 | `<active_skill>`: the guidance (section 4) | `rolling`: rebuilt every step. `initial`: no |
 | First message | The task sentence, where the PDF and schema files are, where to write `answer.json`, and the output schema | No |
 | Conversation | Its own earlier messages and every tool result | Grows each step |
 | Tools | `shell` in a working folder holding the PDF, the schema and the skill's extra files (K1) | No |
 
 **Never given to the worker:** the answer key, the score, other attempts, the rules that did not fire.
 
-## 4. How the guidance is built (every step)
+## 4. How the guidance is built (every step under `rolling`, once under `initial`)
+
+Under `initial`, the reading passage is the task text alone.
 
 ```mermaid
 flowchart LR
@@ -123,7 +130,9 @@ between calls.
 | Condition scope | Reading passage | Asked how often |
 |---|---|---|
 | `document` (for example "has `$` amounts") | Starting materials only: task, output schema, the PDF's filled form values, the PDF's text (first 12,000 characters) | Once per document, then reused (J4) |
-| `situation` (about what the worker is doing) | The starting materials plus the task text and the worker's last 3 messages | Every worker step |
+| `situation` (about what the worker is doing; older rules only, K4) | The starting materials plus the task text and the worker's last 3 messages | Every worker step under `rolling`; once under `initial` |
+
+Since K4 the inspector no longer chooses the scope: every new condition is `document`.
 
 **When the judge is called**
 
@@ -173,7 +182,8 @@ rule that is too broad comes back as retry feedback naming the documents it also
 
 **What it submits.** A cause (`skill_missing`, `skill_misleading`, `not_skill`, `answer_key_error`,
 `unexplained`) and, for the first two, one rule: target node, conditions, advice text. A new
-condition has a name, a definition, examples, counterexamples and a scope.
+condition has a name, a definition, examples and counterexamples. It must be a property of the
+starting materials, since the judge reads nothing else (K4).
 
 **On a root-only tree (T5):** the original skill's conditions are hidden from the guidance history
 and the tree, and a rule that uses one is refused at submit time.

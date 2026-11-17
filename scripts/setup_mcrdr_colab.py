@@ -637,7 +637,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--replicates", type=int)
     parser.add_argument("--concurrency", type=int)
     parser.add_argument("--conditions", nargs="+", choices=("none", "full", "reduced"))
-    parser.add_argument("--skill-loading", choices=("rolling", "model_initiated"))
+    parser.add_argument("--skill-loading", choices=("rolling", "initial", "model_initiated"))
     parser.add_argument("--service-port", type=int, default=SERVICE_PORT)
     parser.add_argument("--run", action="store_true", help="Also run, inspect and summarize")
     parser.add_argument("--resume", action="store_true", help="Continue an existing run directory")

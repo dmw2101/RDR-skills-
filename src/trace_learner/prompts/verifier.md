@@ -48,18 +48,17 @@ Proposing an MCRDR change (skill_missing / skill_misleading only):
 - conditions: a conjunction. Reuse existing features from show_tree where they distinguish the
   situation; otherwise define a new_feature (name lf_<snake_case>) with a precise definition,
   examples and counterexamples. A new feature is answered true/false/unknown by a separate judge
-  model before every agent step. The judge sees ONLY (1) the agent's starting materials: the task,
-  the requested output, and the input documents as text (a PDF's filled form-field values, then
-  its text layer, which is empty for scanned PDFs; long materials are cut after their start), and
-  (2) the agent's last three messages.
-  It does not see later tool outputs. Conditions must be OBSERVABLE in that text before the failing
-  decision, never the gold answer, the verdict, the eventual failure, or a task identifier.
-  Properties of the input (its fields, tables, forms, layout words) are best, since they are
-  visible from the first step. The new feature must be judged true at the failing turn.
-- scope of a new_feature: "document" when the condition is a property of the starting materials
-  alone. The judge then reads ONLY (1), answers once per document, and the rule holds or not for
-  the whole task. Prefer it. Use "situation" only when the condition truly depends on what the
-  agent has just said or planned; it is judged again before every step on (1) and (2).
+  model ONCE per task, before the agent's first step; the guidance it selects stays the same for
+  the whole task. The judge sees ONLY the agent's starting materials: the task, the requested
+  output, and the input documents as text (a PDF's filled form-field values, then its text layer,
+  which is empty for scanned PDFs; long materials are cut after their start). It never sees the
+  agent's messages or tool outputs. So a condition must be a property of those starting materials,
+  never of what the agent does, and never the gold answer, the verdict, the eventual failure, or a
+  task identifier. When the mistake happened mid-task, describe what in the input made it likely
+  (for example "a filled form field holds a shortened name", not "the agent is expanding a
+  shortened name"); the advice is then shown from the first step and prevents it. Properties of
+  the input (its fields, tables, forms, layout words) work best. The new feature must be judged
+  true on the failing document.
 - guidance_text: a short, general procedure (a few sentences or bullets of Markdown) that would avoid
   this class of failure on other tasks, not this task's answer or values. When your conditions hold,
   the agent sees it FIRST, in a separate block of learned rules above the general guidance, and is

@@ -115,7 +115,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** conditions such as "the PDF has no text layer" need the document. Building the text the same way keeps learning and test-time judgments identical.
 - **Where:** `learned_features.judge_context`, the adapter's `judge_materials`.
 - **Ablation:** none.
-- **Status:** in use (since 2026-10-28, `37f20a1`).
+- **Status:** in use (since 2026-10-28, `37f20a1`). With K4's `initial` loading, the query is the task alone, judged once.
 
 ### J2. Only `true` fires a rule; `unknown` never does
 - **Decision:** the judge answers true, false or unknown, and a learned condition holds only when it is judged true. The judge must say true on the failing case, or the rule is rejected.
@@ -143,7 +143,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Where:** `LearnedFeature.scope` (`rdr_engine/learned.py`), `NewFeature.scope` (`trace_learner/proposals.py`), `learned_features.document_context` / `judged_text`, `LearnedFeatureResolver.resolve` (`document_values`), `workspace._judge_contexts`; the inspector's prompt (`prompts/verifier.md`).
 - **Ablation:** none as a switch. Conditions written with `scope: "situation"` run the earlier behaviour.
 - **Caveat:** one judge answer now decides the rule for the whole document, and the judge samples (S1). A single wrong `unknown` hides the rule for that run.
-- **Status:** written 2026-11-14, not yet run on the GPU.
+- **Status:** written 2026-11-14, not yet run on the GPU. Since K4 (2026-11-17) the inspector no longer chooses the scope: every new condition is `document`. Stored `situation` conditions keep working.
 
 ### J5. The judge sees a PDF's filled form-field values
 - **Decision:** for VAREX, the judge's starting materials list the PDF's filled form fields (`name: value`, at most 3,000 characters) before the text layer. A PDF with no filled fields gets the same materials as before.
@@ -271,7 +271,16 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Where:** `skill_agent.runtime.RollingSkillPolicy` (`keep_task`). Each refresh records `input_source`: `task`, `task_and_recent_model_turns`, or `recent_model_turns`.
 - **Ablation:** none as a config switch; `RollingSkillPolicy(keep_task=False)` in code.
 - **Detail:** one sentence of the automatic-loading instructions changed to say this, so the system prompt of rolling arms differs from earlier runs. On the expanded tree, every operation the task names now stays rendered for the whole attempt.
-- **Status:** written 2026-11-16; first used in `learn-4b-rootonly150-v2`.
+- **Status:** written 2026-11-16; first used in `learn-4b-rootonly150-v2`. Applies only to rolling loading; with K4's `initial` loading there are no refreshes.
+
+### K4. The guidance is built once, before the worker's first step
+- **Decision:** a new loading mode, `skill_loading: "initial"`. The guidance is built once, before the first worker step, from the task and the starting materials (the same view a rolling run starts with), and stays the same for the whole attempt. Learned conditions are therefore judged once per attempt. The worker's skill instructions say the guidance is fixed. The inspector no longer chooses a condition's scope: every new condition is stored as `document` (J4), and its prompt says the judge answers once, before the first step, from the starting materials alone, so a mid-task mistake must be described by what in the input makes it likely ("a filled form field holds a shortened name", not "the worker is expanding a shortened name").
+- **Alternatives:** rolling loading (K3), rebuilt before every step; rolling with a refresh every N steps, or only when the worker asks.
+- **Why:** in the dev-30 pilot of 2026-11-17, the learned arm took 96 min against 31 to 36 min for the other arms; 61 min of it was the judge (328 calls), almost all from rule 30.1's `situation` condition being judged before every step. The guidance is in the worker's prompt at every step in both modes, so building it once loses only advice for mistakes the starting materials cannot predict (for example a tool output that is too large). Of the 4 rules kept in `learn-4b-rootonly150-v2`, only 30.1 had a `situation` condition, and it describes a property of the document.
+- **Where:** `skill_agent.runtime.OnceSkillPolicy` (`ONCE_SKILL_INSTRUCTIONS`); `skill_agent.experiments` (config check, policy choice); `trace_learner.proposals.NewFeature.scope` (now always `document`, no longer a field the inspector sends); `prompts/verifier.md`.
+- **Ablation:** `skill_loading: "rolling"`. Conditions already stored as `situation` (rule 30.1 in tree v21) are still judged before every step under rolling and once under `initial`; new conditions are `document` in both modes.
+- **Detail:** each attempt records one skill event with `selection.policy: "initial"`, so a passing task stores one snapshot (T4's 6 become 1). The system prompt of skill arms differs from rolling runs. Not supported on SOPBench Bank, which has its own rolling policy.
+- **Status:** written 2026-11-17, not yet run on the GPU.
 
 ## Decisions about scoring
 

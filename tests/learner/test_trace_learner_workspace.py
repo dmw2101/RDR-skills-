@@ -167,7 +167,11 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
             await workspace.accept(EXTRACT, judge_context(f"worker step {step}", plain))
         judge = KeywordJudge({"lf_form_fields": "form fields"})
         scoped = proposal(conditions=[{"new_feature": {
-            "name": "lf_form_fields", "description": "The PDF has form fields.", "scope": "document"}}])
+            "name": "lf_form_fields", "description": "The PDF has form fields."}}])
+        # Decision K4: every new condition is document-scope; the inspector cannot choose.
+        self.assertEqual(scoped.new_features[0].scope, "document")
+        with self.assertRaises(ValueError):
+            proposal(conditions=[{"new_feature": {"name": "lf_x", "description": "x", "scope": "situation"}}])
         # The worker's own words mention form fields; a document-scope feature must ignore them.
         result = await workspace.apply(scoped, EXTRACT, judge_context("I will look for form fields", plain), judge, {})
         self.assertEqual(result.status, "unresolved")

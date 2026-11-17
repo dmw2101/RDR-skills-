@@ -49,6 +49,18 @@ AUTOMATIC_SKILL_INSTRUCTIONS = (
 )
 
 
+# Decision K4: guidance built once, before the first model call, and kept for the whole attempt.
+ONCE_SKILL_INSTRUCTIONS = (
+    "Procedural guidance is supplied automatically in <active_skill> when available. "
+    "It is chosen once, from the task and its input materials, before your first step, and stays "
+    "the same for the whole task. Use the supplied guidance to complete the task; if no guidance "
+    "is available, continue with the other tools.\n"
+    "<skill_catalog> lists the available topics. request_skill remains callable for compatibility, "
+    "but in this automatic mode it only acknowledges your request: it does not resolve guidance "
+    "or change the supplied view. You do not need to call it to receive guidance."
+)
+
+
 # Appended to both skill instructions (decision K2), so every skill arm reads the same text.
 LEARNED_RULES_INSTRUCTIONS = (
     "\n<active_skill> may begin with a <learned_rules> block. Those rules come from earlier failed "
@@ -59,6 +71,7 @@ LEARNED_RULES_INSTRUCTIONS = (
 )
 SKILL_REQUEST_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
 AUTOMATIC_SKILL_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
+ONCE_SKILL_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
 
 
 class Tool(Protocol):
@@ -138,6 +151,23 @@ class RollingSkillPolicy:
                      "source_turns": [event["turn"] for event in recent], "input_source": source}
         # A focused query (task=...) does not inherit old observed feature values.
         await session.load_skill(task=query or session.task, selection=selection)
+
+
+class OnceSkillPolicy:
+    """Build guidance once from the task before the first model call; never refresh (decision K4).
+
+    The single view is the same one a rolling run starts with, so judged conditions are asked
+    once per attempt instead of before every step.
+    """
+
+    automatic_guidance = True
+    selection_mode = "initial"
+    instructions = ONCE_SKILL_INSTRUCTIONS
+
+    async def before_model(self, session, turn):
+        if turn == 0:
+            await session.load_skill(task=session.task, selection={
+                "policy": "initial", "turn": turn, "source_turns": [], "input_source": "task"})
 
 
 @dataclass
@@ -223,9 +253,10 @@ class SkillRequestTool:
         }, "required": ["request"], "additionalProperties": False},
     }}
 
-    def __init__(self, session: SessionContext, *, acknowledge_only=False):
+    def __init__(self, session: SessionContext, *, acknowledge_only=False, selection_mode="rolling"):
         self.session = session
         self.acknowledge_only = acknowledge_only
+        self.selection_mode = selection_mode
 
     async def execute(self, arguments):
         request = arguments.get("request")
@@ -236,7 +267,7 @@ class SkillRequestTool:
         fingerprint(context)
         if self.acknowledge_only:
             text = self.session.active_skills.get(self.session.skill_id, "")
-            return {"skill_id": self.session.skill_id, "selection_mode": "rolling",
+            return {"skill_id": self.session.skill_id, "selection_mode": self.selection_mode,
                     "request_applied": False, "guidance_available": bool(text),
                     "markdown_sha256": source_fingerprint(text)}
         try:
@@ -275,7 +306,8 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
             if skill_context is None:
                 raise ValueError("skill-enabled episodes require a skill context")
             tools = {"request_skill": SkillRequestTool(
-                skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False)), **tools}
+                skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False),
+                selection_mode=getattr(policy, "selection_mode", "rolling")), **tools}
             instructions += ("\n\n" + getattr(policy, "instructions", SKILL_REQUEST_INSTRUCTIONS)
                              + "\n\n" + skill_context.catalog_text())
         for turn in range(max_calls):

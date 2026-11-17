@@ -16,10 +16,12 @@ class NewFeature(StrictModel):
     description: str = Field(min_length=1, description="Precise definition, observable before the decision.")
     examples: list[str] = Field(default_factory=list, description="Visible situations where it is true.")
     counterexamples: list[str] = Field(default_factory=list, description="Visible situations where it is false.")
-    scope: Literal["document", "situation"] = Field(default="situation", description=(
-        "document: a property of the starting materials alone; judged once per document from them "
-        "and reused at every step. situation: depends on the agent's recent messages; judged at "
-        "every step. Prefer document."))
+
+    # Decision K4: guidance is built once, so every new condition is about the starting materials.
+    # The inspector no longer chooses; the stored layer keeps the field for older trees.
+    @property
+    def scope(self) -> Literal["document"]:
+        return "document"
 
 
 class NewFeatureCondition(StrictModel):

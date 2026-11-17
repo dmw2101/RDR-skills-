@@ -148,6 +148,35 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state.events[-1]["selection"]["input_source"], "recent_model_turns")
         self.assertTrue(RollingSkillPolicy().keep_task)
 
+    async def test_once_policy_builds_guidance_only_before_the_first_step(self):
+        # Decision K4: one view from the task, kept for the whole attempt.
+        from skill_agent.runtime import ONCE_SKILL_INSTRUCTIONS, OnceSkillPolicy
+        tasks = []
+        class Recording:
+            async def resolve(self, request):
+                tasks.append(request.task)
+                return ResolvedSkill("fixed guidance", "snapshot", source_fingerprint("whole skill"), "v1")
+        class Ping:
+            definition = {"type": "function", "function": {"name": "ping", "parameters": {"type": "object"}}}
+            async def execute(self, args):
+                return {"ok": True}
+        call = {"role": "assistant", "content": "reading the form",
+                "tool_calls": [{"id": "one", "type": "function", "function": {"name": "ping", "arguments": "{}"}}]}
+        model = FakeModel([call, dict(call), {"role": "assistant", "content": "done"}])
+        session = FakeSession()
+        session.tools["ping"] = Ping()
+        state = context(Recording())
+        result = await run_episode(model=model, session=session, skill_context=state,
+                                   system_prompt="base", policy=OnceSkillPolicy())
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(tasks, ["Read the PDF"])
+        skills = [event for event in state.events if event["type"] == "skill"]
+        self.assertEqual([event["selection"]["policy"] for event in skills], ["initial"])
+        self.assertEqual(len(model.requests), 3)
+        for request in model.requests:  # The same guidance stays in every step's prompt.
+            self.assertIn("fixed guidance", request[0]["content"])
+            self.assertIn(ONCE_SKILL_INSTRUCTIONS, request[0]["content"])
+
     async def test_model_initiated_request_can_use_same_load_operation(self):
         resolved = []
         class Changing:
