@@ -353,13 +353,15 @@ These apply to every arm alike (no skill, full skill, preloaded skill, tree arms
 - **Detail:** in learning, an attempt that ran out of steps with a fully right answer now counts as passed, so it becomes a stored success rather than going to the inspector.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
-### H4. A plain preloaded-skill baseline arm
+### H4. The full-skill baseline is the preloaded skill
 - **Decision:** a new condition, `preloaded`: the whole `SKILL.md` (without its YAML header) is in the system prompt once, under the "Relevant Skill" wording of Trace2Skill's preloaded agent ("What are Skills?", "Mandatory Skill Usage Protocol", `<skill_content>`), with a line naming the skill's other files in the working folder (K1). The worker gets no `request_skill` tool, no `<skill_catalog>`, and none of the tree arms' skill instructions or learned-rules text. The `full` arm stays, as a control with the tree arms' interface and the whole skill.
 - **Alternatives:** the `full` arm alone as the skill baseline (until now).
 - **Why:** the `full` arm shares the tree arms' interface: a `request_skill` tool that only acknowledges requests, a catalog, instructions about `<learned_rules>` blocks that never appear, and the skill re-sent before every step. That is the right control for "the tree against the same skill given whole", but it is not the skill as Trace2Skill and SkillOpt give it, and for a 4B model the extra text may matter. A reviewer could call it a weakened baseline.
 - **Where:** `skill_agent.runtime` (`PreloadedSkillPolicy`, `PRELOADED_SKILL_SECTION`, `preloaded_skill_section`, `run_episode`); `skill_agent.experiments` (`CONDITIONS`, `make_resolvers`, `condition_protocols`: `preloaded-v1`); `skill_agent.reporting`.
 - **Ablation:** leave `preloaded` out of `run.conditions`.
 - **Detail:** configs that omit `run.conditions` still run none, full and reduced, in their original rotation.
+- **Decision (2026-11-17, later):** the `full` arm is retired, not run again. The `preloaded` condition is **the** full-skill baseline and is labelled "Full skill" in every report; old `full` results are labelled "Full skill (tree interface, retired)". Token comparisons against the full skill use `preloaded` when a run has it. The condition keeps its internal name, so saved runs stay readable.
+- **Detail (prompt comparison, dev-30 pilot):** the retired `full` arm showed `SKILL.md` with its YAML header (8,035 characters); the root-only base tree (v0) shows the same file without the header (7,512 characters), and so does `preloaded`. Root-only base and `preloaded` therefore give the worker the same skill text; they differ only in the wrapping: `<active_skill>` with the tree arms' loading and learned-rules instructions, a `request_skill` tool and a catalog, against Trace2Skill's "Relevant Skill" section with neither tool nor catalog. A version giving the tree arms the same wrapping was considered and not adopted.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
 ## Decisions about scoring

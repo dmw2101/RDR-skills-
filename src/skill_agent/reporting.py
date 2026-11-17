@@ -17,8 +17,16 @@ from .experiments import CONDITIONS, load_run, paired_bootstrap
 from .storage import read_json, write_json
 
 DISPLAY_ORDER = ("preloaded", "full", "reduced", "none")
-LABELS = {"preloaded": "Preloaded skill", "full": "Full skill", "reduced": "RDR-reduced", "none": "Skill-blind"}
-SHORT = {"preloaded": "Preloaded", "full": "Full", "reduced": "Reduced", "none": "Blind"}
+# Decision H4: the "preloaded" condition is the full-skill baseline; "full" (the whole skill through
+# the tree arms' interface) is retired and only labels results made before 2026-11-17.
+LABELS = {"preloaded": "Full skill", "full": "Full skill (tree interface, retired)", "reduced": "RDR-reduced",
+          "none": "Skill-blind"}
+SHORT = {"preloaded": "Full", "full": "Full (retired)", "reduced": "Reduced", "none": "Blind"}
+
+
+def FULL_BASELINE(values):
+    """The full-skill condition present in values: preloaded, else the retired full arm, else None."""
+    return next((c for c in ("preloaded", "full") if values.get(c)), None)
 SPEC_KEYS = {"series", "outliers", "top_documents", "bootstrap_samples"}
 DEFINITIONS = [
     "Field exact match: correct normalized fields / scored fields, pooled over documents (official VAREX scorer).",
@@ -281,9 +289,10 @@ def series_report(series, runs, episodes, options):
         "runs": by_run,
         "pooled": {"conditions": pooled, "differences": differences(pooled),
                    "paired_bootstrap": paired_bootstrap(metric_rows(mine), samples=options["bootstrap_samples"]),
+                   # Against the full-skill baseline: preloaded since H4, the retired full arm before.
                    "median_input_reduction_vs_full": (
-                       (medians["full"] - medians["reduced"]) / medians["full"]
-                       if medians.get("full") and "reduced" in medians else None)},
+                       (medians[FULL_BASELINE(medians)] - medians["reduced"]) / medians[FULL_BASELINE(medians)]
+                       if FULL_BASELINE(medians) and "reduced" in medians else None)},
         "top_document_input_share": top,
         "outlier_episodes": outliers,
         "incomplete_episodes": [{k: e[k] for k in ("condition", "run", "task_id", "replicate", "status", "error")}

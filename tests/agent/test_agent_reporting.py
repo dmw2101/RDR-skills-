@@ -163,7 +163,9 @@ class ReportFormulaTests(unittest.TestCase):
     def test_markdown_matches_deck_layout(self):
         text = render_markdown(self.report())
         for expected in ("| Pooled (60 fields) | 86.67% | 86.67% | 53.33% |",
-                         "Correct fields: Full 52 / 60     Reduced 52 / 60     Blind 32 / 60",
+                         # These runs use the retired full arm (decision H4).
+                         "Correct fields: Full (retired) 52 / 60     Reduced 52 / 60     Blind 32 / 60",
+                         "| Run | Full skill (tree interface, retired) | RDR-reduced | Skill-blind |",
                          "| Completed | 6 / 6 | 6 / 6 | 5 / 6 |",
                          "| Run 1 | +10.00 pp | +56.67 pp |", "| Run 2 | −10.00 pp |",
                          "| Median (p50) input tokens | 205 | 63 | 41 |",
@@ -172,6 +174,10 @@ class ReportFormulaTests(unittest.TestCase):
                          "## Series comparison", "1 of 1 shared requests identical"):
             self.assertIn(expected, text)
         self.assertEqual((tokens(51093.5), kilo(76949)), ("51,094", "76.9k"))
+        from skill_agent.reporting import FULL_BASELINE, LABELS
+        self.assertEqual(LABELS["preloaded"], "Full skill")  # The full-skill baseline since H4.
+        self.assertEqual(FULL_BASELINE({"full": 1, "preloaded": 2}), "preloaded")
+        self.assertEqual(FULL_BASELINE({"full": 1}), "full")
 
     def test_write_report_creates_json_and_markdown(self):
         path = self.root / "spec.json"
