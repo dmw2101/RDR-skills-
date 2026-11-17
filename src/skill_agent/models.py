@@ -58,10 +58,11 @@ class OpenAICompatibleClient:
         self.seed, self.timeout = seed, timeout
         self.provider = dict(provider) if provider is not None else None
 
-    async def complete(self, messages, tools, seed=None):
-        """seed: use this seed for one call instead of the client's (e.g. to re-ask a question)."""
+    async def complete(self, messages, tools, seed=None, temperature=None):
+        """seed, temperature: use these for one call instead of the client's (e.g. to re-ask a question)."""
         payload = {"model": self.model, "messages": messages,
-                   "temperature": self.temperature, "max_tokens": self.max_tokens, **self.sampling}
+                   "temperature": self.temperature if temperature is None else temperature,
+                   "max_tokens": self.max_tokens, **self.sampling}
         if tools:
             payload.update(tools=tools, tool_choice="auto")
         seed = self.seed if seed is None else seed
@@ -202,12 +203,12 @@ class SwitchingClient(OpenAICompatibleClient):
         if not hosts <= {"localhost", "127.0.0.1", "::1"} or self.server in self.peers:
             raise ValueError("SwitchingClient takes turns only between distinct local servers")
 
-    async def complete(self, messages, tools, seed=None):
+    async def complete(self, messages, tools, seed=None, temperature=None):
         loop = asyncio.get_running_loop()
         turns = _TURNS.setdefault(loop, _GpuTurns())
         switched = await turns.acquire(self.server, self.peers)
         try:
-            response = await super().complete(messages, tools, seed=seed)
+            response = await super().complete(messages, tools, seed=seed, temperature=temperature)
         finally:
             await turns.release(self.server)
         response.metadata["switch_seconds"] = switched

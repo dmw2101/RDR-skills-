@@ -490,6 +490,39 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(model.seeds, [None, 43])  # The first call uses the client's own seed.
         self.assertEqual(response.metadata["judge_retries"], 1)
 
+    async def test_a_greedy_judge_samples_only_when_it_asks_again(self):
+        # Decision J6: temperature 0 for every first answer; a retry would repeat it, so retries sample.
+        from skill_agent.learned_features import RETRY_TEMPERATURE
+
+        class Greedy:
+            seed, temperature, calls = 42, 0, []
+
+            async def complete(self, messages, tools, seed=None, temperature=None):
+                self.calls.append((seed, temperature))
+                good = call("report_features", {"lf_tables": "true"})
+                return ModelResponse(good if temperature else {"role": "assistant", "content": "hmm"}, dict(USAGE), {})
+
+        model = Greedy()
+        values, _ = await FeatureJudge(model).judge({"lf_tables": {"description": "Has tables."}}, "x")
+        self.assertEqual(values, {"lf_tables": "true"})
+        self.assertEqual(model.calls, [(None, None), (43, RETRY_TEMPERATURE)])
+
+    def test_a_call_can_override_the_client_temperature(self):
+        from skill_agent.models import OpenAICompatibleClient
+        client = OpenAICompatibleClient(base_url="http://127.0.0.1:8000/v1", model="m", api_key_env=None,
+                                        temperature=0)
+        sent = []
+
+        async def post(payload):
+            sent.append(payload)
+            return ({"choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
+                     "usage": {}}, 0, {})
+        client._post = post
+        import asyncio
+        asyncio.run(client.complete([{"role": "user", "content": "x"}], []))
+        asyncio.run(client.complete([{"role": "user", "content": "x"}], [], temperature=1.0))
+        self.assertEqual([p["temperature"] for p in sent], [0, 1.0])
+
 
 if __name__ == "__main__":
     unittest.main()

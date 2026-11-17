@@ -206,6 +206,15 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Caveat:** this changes the judged text for form PDFs, so stored snapshots from earlier runs no longer match new ones. Start a new learning run.
 - **Status:** written 2026-11-14, not yet run on the GPU.
 
+### J6. The judge answers greedily (temperature 0)
+- **Decision:** the judge runs at temperature 0 everywhere it is used: the learner's own judge (stored cases, rule checks, the inspector's `test_conditions`), the judge inside learning attempts and the checker's reruns, and the judge in test runs. The worker and the inspector keep the model card's sampling (S1). Only a retry after an unusable answer (J3) samples, at the model card's temperature 1.0 with seed + attempt, since a greedy retry would repeat the same answer.
+- **Alternatives:** the model card's sampling for the judge too (S1, the behaviour until now); a majority of 3 sampled answers; telling the inspector to avoid conditions with many parts.
+- **Why:** the judge decides a fact about fixed text, so the same question should get the same answer. Sampled, it did not: on SF17-22a (17 Nov, `learn-4b-rootonly3160`) the inspector's test came back `true` and the rule check, asked the same question on the same text, came back `unknown`, so the rule was rejected. The same flip can hide a learned rule at test time. S1's reason for sampling (the 4B looped under greedy decoding) was seen in the worker's long runs, not in the judge's short answers.
+- **Where:** the judge model's `temperature` option in the learner config (`judge`, `validation.judge_model`) and in the test configs' resolver (`judge_model`); `FeatureJudge.judge` (`RETRY_TEMPERATURE`); `OpenAICompatibleClient.complete(temperature=...)`.
+- **Ablation:** set the judge model's `temperature` back to 1.0.
+- **Caveat:** greedy thinking can still loop until `max_tokens`; that answer is then unusable and the retry samples. Runs before this used a sampling judge.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
 ## Decisions about the tree and the engine
 
 ### T1. Learning starts from a root-only tree
@@ -453,7 +462,7 @@ These apply to every arm alike (no skill, full skill, preloaded skill, tree arms
 - **Where:** model options `temperature`, `top_p`, `top_k`, `min_p`, `presence_penalty` and `repetition_penalty` (`OpenAICompatibleClient`); the GPU's generated configs.
 - **Detail (2026-11-15):** repeat *r* of a document runs its worker with `seed + r` (repeat 0 keeps 42). Until then every repeat used seed 42, so repeats of one document could be near-copies instead of independent samples. This matters for the checker when `validation.replicates` is above 1 and for the final test. The judge keeps its configured seed. Where: `skill_agent.experiments.run_experiment`.
 - **Ablation:** set `temperature: 0` and drop the other options.
-- **Status:** in use since 2026-11-13. It affects C4: single runs are now noisier, so revisit how many runs the checker and the final comparison use.
+- **Status:** in use since 2026-11-13. It affects C4: single runs are now noisier, so revisit how many runs the checker and the final comparison use. Since J6 (2026-11-17) the judge is greedy; the worker and inspector still sample.
 
 ## Decisions about visibility
 

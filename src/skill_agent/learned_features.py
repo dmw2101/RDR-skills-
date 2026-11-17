@@ -11,6 +11,7 @@ from .resolvers import HttpSkillResolver
 
 
 JUDGED_VALUES = ("true", "false", "unknown")
+RETRY_TEMPERATURE = 1.0  # Decision J6: the model card's temperature, for re-asking a greedy judge.
 MAX_JUDGE_CHARS = 20_000
 MAX_MATERIAL_CHARS = 12_000
 
@@ -126,11 +127,15 @@ class FeatureJudge:
                                         "<visible_context>\n" + text + "\n</visible_context>"},
         ]
         seed = getattr(self.model, "seed", None)
+        # Decision J6: a greedy judge would give the same unusable answer again, so its retries sample.
+        greedy = getattr(self.model, "temperature", None) == 0
         for attempt in range(self.attempts):
+            retry = {}
             if attempt and seed is not None:
-                response = await self.model.complete(messages, [tool], seed=seed + attempt)
-            else:
-                response = await self.model.complete(messages, [tool])
+                retry["seed"] = seed + attempt
+            if attempt and greedy:
+                retry["temperature"] = RETRY_TEMPERATURE
+            response = await self.model.complete(messages, [tool], **retry)
             try:
                 values = self._values(response, features)
             except ValueError as exc:
