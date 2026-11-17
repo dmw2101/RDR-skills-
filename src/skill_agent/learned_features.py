@@ -124,6 +124,25 @@ class FeatureJudge:
             response.metadata["judge_retries"] = attempt
             return values, response
 
+    async def explain(self, features, text, limit=1500):
+        """One short reason per condition, from a separate call without the answer form.
+
+        For the inspector's condition test (decision I11). The verdict that counts is judge()'s;
+        this call may disagree with it, so its text is advice to the inspector only.
+        """
+        definitions = "\n".join(f"- {name}: {spec['description']}" for name, spec in sorted(features.items()))
+        messages = [
+            {"role": "system", "content": JUDGE_INSTRUCTIONS.rsplit(" Call report_features", 1)[0]},
+            {"role": "user", "content": "<conditions>\n" + definitions + "\n</conditions>\n\n"
+                                        "<visible_context>\n" + text + "\n</visible_context>\n\n"
+                                        "Do not call any tool. For each condition write one line: its name, "
+                                        "true/false/unknown, and one sentence saying which visible text decides "
+                                        "it (quote a few words), or what is missing."},
+        ]
+        response = await self.model.complete(messages, [])
+        content = (response.message.get("content") or "").strip()
+        return content if len(content) <= limit else content[:limit] + " ..."
+
     @staticmethod
     def _values(response, features):
         """The judged values in one model response; ValueError says why it cannot be used."""

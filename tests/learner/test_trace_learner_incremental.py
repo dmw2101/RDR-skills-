@@ -157,9 +157,13 @@ class BroadThenNarrowVerifier(VerifierModel):
 
     async def complete(self, messages, tools):
         response = await super().complete(messages, tools)
+        # A retry's feedback is in the system prompt of a fresh inspection, or in the last user
+        # message of a continued one (decision I13).
+        feedback = next((m["content"] for m in reversed(messages) if m["role"] == "user"
+                         and "PREVIOUS ATTEMPT" in (m.get("content") or "")), "")
         if self.turn == 1:
-            BroadThenNarrowVerifier.prompts.append(messages[0]["content"])
-        retry = "PREVIOUS ATTEMPT" in messages[0]["content"]
+            BroadThenNarrowVerifier.prompts.append(messages[0]["content"] + feedback)
+        retry = "PREVIOUS ATTEMPT" in messages[0]["content"] or bool(feedback)
         if self.turn >= len(self.script) and not retry:
             broad = json.loads(json.dumps(self.script[-1]))
             arguments = json.loads(broad["tool_calls"][0]["function"]["arguments"])
@@ -493,6 +497,13 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
             feedback = BroadThenNarrowVerifier.prompts[1]
             self.assertIn("checker rejected it", feedback)
             self.assertIn("document names passed before", feedback)
+            # Decision I13: the retry continued the first inspection's conversation.
+            [retry] = (learner.round_dir(1) / "diagnoses").glob("*.retry.json")
+            outcome = read_json(retry)
+            self.assertTrue(outcome["continued"])
+            first = [e for e in outcome["events"] if e["type"] == "model_request"][0]["messages"]
+            self.assertIn("ALREADY RUN FOR YOU", first[1]["content"])  # The first inspection's own message.
+            self.assertIn("PREVIOUS ATTEMPT", first[-1]["content"])
 
     async def test_passing_examples_can_be_switched_off(self):
         self.use_broad_verifier("rerun")

@@ -64,7 +64,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** many rejections are fixable by narrowing. The professors asked for a smarter retrial.
 - **Where:** `incremental._insert` (`retryable`), `incremental._feedback`, `incremental._checker_feedback`.
 - **Ablation:** none (always on, by decision).
-- **Status:** in use. The engine-rejection retry dates from 2026-10-28 (`ea82ec0`); the checker-rejection retry was added 2026-11-13. A retry records `retry_of` (the proposal it revises) in the ledger.
+- **Status:** in use. The engine-rejection retry dates from 2026-10-28 (`ea82ec0`); the checker-rejection retry was added 2026-11-13. A retry records `retry_of` (the proposal it revises) in the ledger. Since I13 (2026-11-17) the retry continues the first inspection when it can.
 
 ### I5. The inspector's inputs are bounded and the standard ones are given up front
 - **Decision:** every inspector tool output is cut after **12,000 characters**, with a note asking for a narrower request. `read_trace` clips each field to 2,000 characters; `skill_views` and `passing_examples` list repeated guidance once. The results of `compare_with_ground_truth` (wrong fields only), `ground_truth`, `skill_views` and `show_tree` are placed in the first prompt, so no model call is spent on them. The example config's time limit is 1,800 s (was 900 s).
@@ -72,7 +72,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** in the first 150-document run, single outputs reached 46,000 characters (`read_trace`), 44,000 (`skill_views`) and 37,000 (`passing_examples`). Prompts grew to 65,536 tokens: 2 inspections were cut off, 1 got HTTP 400 and 3 hit the 900 s limit after 10 to 14 calls. About 68 of 151 inspector minutes produced nothing.
 - **Where:** `verifier._Tool.execute` (`MAX_TOOL_CHARS`), `VerifierSession.briefing`, `passing.PassingTraces.examples`, the hooks' optional `failure_summary`; config `verifier.timeout_seconds`.
 - **Ablation:** none.
-- **Status:** written 2026-11-14, not yet run on the GPU.
+- **Status:** written 2026-11-14, not yet run on the GPU. I10 and I12 (2026-11-17) add the judge's text, the base skill and the root's successes to the first message.
 
 ### I6. A proposal is checked by code when it is submitted
 - **Decision:** `submit_diagnosis` refuses a proposal the engine would reject without asking the judge: a target node that does not exist or was not rendered (replace, stop) or did not fire (add) at the failing turn, an unknown feature, a wrong operator or value, a fragment the node does not render, an unknown anchor. The inspector gets the reason and resubmits in the same session.
@@ -106,6 +106,47 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Where:** `proposals.Diagnosis.attribution`, `verifier.eligibility`, `prompts/verifier.md` (step 3).
 - **Ablation:** none.
 - **Status:** written 2026-11-16, not yet run on the GPU.
+
+### I10. The inspector sees exactly the text the judge reads
+- **Decision:** the inspector's first message includes `starting_materials`: the failing document's text exactly as the judge reads it for a condition (the task, the requested schema, the PDF's filled form fields, then its text layer, cut as the judge's is). Its prompt says to write each condition so it is plainly true in that text, and that `inspect_shell`'s `pdftotext` output differs.
+- **Alternatives:** leave the inspector to read the PDF through the shell (the behaviour until now).
+- **Why:** of the first 10 rule rejections in `learn-4b-rootonly150-v2` (17 Nov), 5 came from the inspector and the judge reading different text: the inspector read `pdftotext` (form values inline), the judge read the form-field list and then the bare text layer, so conditions true in one were false in the other. Since K4 the judge reads one fixed text per document, so it can be shown once.
+- **Where:** `VerifierSession.judge_text`, `VerifierSession.briefing`; `verify_episode(materials=...)`, passed by `incremental._diagnose` and `_retry` (`IncrementalLearner.materials`).
+- **Ablation:** none as a switch; a benchmark without `judge_materials` gives no text.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### I11. The inspector can test a draft condition on the judge
+- **Decision:** a tool, `test_conditions`, sends up to 4 draft `new_feature` conditions to the judge on the failing document's starting materials, the same call that later decides whether the rule is true there (J2). It returns each verdict and a one-line reason per condition from a second, separate judge call. At most **5** tests per inspection; an invalid draft is returned without using one up. The prompt tells the inspector to test its draft and rewrite it until the judge says true.
+- **Alternatives:** the judge writes the conditions (rejected: the inspector stays the author, the judge only answers); a test that also checks stored successes (not needed for a rejection: since C1 a rule that fires on a success is rerun, not refused).
+- **Why:** the rejection "not true for the failing document" was the most common one (9 of 19 proposals in the first 30 documents), and each costs a full retry inspection (I4). Model switches are short (median 1.5 s, at most 8 s in that run), so a test costs about one judge call.
+- **Where:** `VerifierSession._test_conditions` (`MAX_CONDITION_TESTS`), `FeatureJudge.explain`; `verify_episode(judge=...)`, passed by `incremental` (`IncrementalLearner.judge`).
+- **Ablation:** none as a switch; without a judge or materials the tool is not offered.
+- **Caveat:** the judge samples (S1), so a verdict may differ when the rule is checked. The tool's note says to make conditions plainly true. The reason comes from a separate call and may disagree with the verdict.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### I12. More of the standard inputs are in the first message
+- **Decision:** besides I5's four results and I10's text, the first message carries the base skill (all original fragments in order, up to 12,000 characters) and, on a root-only tree, the root's past successes (`passing_examples` for node 0, up to 8,000 characters). The tools stay available for other nodes and learned advice.
+- **Alternatives:** leave them as tool calls (the behaviour until now).
+- **Why:** each call costs a full 27B turn, and nearly every inspection asked for these. On a root-only tree almost every rule targets the root, so its successes are the ones the inspector needs.
+- **Where:** `VerifierSession.briefing` (`BRIEFING_SKILL_CHARS`, `BRIEFING_EXAMPLES_CHARS`).
+- **Ablation:** none.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### I13. A retry continues the first inspection
+- **Decision:** a retry (I4) continues the first inspection's conversation: the same system prompt and messages, followed by the rejection feedback as a new message. The first inspection's passing rescore still counts, so it need not rescore again unless its corrected answer changes. The continued inspection gets at most **12** more calls. It starts afresh instead (as before, with the feedback in its system prompt) when the first one's last request already used more than **40,000** input tokens, or when no usable first conversation is saved.
+- **Alternatives:** a fresh inspection with the feedback (the behaviour until now).
+- **Why:** a fresh retry re-reads and re-diagnoses everything, so a rejection doubled the cost of a failed document (20 to 45 minutes each). The diagnosis is usually right and only the rule needs changing. Keeping the system prompt identical lets the server reuse its cached prefix. The 40,000-token limit leaves room in the 27B's 65,536-token window (G1).
+- **Where:** `verifier.resumable_history`, `verify_episode(previous=...)` (`RESUME_MAX_INPUT_TOKENS`, `RESUME_MAX_CALLS`), `runtime.run_episode(history=...)`; `incremental._retry` reads the first diagnosis file. The retry's saved outcome records `continued`.
+- **Ablation:** none as a switch.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### I14. A rule's advice is short and does not repeat
+- **Decision:** `guidance_text` may have at most **600** characters: at most three short, checkable instructions. A longer one is refused at submit time (I6) with the count, and the inspector shortens it. The prompt tells it to read the learned rules already in the tree first, not to repeat their advice, and, if a rule with the same advice fired and the worker still failed, to say why that advice was not enough and add only what was missing, or refine that rule.
+- **Alternatives:** no limit (the behaviour until now); a limit in the proposal schema, which would also refuse saved proposals of earlier runs on resume.
+- **Why:** in the first 30 documents of `learn-4b-rootonly150-v2`, nearly every rule said "copy values verbatim" or "for filled forms, read the form fields", and kept rules ran from 300 to 900 characters. K2 showed that the worker follows short, direct advice better.
+- **Where:** `verifier.proposal_problems` (`MAX_GUIDANCE_CHARS`), `prompts/verifier.md`.
+- **Ablation:** none as a switch.
+- **Status:** written 2026-11-17, not yet run on the GPU.
 
 ## Decisions about the judge
 

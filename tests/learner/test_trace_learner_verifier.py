@@ -145,6 +145,90 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(title, first)
         self.assertIn('"fragment_ids": "same as turn 0"', first)  # Unchanged guidance is not listed twice.
 
+    async def test_first_prompt_carries_the_judge_text_and_the_base_skill(self):
+        # Decisions I10 and I12: the judge's exact text and the original skill, up front.
+        materials = "Task: x\n\nFilled PDF form fields:\nName: Pope\nPDF text layer:\nTotals table"
+        model = ScriptedModel([call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])
+        await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                             workspace=self.workspace, max_calls=10, materials=materials)
+        first = model.requests[0][0][1]["content"]
+        judged = first.split("starting_materials (EXACTLY")[1]
+        self.assertIn("<starting_materials>\n" + materials + "\n</starting_materials>", judged)
+        self.assertIn("base_skill (the original skill text", first)
+        self.assertIn(self.workspace.catalog.fragments[1].text.strip()[:40], first)
+        tools = [t["function"]["name"] for t in model.requests[0][1]]
+        self.assertNotIn("test_conditions", tools)  # No judge given: no condition test.
+
+    async def test_draft_conditions_are_tested_on_the_judge(self):
+        # Decision I11: the inspector asks the judge before submitting, at most five times.
+        class Judge:
+            def __init__(self):
+                self.texts = []
+
+            async def judge(self, features, text):
+                self.texts.append(text)
+                return {name: "true" if "Pope" in text and "form" in spec["description"] else "false"
+                        for name, spec in features.items()}, None
+
+            async def explain(self, features, text):
+                return "lf_forms: true - 'Name: Pope' is a filled field."
+        judge = Judge()
+        draft = {"conditions": [{"name": "lf_forms", "description": "The PDF has filled form fields."},
+                                {"name": "lf_tables", "description": "The PDF has a totals table."}]}
+        replies = [call("test_conditions", draft, index) for index in range(6)]
+        # An invalid draft is returned for correction and does not use up a test.
+        replies.insert(1, call("test_conditions", {"conditions": [{"name": "bad name", "description": "x"}]}, 6))
+        replies.append(call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}}, 7))
+        materials = "Filled PDF form fields:\nName: Pope"
+        outcome = await verify_episode(model=ScriptedModel(replies), task=self.task, record=episode(), hooks=Hooks(),
+                                       workspace=self.workspace, max_calls=10, materials=materials, judge=judge)
+        results = [e["result"] for e in outcome["events"] if e["type"] == "tool"]
+        self.assertEqual(results[0]["verdicts"], {"lf_forms": "true", "lf_tables": "false"})
+        self.assertIn("Name: Pope", results[0]["reasons"])
+        self.assertIn("invalid condition", results[1]["error"])
+        self.assertEqual(results[5]["tests_left"], 0)
+        self.assertIn("test limit reached", results[6]["error"])
+        self.assertEqual(len(judge.texts), 5)
+        self.assertTrue(all(text.startswith("<starting_materials>\n") and text.endswith("</starting_materials>")
+                            for text in judge.texts))  # The same text a document condition is judged on.
+
+    async def test_long_advice_is_returned_for_shortening(self):
+        # Decision I14: advice is at most 600 characters, checked when the inspector submits.
+        long = {**DIAGNOSIS, "proposal": {**DIAGNOSIS["proposal"], "guidance_text": "Check every table. " * 40}}
+        outcome = await self.verify([call("rescore", {"prediction": {"total": "12"}}),
+                                     call("submit_diagnosis", {"diagnosis": long}, 1),
+                                     call("submit_diagnosis", {"diagnosis": DIAGNOSIS}, 2)])
+        errors = [e["result"]["error"] for e in outcome["events"] if e["type"] == "tool" and "error" in e["result"]]
+        self.assertIn("keep it to 600 or fewer", errors[0])
+        self.assertTrue(outcome["eligible"])
+
+    async def test_a_retry_continues_the_first_inspection_when_it_fits(self):
+        # Decision I13: same conversation plus the feedback; the passing rescore still counts.
+        first = await self.verify([call("rescore", {"prediction": {"total": "12"}}),
+                                   call("submit_diagnosis", {"diagnosis": DIAGNOSIS}, 1)])
+        model = ScriptedModel([call("submit_diagnosis", {"diagnosis": DIAGNOSIS}, 2)])
+        retry = await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                                     workspace=self.workspace, max_calls=30, feedback="too broad", previous=first)
+        self.assertTrue(retry["continued"])
+        self.assertTrue(retry["eligible"])  # Without a new rescore.
+        messages = model.requests[0][0]
+        self.assertNotIn("PREVIOUS ATTEMPT", messages[0]["content"])  # The system prompt is unchanged.
+        self.assertIn("ALREADY RUN FOR YOU", messages[1]["content"])
+        self.assertEqual([m["role"] for m in messages[-3:]], ["assistant", "tool", "user"])
+        self.assertIn("PREVIOUS ATTEMPT (rejected)\ntoo broad", messages[-1]["content"])
+        # Too long a first conversation, or none, starts a fresh inspection with the feedback in its prompt.
+        for event in first["events"]:
+            if event["type"] == "model_response":
+                event["usage"] = {**event["usage"], "input_tokens": 50_000}
+        for previous in (first, None):
+            model = ScriptedModel([call("rescore", {"prediction": {"total": "12"}}),
+                                   call("submit_diagnosis", {"diagnosis": DIAGNOSIS}, 1)])
+            retry = await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                                         workspace=self.workspace, max_calls=30, feedback="too broad",
+                                         previous=previous)
+            self.assertFalse(retry["continued"])
+            self.assertIn("PREVIOUS ATTEMPT (rejected)\ntoo broad", model.requests[0][0][0]["content"])
+
     async def test_long_tool_outputs_are_cut_with_a_note(self):
         record = episode()
         record["events"][3]["result"] = "x" * 50_000

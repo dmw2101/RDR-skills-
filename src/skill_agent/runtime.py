@@ -340,12 +340,16 @@ class EpisodeResult:
 
 
 async def run_episode(*, model, session, skill_context, system_prompt, policy=None,
-                      max_calls=20, timeout_seconds=600):
-    """Session exposes prompt, tools, collect(), close(); inputs exclude gold labels."""
+                      max_calls=20, timeout_seconds=600, history=None):
+    """Session exposes prompt, tools, collect(), close(); inputs exclude gold labels.
+
+    history: an earlier conversation (after the system prompt) to continue instead of starting
+    from session.prompt; used by the inspector's retry (decision I13).
+    """
     policy = policy or ModelInitiatedSkillPolicy()
     skill_enabled = getattr(policy, "skill_enabled", True)
     started = time.monotonic()
-    history = [{"role": "user", "content": session.prompt}]
+    history = list(history) if history else [{"role": "user", "content": session.prompt}]
     events = skill_context.events if skill_context is not None else []
     prediction, status, error = None, "failed", None
 

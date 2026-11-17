@@ -162,7 +162,10 @@ near the end (I7).
 | Answer key | The gold answer |
 | Guidance history | For each worker step: the answer sheet, the nodes that fired, the text pieces shown |
 | The tree | Every node with its conditions and text pieces, and the list of conditions |
-| Retry feedback | Only on a retry: why the last proposal was rejected, with excerpts of the documents involved (I4) |
+| The judge's text | The document's starting materials exactly as the judge reads them for a condition (I10) |
+| Base skill | The original skill text, all pieces in order (I12) |
+| Root's past successes | On a root-only tree, up to 6 successes for node 0 (I12) |
+| Retry feedback | Only on a retry: why the last proposal was rejected, with excerpts of the documents involved (I4). A retry continues the first inspection's conversation, with the feedback as a new message, when it fits (I13) |
 
 **Tools it can call afterwards**
 
@@ -173,14 +176,16 @@ near the end (I7).
 | `inspect_shell` | A shell on a fresh copy of the document's input files |
 | `rescore` | The official score of a corrected answer it builds. A rule is only tried if one rescore passes (I2) |
 | `passing_examples` | Up to 6 past successes for its target node (below) |
-| `submit_diagnosis` | Its result: the cause, the evidence, and one rule or none |
+| `test_conditions` | The judge's verdict and a one-line reason for up to 4 draft conditions on the failing document; at most 5 tests (I11) |
+| `submit_diagnosis` | Its result: the cause, the evidence, and one rule or none. Advice longer than 600 characters is refused for shortening (I14) |
 
 **Past successes (I3).** For the node it wants to change, the inspector can read up to 6 verified
 successes in which that node supplied guidance: the most recent ones, never the failing document.
 Each shows the task, the passage the judge read, the guidance shown and a short excerpt of the run.
 Its instructions say to use them to make its condition narrow enough to leave those successes alone.
 It cannot test a draft condition against them itself; that check happens after it submits, and a
-rule that is too broad comes back as retry feedback naming the documents it also matched.
+rule that is too broad comes back as retry feedback naming the documents it also matched. It can
+test a draft condition on the failing document with `test_conditions` (I11).
 
 **What it submits.** A cause (`skill_missing`, `skill_misleading`, `not_skill`, `answer_key_error`,
 `unexplained`) and, for the first two, one rule: target node, conditions, advice text. A new

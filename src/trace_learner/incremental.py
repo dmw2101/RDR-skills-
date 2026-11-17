@@ -226,7 +226,7 @@ class IncrementalLearner:
                     workspace=workspace, max_calls=settings.get("max_calls", 30),
                     timeout_seconds=settings.get("timeout_seconds", 900),
                     passing_traces=passing_traces if self.passing_examples else None,
-                    learned_only=self.base_tree == "root_only")
+                    learned_only=self.base_tree == "root_only", judge=self.judge, materials=self.materials(task))
             if was_interrupted(outcome):  # Not a verdict: leave it unsaved so the rerun diagnoses again.
                 print(f"  inspector on {record['task_id']} rep={record['replicate']}: interrupted "
                       f"({outcome['error']}); not saved", flush=True)
@@ -282,8 +282,7 @@ class IncrementalLearner:
                 text = " ".join(workspace.layer.contexts.get(context, "")[:600].split())
                 lines.append(f"- document {document}: {text}")
         lines.append("Propose a rule whose conditions are judged true for THIS failing document's visible text "
-                     "but false for those situations: a more specific property this document has and they lack. "
-                     "Call rescore again with your corrected prediction, then submit_diagnosis.")
+                     "but false for those situations: a more specific property this document has and they lack.")
         return "\n".join(lines)
 
     def _checker_feedback(self, item, entry, workdir):
@@ -312,8 +311,7 @@ class IncrementalLearner:
             lines.append(f"- document {task_id} passed before; the rule changed its advice and it now fails. "
                          f"Its re-run: {excerpt(task_id)}")
         lines.append("Revise the rule so it fixes THIS failing document (its advice may need to change) and its "
-                     "conditions are false for any document it broke, or its advice no longer harms them. Call "
-                     "rescore again with your corrected prediction, then submit_diagnosis.")
+                     "conditions are false for any document it broke, or its advice no longer harms them.")
         return "\n".join(lines)
 
     async def _retry(self, directory, version, record, task, item, feedback, passing_traces):
@@ -324,20 +322,23 @@ class IncrementalLearner:
             outcome = read_json(path)
         else:
             settings = self.config["verifier"]
+            first = directory / "diagnoses" / (item.get("diagnosis_file") or quote(source, safe="") + ".json")
+            previous = read_json(first) if first.exists() else None
             print(f"  inspector retry on {record['task_id']}: asking for a revised rule", flush=True)
             outcome = await verify_episode(
                 model=factory(settings["model"]), task=task, record=record, hooks=self.hooks,
                 workspace=SkillWorkspace(self.version_dir(version)), max_calls=settings.get("max_calls", 30),
                 timeout_seconds=settings.get("timeout_seconds", 900), feedback=feedback,
                 passing_traces=passing_traces if self.passing_examples else None,
-                learned_only=self.base_tree == "root_only")
+                learned_only=self.base_tree == "root_only", judge=self.judge, materials=self.materials(task),
+                previous=previous)
             if was_interrupted(outcome):
                 raise Interrupted(f"the inspector's retry on {record['task_id']} was interrupted "
                                   f"({outcome['error']}); run learn again to continue")
             write_json(path, outcome)
-            print(f"  inspector retry on {record['task_id']}: {outcome['status']}, "
-                  f"{(outcome.get('diagnosis') or {}).get('attribution')}, eligible={outcome['eligible']}",
-                  flush=True)
+            print(f"  inspector retry on {record['task_id']} ({'continued' if outcome.get('continued') else 'fresh'}): "
+                  f"{outcome['status']}, {(outcome.get('diagnosis') or {}).get('attribution')}, "
+                  f"eligible={outcome['eligible']}", flush=True)
         if not outcome["eligible"]:
             return None
         return {"sources": item["sources"], "proposal": outcome["diagnosis"]["proposal"], "retry": 1,

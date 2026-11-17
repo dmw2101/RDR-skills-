@@ -5,17 +5,27 @@ from importlib.resources import files
 
 from pydantic import ValidationError
 
+from skill_agent.learned_features import document_context, judge_context
 from skill_agent.runtime import NoSkillPolicy, run_episode
 
 from rdr_engine.learned import FEATURE_PREFIX
 from rdr_engine.skill_cases import SkillConditionEvaluator
 
-from .proposals import Diagnosis, NewFeatureCondition
+from .proposals import Diagnosis, NewFeature, NewFeatureCondition
 from .records import skill_views, trace_steps, turn_count, view_at
 
 # Decision I5: every tool output is bounded, so 30 calls cannot outgrow the inspector's context.
 MAX_TOOL_CHARS = 12_000
 TRACE_FIELD_CHARS = 2000
+# Decision I12: the first message also carries the base skill and the root's past successes.
+BRIEFING_SKILL_CHARS = 12_000
+BRIEFING_EXAMPLES_CHARS = 8000
+MAX_CONDITION_TESTS = 5  # Decision I11: judge tests of draft conditions per inspection.
+MAX_GUIDANCE_CHARS = 600  # Decision I14: a rule's advice is a few short instructions.
+# Decision I13: a retry continues the first inspection only while its conversation leaves room in the
+# 27B's 65,536-token window for the feedback and a few more turns; otherwise it starts afresh.
+RESUME_MAX_INPUT_TOKENS = 40_000
+RESUME_MAX_CALLS = 12
 # Decision I7: when this little is left, the inspector is told once to submit. A 27B call takes
 # about a minute and its longest ones several, so the warning leaves room for a final answer.
 WARN_CALLS_LEFT = 3
@@ -72,6 +82,10 @@ def proposal_problems(proposal, workspace, view, *, learned_only=False):
     """
     problems, nodes, schema = [], workspace.engine.nodes, workspace.schema
     target = proposal.target_node_id
+    guidance = (proposal.guidance_text or "").strip()
+    if len(guidance) > MAX_GUIDANCE_CHARS:  # Decision I14: light advice, checked here so saved proposals still load.
+        problems.append(f"guidance_text has {len(guidance)} characters; keep it to {MAX_GUIDANCE_CHARS} or fewer: "
+                        "at most three short, checkable instructions")
     if target >= len(nodes):
         return [f"target_node_id {target} does not exist; the tree has nodes 0 to {len(nodes) - 1}"]
     rendered, fired = (view or {}).get("terminal_ids") or [], (view or {}).get("fired_ids") or []
@@ -123,12 +137,18 @@ class VerifierSession:
     """Read-only access to one episode plus gold-label tools; ends on submit_diagnosis."""
 
     def __init__(self, *, task, record, hooks, workspace, passed=False, passing_traces=None,
-                 learned_only=False):
+                 learned_only=False, judge=None, materials=None, rescores=None):
         self.task, self.record, self.hooks, self.workspace = task, record, hooks, workspace
         # Decision T5: on a root-only tree the inspector neither sees nor uses the original features.
         self.learned_only = learned_only
+        self.passing_traces = passing_traces
         self.events = record.get("events", [])
-        self.rescores = []
+        self.rescores = list(rescores or [])  # A continued retry keeps its first passing rescore (I13).
+        # Decision I10: exactly what the judge reads for this document's conditions (the starting
+        # materials, as at run time); None when the benchmark gives the judge no materials.
+        self.judge_text = document_context(judge_context(task["task"], materials)) if materials else None
+        self.judge = judge
+        self.tests = 0
         self.diagnosis = None
         self.finished = False
         self.warned = False
@@ -172,7 +192,47 @@ class VerifierSession:
             tools.append(_Tool(
                 "passing_examples", "Read up to six verified passing traces for the given node.",
                 {"node_id": {"type": "integer", "minimum": 0}}, ["node_id"], passing_examples))
+        if judge is not None and self.judge_text is not None:
+            feature = {"type": "object", "properties": {
+                "name": {"type": "string"}, "description": {"type": "string"},
+                "examples": {"type": "array", "items": {"type": "string"}},
+                "counterexamples": {"type": "array", "items": {"type": "string"}}},
+                "required": ["name", "description"]}
+            tools.append(_Tool(
+                "test_conditions",
+                f"Ask the judge, as it will be asked when your rule is checked, to answer draft new_feature "
+                f"conditions on THIS failing document's starting materials. Returns each verdict "
+                f"(true/false/unknown) and a short reason from a separate call. At most "
+                f"{MAX_CONDITION_TESTS} tests per inspection.",
+                {"conditions": {"type": "array", "items": feature, "minItems": 1, "maxItems": 4}},
+                ["conditions"], self._test_conditions))
         self.tools = {tool.definition["function"]["name"]: tool for tool in tools}
+
+    async def _test_conditions(self, args):
+        """Decision I11: the same judge call that decides the rule, before the inspector submits."""
+        if self.tests >= MAX_CONDITION_TESTS:
+            raise ValueError(f"test limit reached ({MAX_CONDITION_TESTS}); submit your diagnosis")
+        conditions = args.get("conditions")
+        if not isinstance(conditions, list) or not conditions:
+            raise ValueError("conditions must be a nonempty list of new_feature definitions")
+        features = {}
+        for raw in conditions:
+            try:
+                feature = NewFeature.model_validate(raw)
+            except ValidationError as exc:
+                raise ValueError(f"invalid condition, fix and retry: {exc}") from exc
+            features[feature.name] = {"description": feature.description, "examples": feature.examples,
+                                      "counterexamples": feature.counterexamples}
+        self.tests += 1
+        values, _ = await self.judge.judge(features, self.judge_text)
+        try:
+            reasons = await self.judge.explain(features, self.judge_text)
+        except Exception as exc:  # The verdicts stand without the reasons.
+            reasons = f"(no reasons: {type(exc).__name__})"
+        return {"verdicts": values, "reasons": reasons, "tests_left": MAX_CONDITION_TESTS - self.tests,
+                "note": "The verdicts are what count: a rule is rejected unless each new condition is true "
+                        "here. The judge samples, so a borderline condition may flip; make it plainly true "
+                        "in the starting materials. Reasons come from a separate call and may disagree."}
 
     async def _read_trace(self, args):
         start, end = int(args["from_turn"]), int(args["to_turn"])
@@ -261,6 +321,18 @@ class VerifierSession:
                 parts.append(f"{title}:\n{_clip(await tool({}), limit)}")
             except Exception:  # The tool is still there to call; its error shows up then.
                 continue
+        if self.judge_text is not None:  # Decision I10: plain text, so it reads exactly as the judge sees it.
+            parts.append("starting_materials (EXACTLY the text the judge reads when it answers your conditions "
+                         "for this document; write conditions that are visibly true in it):\n" + self.judge_text)
+        skill = "\n".join(fragment.text.rstrip("\n") for fragment in self.workspace.catalog.fragments)
+        if skill:  # Decision I12: the base skill, so show_fragment is needed only for learned advice.
+            parts.append("base_skill (the original skill text, all fragments in order):\n"
+                         + (skill if len(skill) <= BRIEFING_SKILL_CHARS else skill[:BRIEFING_SKILL_CHARS]
+                            + f"\n... [{len(skill) - BRIEFING_SKILL_CHARS} more characters; use show_fragment]"))
+        if self.passing_traces is not None and self.learned_only:
+            # Decision I12: on a root-only tree rules hang under the root, so its successes come up front.
+            examples = self.passing_traces.examples(0, self.task["id"])
+            parts.append(f"passing_examples for node 0 (the root):\n{_clip({'examples': examples}, BRIEFING_EXAMPLES_CHARS)}")
         return "\n\n".join(parts)
 
     async def _shell(self, args):
@@ -320,31 +392,70 @@ def eligibility(outcome):
     return True, None
 
 
+def resumable_history(previous):
+    """The first inspection's conversation, ready to continue, or None when it cannot be (I13).
+
+    It must have ended with an accepted submit_diagnosis, and its last request must leave room
+    in the inspector's context for the feedback and a few more turns.
+    """
+    events = (previous or {}).get("events") or []
+    requests = [i for i, event in enumerate(events) if event["type"] == "model_request"]
+    responses = [i for i, event in enumerate(events) if event["type"] == "model_response"]
+    if not requests or not responses or previous.get("status") != "completed" or not previous.get("eligible"):
+        return None
+    if ((events[responses[-1]].get("usage") or {}).get("input_tokens") or 0) > RESUME_MAX_INPUT_TOKENS:
+        return None
+    history = list(events[requests[-1]]["messages"][1:]) + [events[responses[-1]]["message"]]
+    for event in events[responses[-1] + 1:]:
+        if event["type"] == "tool":
+            history.append({"role": "tool", "tool_call_id": event["call"]["id"],
+                            "content": json.dumps(event["result"], ensure_ascii=False)})
+    return history
+
+
 async def verify_episode(*, model, task, record, hooks, workspace, max_calls=30, timeout_seconds=900,
-                         feedback=None, passing_traces=None, learned_only=False):
+                         feedback=None, passing_traces=None, learned_only=False, judge=None, materials=None,
+                         previous=None):
     """feedback: why an earlier proposal for this episode was rejected, for one retry.
 
     learned_only: hide the original skill's features and refuse proposals that use them (decision T5).
+    judge, materials: the feature judge and the document's starting materials, for the judge's text
+    up front (I10) and the condition test (I11). previous: the first inspection's outcome; a retry
+    with feedback continues its conversation when it can (I13), else starts afresh.
     """
+    history = resumable_history(previous) if feedback else None
+    rescores = ([{"prediction": previous["validated_prediction"], "passed": True}]
+                if history is not None and previous.get("validated_prediction") is not None else None)
     session = VerifierSession(task=task, record=record, hooks=hooks, workspace=workspace,
-                              passing_traces=passing_traces, learned_only=learned_only)
+                              passing_traces=passing_traces, learned_only=learned_only,
+                              judge=judge, materials=materials, rescores=rescores)
     prompt = verifier_prompt(hooks.benchmark)
     if learned_only:
         prompt += LEARNED_ONLY_INSTRUCTIONS
     if passing_traces is not None:
-        prompt += ("\nBefore proposing a skill change, call passing_examples for the target node. "
+        prompt += ("\nBefore proposing a skill change, call passing_examples for the target node (unless "
+                   "your first message already has them for that node). "
                    "Use the successful traces to narrow the condition to the distinguishing case. "
                    "If the tool returns no examples, proceed with the failed trace.")
-    if feedback:
-        prompt += "\n\nPREVIOUS ATTEMPT (rejected)\n" + feedback
-    briefing = await session.briefing()
-    if briefing:
-        session.prompt += "\n\nALREADY RUN FOR YOU (results of the first tool calls)\n" + briefing
+    if history is not None:
+        # Same system prompt as the first inspection, so the server reuses its cached prefix.
+        history.append({"role": "user", "content": (
+            "PREVIOUS ATTEMPT (rejected)\n" + feedback + "\n\nYou keep your earlier analysis and your passing "
+            "rescore, which still counts: rescore again only if your corrected answer changes. Revise the "
+            "rule and call submit_diagnosis once more.")})
+        max_calls = min(max_calls, RESUME_MAX_CALLS)
+    else:
+        if feedback:
+            prompt += ("\n\nPREVIOUS ATTEMPT (rejected)\n" + feedback + "\nThis is a new inspection: call rescore "
+                       "again with your corrected prediction, then submit_diagnosis.")
+        briefing = await session.briefing()
+        if briefing:
+            session.prompt += "\n\nALREADY RUN FOR YOU (results of the first tool calls)\n" + briefing
     result = await run_episode(model=model, session=session, skill_context=None,
                                system_prompt=prompt, policy=NoSkillPolicy(),
-                               max_calls=max_calls, timeout_seconds=timeout_seconds)
+                               max_calls=max_calls, timeout_seconds=timeout_seconds, history=history)
     eligible, reason = eligibility(result.prediction)
     return {"task_id": record["task_id"], "condition": record["condition"], "replicate": record["replicate"],
             "status": result.status, "error": result.error, **(result.prediction or {}),
             "eligible": eligible, "ineligible_reason": reason, "events": result.events,
-            "seconds": result.seconds}
+            "seconds": result.seconds, "continued": history is not None}
