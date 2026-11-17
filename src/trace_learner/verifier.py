@@ -38,59 +38,6 @@ def verifier_prompt(benchmark):
         "{benchmark}", benchmark)
 
 
-_CLOSERS = {"{": "}", "[": "]"}
-
-
-def repair_brackets(text):
-    """Fix mismatched closing brackets in JSON text, outside strings; the text itself is not changed.
-
-    Decision I6 (detail of 2026-11-17): the 27B sends long diagnoses as JSON text and loses track of
-    deep nesting, e.g. '..."]}}]' written as '..."}}]'. A closer that matches a bracket further down
-    the stack closes the ones above it first; a closer that matches none is dropped; missing closers
-    are added at the end. Validation of the result is unchanged, so a wrong guess is still refused.
-    """
-    out, stack, in_string, escaped = [], [], False, False
-    for char in text:
-        if in_string:
-            out.append(char)
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            continue
-        if char == '"':
-            in_string = True
-        elif char in _CLOSERS:
-            stack.append(char)
-        elif char in "}]":
-            opener = "{" if char == "}" else "["
-            if opener not in stack:
-                continue  # A stray closer.
-            while stack[-1] != opener:
-                out.append(_CLOSERS[stack.pop()])
-            stack.pop()
-        out.append(char)
-    return "".join(out) + "".join(_CLOSERS[opener] for opener in reversed(stack))
-
-
-def parse_json_text(text, what):
-    """JSON text the inspector sent for an object: parsed, repaired if needed, or a ValueError it can act on."""
-    try:
-        return json.loads(text)
-    except ValueError:
-        pass
-    try:
-        return json.loads(repair_brackets(text))
-    except ValueError as exc:
-        position = getattr(exc, "pos", 0) or 0
-        near = text[max(0, position - 60):position + 20]
-        raise ValueError(
-            f"{what} is not valid JSON ({getattr(exc, 'msg', exc)}) near: {near!r}. Send it as a JSON object, "
-            "not as text in quotes, and check that every [ and { is closed in the right order.") from exc
-
-
 def _clip(value, limit=12_000):
     text = json.dumps(value, ensure_ascii=False, default=str)
     return text if len(text) <= limit else text[:limit] + f"... [{len(text) - limit} more characters]"
@@ -98,8 +45,11 @@ def _clip(value, limit=12_000):
 
 class _Tool:
     def __init__(self, name, description, properties, required, run):
+        # Decision I15: strict, so a serving engine that enforces tool schemas (vLLM with xgrammar) makes
+        # every call's arguments valid JSON of this shape; the inspector cannot unbalance brackets or send
+        # an object as a string. Providers that ignore the flag behave as before.
         self.definition = {"type": "function", "function": {
-            "name": name, "description": description,
+            "name": name, "description": description, "strict": True,
             "parameters": {"type": "object", "properties": properties, "required": required,
                            "additionalProperties": False}}}
         self.run = run
@@ -268,7 +218,10 @@ class VerifierSession:
         conditions = args.get("conditions")
         # The 27B often sends the list as JSON text (as with submit_diagnosis, I6), or one bare object.
         if isinstance(conditions, str):
-            conditions = parse_json_text(conditions, "conditions")
+            try:
+                conditions = json.loads(conditions)
+            except ValueError:
+                pass
         if isinstance(conditions, dict):
             conditions = [conditions]
         if not isinstance(conditions, list) or not conditions:
@@ -409,11 +362,7 @@ class VerifierSession:
             raise ValueError("diagnosis already submitted")
         submitted = args["diagnosis"]
         # A long diagnosis sometimes arrives as JSON text instead of an object; it is the same answer.
-        # Its brackets are repaired if they do not match (see repair_brackets).
-        try:
-            encoded = json.dumps(parse_json_text(submitted, "diagnosis") if isinstance(submitted, str) else submitted)
-        except ValueError as exc:
-            raise ValueError(f"invalid diagnosis, fix and resubmit: {exc}") from exc
+        encoded = submitted if isinstance(submitted, str) else json.dumps(submitted)
         try:
             diagnosis = Diagnosis.model_validate_json(encoded)
         except ValidationError as exc:

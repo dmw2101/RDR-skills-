@@ -80,7 +80,7 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** these mistakes need no model to find, and a retry costs 7 to 15 minutes.
 - **Where:** `verifier.proposal_problems`, `VerifierSession._submit`.
 - **Detail (2026-11-16):** a diagnosis sent as JSON text instead of an object is read as the same answer. In round 2 of `learn-4b-rootonly150-v2` the 27B sent its (correct, 6,000-character) diagnosis as text five times and was refused each time. It then "tested" the tool with a filler object ("medium length description padding …"), which was accepted as its diagnosis: rule 2.1 was filler, the 20-minute inspection was lost and the one retry (I4) was spent.
-- **Detail (2026-11-17, `learn-4b-rootonly3160`):** mismatched closing brackets in JSON text are repaired before refusing (`repair_brackets`, outside strings only; a closer matching a bracket further down closes the ones above it, a stray closer is dropped, missing closers are added), and the result is validated as before. The same applies to `test_conditions`. If it still fails, the error quotes the text around the break and says to send an object. On opm1638 the inspector had a passing rescore, then sent its diagnosis as text 7 times with a bracket missing deep in the rule (`..."]}}]` written as `..."}}]`, or a `}` missing before `]`), was refused each time with only a column number, and ran out of its 30 minutes. All 10 refused submissions and tests of that night's first 10 documents parse to valid diagnoses and conditions after repair.
+- **Detail (2026-11-17, `learn-4b-rootonly3160`):** on opm1638 the inspector had a passing rescore, then sent its diagnosis as JSON text 7 times with a bracket missing deep in the rule (`..."]}}]` written as `..."}}]`, or a `}` missing before `]`), was refused each time with only a column number, and ran out of its 30 minutes. The text was complete each time, not cut off. A repair of such brackets was written and then dropped in favour of I15, which stops the mistake at the source.
 - **Ablation:** none.
 - **Status:** written 2026-11-14, not yet run on the GPU.
 
@@ -148,6 +148,15 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** in the first 30 documents of `learn-4b-rootonly150-v2`, nearly every rule said "copy values verbatim" or "for filled forms, read the form fields", and kept rules ran from 300 to 900 characters. K2 showed that the worker follows short, direct advice better.
 - **Where:** `verifier.proposal_problems` (`MAX_GUIDANCE_CHARS`), `prompts/verifier.md`.
 - **Ablation:** none as a switch.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### I15. The inspector's tool calls are constrained to their schemas
+- **Decision:** every inspector tool is declared `"strict": true`. With vLLM (0.33) serving the 27B with the `qwen3_xml` tool parser, a strict tool makes xgrammar constrain each call's arguments to the tool's JSON schema as they are generated: the brackets always balance, and a field declared as an object cannot arrive as a quoted string. The inspector's thinking is not constrained; the constraint starts after it. Tool choice stays `auto`.
+- **Alternatives:** repair mismatched brackets in code before refusing (written on 17 Nov and dropped: it treats the symptom); split the submission into several simpler calls; leave the arguments unconstrained (the behaviour until now).
+- **Why:** unconstrained, the 27B sometimes broke the nesting of long submissions (I6 detail of 17 Nov): 3,000 to 5,000 characters, five levels deep, often sent as one escaped string, sampled at temperature 1.0. On opm1638 that cost a whole inspection with a passing fix, and it caused most refused `test_conditions` calls. Checked on the server's own vLLM and xgrammar, without the GPU: with `strict` the constraint for the 11 inspector tools is built and compiles; without it, vLLM applies no constraint at all in `auto` mode.
+- **Where:** `trace_learner.verifier._Tool` (the `strict` flag on every definition).
+- **Ablation:** none as a switch; removing the flag restores free generation. Providers that ignore the flag behave as before.
+- **Caveat:** the `diagnosis` argument is declared as a free JSON object, so the constraint guarantees valid JSON of the right outer shape; its fields are still checked by `Diagnosis` validation (I6). Not yet seen on a live inspection.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
 ## Decisions about the judge

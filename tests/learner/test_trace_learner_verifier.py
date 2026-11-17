@@ -197,33 +197,15 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(text.startswith("<starting_materials>\n") and text.endswith("</starting_materials>")
                             for text in judge.texts))  # The same text a document condition is judged on.
 
-    def test_mismatched_brackets_in_json_text_are_repaired(self):
-        # Decision I6 (17 Nov): the two nesting slips seen in learn-4b-rootonly3160; strings are untouched.
-        from trace_learner.verifier import parse_json_text, repair_brackets
-        missing_square = '{"a": [{"b": {"c": ["x", "y }"}}], "d": "e"}'
-        missing_curly = '{"a": [{"b": {"c": ["x"]}], "d": 1}'
-        self.assertEqual(json.loads(repair_brackets(missing_square)),
-                         {"a": [{"b": {"c": ["x", "y }"]}}], "d": "e"})
-        self.assertEqual(json.loads(repair_brackets(missing_curly)), {"a": [{"b": {"c": ["x"]}}], "d": 1})
-        self.assertEqual(json.loads(repair_brackets('{"a": ["x"')), {"a": ["x"]})  # Unclosed at the end.
-        self.assertEqual(repair_brackets('{"q": "he said \\"[}\\""}'), '{"q": "he said \\"[}\\""}')
-        with self.assertRaisesRegex(ValueError, "not valid JSON .* near: .*Send it as a JSON object"):
-            parse_json_text('{"a": "x" "b": 1}', "diagnosis")
-
-    async def test_a_diagnosis_with_broken_brackets_is_accepted(self):
-        text = json.dumps(DIAGNOSIS)
-        broken = text.replace('"The PDF has tables."}}]', '"The PDF has tables."}]')  # One } missing.
-        self.assertNotEqual(broken, text)
-        outcome = await self.verify([call("rescore", {"prediction": {"total": "12"}}),
-                                     call("submit_diagnosis", {"diagnosis": broken}, 1)])
-        self.assertTrue(outcome["eligible"])
-        self.assertEqual(outcome["diagnosis"]["proposal"]["conditions"][0]["new_feature"]["name"], "lf_tables")
-        outcome = await self.verify([call("submit_diagnosis", {"diagnosis": '{"attribution": "not_skill" "x"}'}),
-                                     call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill",
-                                                                             "root_cause": "x"}}, 1)])
-        errors = [e["result"]["error"] for e in outcome["events"] if e["type"] == "tool" and "error" in e["result"]]
-        self.assertIn("invalid diagnosis, fix and resubmit: diagnosis is not valid JSON", errors[0])
-        self.assertIn("near:", errors[0])
+    async def test_inspector_tools_ask_for_schema_constrained_arguments(self):
+        # Decision I15: every inspector tool is strict, so vLLM constrains its arguments to the schema.
+        model = ScriptedModel([call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])
+        await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(), workspace=self.workspace,
+                             max_calls=10, materials="x", judge=object())
+        definitions = model.requests[0][1]
+        self.assertIn("test_conditions", [d["function"]["name"] for d in definitions])
+        self.assertTrue(all(d["function"]["strict"] is True for d in definitions))
+        self.assertTrue(all(d["function"]["parameters"]["additionalProperties"] is False for d in definitions))
 
     async def test_long_advice_is_returned_for_shortening(self):
         # Decision I14: advice is at most 600 characters, checked when the inspector submits.
