@@ -78,6 +78,13 @@ async def process(*args, timeout=60, limit=128_000, cwd=None, env=None):
                 child.kill()
             except ProcessLookupError:
                 pass
+        # Read what is left in the pipe (the process is dead, so it ends). Over the output limit the
+        # reader has paused the pipe, and on Linux wait() only returns once the pipe has reached its
+        # end: without this, a command printing past the limit froze the attempt (seen 18 Nov).
+        try:
+            await asyncio.wait_for(child.stdout.read(), 30)
+        except (asyncio.TimeoutError, OSError, RuntimeError):
+            pass
         await child.wait()
         # Close the pipes now: the attempt may go on, and a transport left for garbage collection
         # after its event loop has closed raises warnings on Windows.

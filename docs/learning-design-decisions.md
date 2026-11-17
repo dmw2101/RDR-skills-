@@ -368,6 +368,7 @@ These apply to every arm alike (no skill, full skill, preloaded skill, tree arms
 - **Where:** `skill_agent.pdf_session` (`OBSERVATION_CHARS`, `cut_output`, `ShellTool.execute`, `OutputLimitError.partial`); `VenvPDFSession(observation_chars=...)`; `VarexAdapter.open_session`.
 - **Ablation:** none as a config switch; `observation_chars=None` in code shows whole outputs.
 - **Detail:** the inspector's shell does not use this cut (`VarexHooks.open_inspection` passes `None`); its tools keep their own 12,000-character cut (I5). It does gain the non-fatal hard limit.
+- **Detail (2026-11-18):** on Linux the hard-limit path froze: past the limit the output reader had paused the pipe, and after the command was killed, waiting for it never returned, because Python's asyncio there waits until the pipe has been read to its end. Found by the server's test run (the Windows tests passed). The rest of the pipe is now read and discarded after the kill, before waiting; on the server a command printing 500 MB now returns in 0.4 s.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
 ### H2. The worker gets 30 steps
