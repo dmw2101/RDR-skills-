@@ -414,6 +414,25 @@ def role_tokens(model_events, skill_events):
             "judge_output_tokens": total(judge, "output_tokens")}
 
 
+def judge_value_counts(skill_events):
+    """Decision J6: per learned condition, how often the judge answered true, false and unknown.
+
+    Counts each judged answer once (answers reused for later steps of a document are skipped).
+    """
+    counts, unusable = {}, 0
+    for event in skill_events:
+        judge = (event["response"].get("metadata") or {}).get("feature_judge") or {}
+        if not judge.get("calls"):
+            continue
+        reused = set(judge.get("reused") or [])
+        for name, value in (judge.get("values") or {}).items():
+            if name not in reused:
+                entry = counts.setdefault(name, {"true": 0, "false": 0, "unknown": 0})
+                entry[value] = entry.get(value, 0) + 1
+        unusable += len(judge.get("unusable") or [])
+    return {"judge_values": dict(sorted(counts.items())), "judge_unusable_answers": unusable}
+
+
 def usage_summary(records):
     result = {}
     for condition in CONDITIONS:
@@ -455,6 +474,7 @@ def usage_summary(records):
             "input_tokens": total("input_tokens"), "output_tokens": total("output_tokens"),
             "cost_usd": total("cost_usd"),
             **role_tokens(model_events, skill_events),
+            **judge_value_counts(skill_events),
             "cached_input_tokens": (sum(e["usage"]["cached_input_tokens"] for e in model_events)
                                     if model_requests == len(model_events) and all(e["usage"].get("cached_input_tokens") is not None for e in model_events) else None),
             "episode_seconds": sum(r["seconds"] for r in episodes),

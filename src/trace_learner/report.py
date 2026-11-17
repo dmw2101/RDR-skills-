@@ -66,8 +66,8 @@ def _record_usage(usage, record, model_role, judge_role):
                    tokens.get("output_tokens"), None)
 
 
-def _judge_log_usage(usage, path):
-    """The learner's own judge calls, one JSON line each (FeatureJudge(log=...))."""
+def _judge_log_usage(usage, path, answers=None):
+    """The learner's own judge calls, one JSON line each (FeatureJudge(log=...)); answers gets their values."""
     if not path.exists():
         return
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -75,6 +75,34 @@ def _judge_log_usage(usage, path):
             call = json.loads(line)
             _count(usage, "judge (learner: stored cases, rules, condition tests)", 1, call.get("input_tokens"),
                    call.get("output_tokens"), call.get("latency_seconds"), call.get("switch_seconds"))
+            if answers is not None and call.get("kind") == "judge":
+                _add_values(answers, call.get("values") or {}, not call.get("usable", True))
+
+
+def _add_values(answers, values, unusable=False):
+    """Decision J6: true/false/unknown counts per learned condition, and unusable answers."""
+    for name, value in values.items():
+        entry = answers.setdefault(name, {"true": 0, "false": 0, "unknown": 0, "unusable": 0})
+        entry[value] = entry.get(value, 0) + 1
+        entry["unusable"] += int(unusable)
+
+
+def _record_answers(answers, record):
+    """The judge's answers inside a saved run, each judged answer once (reused ones skipped)."""
+    for event in record.get("events") or []:
+        if event["type"] != "skill":
+            continue
+        judge = (event["response"].get("metadata") or {}).get("feature_judge") or {}
+        if judge.get("calls"):
+            reused = set(judge.get("reused") or [])
+            unusable = bool(judge.get("unusable"))
+            _add_values(answers, {k: v for k, v in (judge.get("values") or {}).items() if k not in reused}, unusable)
+
+
+def answers_table(answers):
+    rows = [[name, a["true"], a["false"], a["unknown"], a["unusable"]] for name, a in sorted(answers.items())]
+    return table(["Condition", "true", "false", "unknown", "of which unusable"], rows) if rows else \
+        "No learned condition was judged."
 
 
 def _ordered(usage):
@@ -253,7 +281,7 @@ def render_markdown(report):
 def incremental_report(learner):
     """Report of an incremental learning run: every learning attempt in order, the rules and the cost."""
     rounds = learner.rounds()
-    costs, attempts, rules, usage = {}, [], [], {}
+    costs, attempts, rules, usage, answers = {}, [], [], {}, {}
     for key in sorted(rounds, key=int):
         item = rounds[key]
         directory = learner.round_dir(item["round"])
@@ -267,6 +295,7 @@ def incremental_report(learner):
             _count(usage, "merge", 1, merge.get("input_tokens"), merge.get("output_tokens"), None)
         for record in records:
             _record_usage(usage, record, "worker (learning attempts)", "judge (in learning attempts)")
+            _record_answers(answers, record)
         for path in sorted((directory / "diagnoses").glob("*.json")):  # First inspections and retries.
             _record_usage(usage, read_json(path), "inspector", None)
         judge = costs.setdefault("4 judge while adding examples and rules", {"model_calls": 0, "cost_usd": None})
@@ -302,6 +331,7 @@ def incremental_report(learner):
                 for record in load_run(run)[1]:
                     _add(costs, "5 checker re-runs (worker + judge)", *_episode_cost(record))
                     _record_usage(usage, record, "checker re-runs: worker", "checker re-runs: judge")
+                    _record_answers(answers, record)
             rules.append({"rule": f"{label}.{entry['proposal_index'] + 1}", "kind": proposal["kind"],
                           "node": proposal["target_node_id"], "conditions": _conditions(proposal),
                           "guidance": proposal.get("guidance_text"), "sources": entry["sources"],
@@ -309,12 +339,12 @@ def incremental_report(learner):
                           "fixed": (entry.get("validation") or {}).get("fixed"),
                           "regressions": (entry.get("validation") or {}).get("regressions"),
                           "tree_after": item["version_after"] if entry["decision"] == "accepted" else None})
-    _judge_log_usage(usage, learner.root / "judge_calls.jsonl")
+    _judge_log_usage(usage, learner.root / "judge_calls.jsonl", answers)
     known = [c["cost_usd"] for c in costs.values() if c["cost_usd"] is not None]
     passed = [row["passed"] for row in attempts]
     half = len(passed) // 2
     report = {"mode": "incremental", "attempts": attempts, "rules": rules, "costs": dict(sorted(costs.items())),
-              "usage": _ordered(usage),
+              "usage": _ordered(usage), "judge_answers": dict(sorted(answers.items())),
               "total_known_cost_usd": sum(known), "status": learner.status(),
               "first_half": {"passed": sum(passed[:half]), "attempts": half},
               "second_half": {"passed": sum(passed[half:]), "attempts": len(passed) - half}}
@@ -367,6 +397,12 @@ def render_incremental(report):
               "Model time is the sum of each call's own latency (waits and model switches excluded, M1). The "
               "learner's judge calls are counted from `judge_calls.jsonl`, written from 2026-11-17 on (M2); "
               "earlier runs leave that row out. Calls without usage are counted but not in the totals.",
+              "", "## Judge answers per learned condition", "",
+              answers_table(report.get("judge_answers") or {}),
+              "",
+              "Every judged answer counted once, in learning attempts, checker re-runs and the learner's own checks "
+              "(J6). An unusable answer counts as unknown. The full input and output of every unknown or unusable "
+              "answer is in `judge_evidence/` (learner) or the run record's `feature_judge.evidence`.",
               "", "## Cost", "",
               table(["Stage", "Model calls", "Cost"],
                     [[stage, c["model_calls"], money(c["cost_usd"])] for stage, c in report["costs"].items()]),

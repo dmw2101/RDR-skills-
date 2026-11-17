@@ -1,5 +1,6 @@
 """Judge trace-learned skill features from visible context, outside the RDR service boundary."""
 
+import inspect
 import json
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -11,7 +12,6 @@ from .resolvers import HttpSkillResolver
 
 
 JUDGED_VALUES = ("true", "false", "unknown")
-RETRY_TEMPERATURE = 1.0  # Decision J6: the model card's temperature, for re-asking a greedy judge.
 MAX_JUDGE_CHARS = 20_000
 MAX_MATERIAL_CHARS = 12_000
 
@@ -79,26 +79,39 @@ class JudgeError(ValueError):
                       "output_tokens": usage.get("output_tokens"), "cost_usd": usage.get("cost_usd")}
 
 
-class FeatureJudge:
-    """One model call returns true/false/unknown for every requested learned feature.
+def _accepts(function, name):
+    """Whether a model's complete() takes this keyword (test doubles and older clients may not)."""
+    try:
+        return name in inspect.signature(function).parameters
+    except (TypeError, ValueError):
+        return False
 
-    An answer that cannot be used (cut off, malformed, incomplete) is asked for again, up to
-    ``attempts`` times in all, with a different seed each time: with a fixed seed the same
-    request would give the same bad answer. Only then is it a JudgeError (decision J3).
+
+class FeatureJudge:
+    """One model call returns true/false/unknown for every requested learned feature (decision J6).
+
+    The call is constrained: report_features is strict and forced, so a compliant server only lets
+    the judge answer with exactly the listed conditions, each true, false or unknown. An answer that
+    is still unusable (cut off at max_tokens, or a server that ignores the constraint) is not asked
+    again, since a greedy judge would repeat it: every condition of that call counts as unknown,
+    which never fires a rule (J2), and the call is documented. So is every call that answers
+    unknown for any condition, so the cause can be traced.
     """
 
-    def __init__(self, model, attempts=3, log=None):
-        """log: a JSON-lines file that gets one line per model call (decision M2); None keeps none."""
-        self.model, self.attempts = model, attempts
+    def __init__(self, model, log=None):
+        """log: a JSON-lines file that gets one line per model call (decision M2); its folder also gets
+        ``judge_evidence/`` with the full input and output of unusable and unknown answers. None keeps none."""
+        self.model = model
         self.log = Path(log) if log else None
+        self.evidence_dir = self.log.parent / "judge_evidence" if self.log else None
 
-    def _record(self, kind, response, usable=True):
+    def _record(self, kind, response, usable=True, values=None):
         """Tokens and latency of one judge call, for runs whose judge calls are saved nowhere else."""
         if self.log is None:
             return
         metadata, usage = response.metadata or {}, response.usage or {}
         line = {"time": datetime.now(timezone.utc).isoformat(timespec="seconds"), "kind": kind,
-                "usable": usable, "input_tokens": usage.get("input_tokens"),
+                "usable": usable, "values": values, "input_tokens": usage.get("input_tokens"),
                 "output_tokens": usage.get("output_tokens"), "latency_seconds": metadata.get("latency_seconds"),
                 "switch_seconds": metadata.get("switch_seconds"),
                 "retry_wait_seconds": metadata.get("retry_wait_seconds"),
@@ -106,6 +119,18 @@ class FeatureJudge:
         self.log.parent.mkdir(parents=True, exist_ok=True)
         with self.log.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(line) + "\n")
+
+    def _evidence(self, kind, features, text, response, reason=None, values=None):
+        """The full input and output of one unusable or unknown answer, as one JSON file."""
+        if self.evidence_dir is None:
+            return
+        self.evidence_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+        record = {"kind": kind, "reason": reason, "values": values, "conditions": features, "visible_text": text,
+                  "output": response.message, "finish_reason": (response.metadata or {}).get("finish_reason"),
+                  "usage": response.usage}
+        path = self.evidence_dir / f"{stamp}-{kind}.json"
+        path.write_text(json.dumps(record, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
 
     async def judge(self, features, text):
         """features: {name: {description, examples, counterexamples}} -> (values, response)."""
@@ -116,7 +141,7 @@ class FeatureJudge:
                if spec.get("counterexamples") else "")
             for name, spec in sorted(features.items()))
         tool = {"type": "function", "function": {
-            "name": "report_features",
+            "name": "report_features", "strict": True,
             "description": "Report one judgment for every listed condition.",
             "parameters": {"type": "object", "properties": {
                 name: {"type": "string", "enum": list(JUDGED_VALUES)} for name in sorted(features)},
@@ -126,29 +151,22 @@ class FeatureJudge:
             {"role": "user", "content": "<conditions>\n" + definitions + "\n</conditions>\n\n"
                                         "<visible_context>\n" + text + "\n</visible_context>"},
         ]
-        seed = getattr(self.model, "seed", None)
-        # Decision J6: a greedy judge would give the same unusable answer again, so its retries sample.
-        greedy = getattr(self.model, "temperature", None) == 0
-        for attempt in range(self.attempts):
-            retry = {}
-            if attempt and seed is not None:
-                retry["seed"] = seed + attempt
-            if attempt and greedy:
-                retry["temperature"] = RETRY_TEMPERATURE
-            response = await self.model.complete(messages, [tool], **retry)
-            try:
-                values = self._values(response, features)
-            except ValueError as exc:
-                self._record("judge", response, usable=False)
-                # Kept in the log: the answer itself is saved nowhere else.
-                print(f"  judge answer unusable ({exc}); attempt {attempt + 1}/{self.attempts}; it said: "
-                      f"{json.dumps(response.message, ensure_ascii=False, default=str)[:600]}", flush=True)
-                if attempt + 1 == self.attempts:
-                    raise JudgeError(str(exc), response.usage, calls=self.attempts) from exc
-                continue
-            response.metadata["judge_retries"] = attempt
-            self._record("judge", response)
+        # Decision J6: one constrained call; the answer must be a single report_features call.
+        options = {"tool_choice": "required"} if _accepts(self.model.complete, "tool_choice") else {}
+        response = await self.model.complete(messages, [tool], **options)
+        try:
+            values = self._values(response, features)
+        except ValueError as exc:
+            values = {name: "unknown" for name in features}
+            response.metadata["judge_unusable"] = str(exc)
+            self._record("judge", response, usable=False, values=values)
+            self._evidence("unusable", features, text, response, reason=str(exc), values=values)
+            print(f"  judge answer unusable ({exc}); counted as unknown for {sorted(features)}", flush=True)
             return values, response
+        self._record("judge", response, values=values)
+        if "unknown" in values.values():
+            self._evidence("unknown", features, text, response, values=values)
+        return values, response
 
     async def explain(self, features, text, limit=1500):
         """One short reason per condition, from a separate call without the answer form.
@@ -248,7 +266,7 @@ class LearnedFeatureResolver:
         groups = {}
         for name, spec in features.items():
             groups.setdefault(judged_text(spec, context), {})[name] = spec
-        values, responses, reused = {}, [], []
+        values, responses, reused, evidence = {}, [], [], []
         for text, group in groups.items():
             key = (request.artifact_id, source_fingerprint(text)) if text != context else None
             if key in self.document_values:
@@ -260,6 +278,11 @@ class LearnedFeatureResolver:
             values.update(judged)
             if key is not None:
                 self.document_values[key] = judged
+            unusable = response.metadata.get("judge_unusable")
+            if unusable or "unknown" in judged.values():
+                # Decision J6: kept in the run record, with the judged text's hash, to trace the cause.
+                evidence.append({"values": judged, "unusable": unusable, "text_sha256": source_fingerprint(text),
+                                 "output": response.message, "finish_reason": response.metadata.get("finish_reason")})
 
         def total(source, name):
             numbers = [getattr(response, source).get(name) for response in responses]
@@ -281,4 +304,6 @@ class LearnedFeatureResolver:
             "calls": len(responses), "reused": reused,
             "latency_seconds": total("metadata", "latency_seconds"),
             "switch_seconds": total("metadata", "switch_seconds"),
+            "unusable": [item["unusable"] for item in evidence if item["unusable"]],
+            "evidence": evidence,
         }})

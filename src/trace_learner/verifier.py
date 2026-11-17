@@ -236,7 +236,13 @@ class VerifierSession:
             features[feature.name] = {"description": feature.description, "examples": feature.examples,
                                       "counterexamples": feature.counterexamples}
         self.tests += 1
-        values, _ = await self.judge.judge(features, self.judge_text)
+        values, response = await self.judge.judge(features, self.judge_text)
+        unusable = (getattr(response, "metadata", None) or {}).get("judge_unusable")
+        if unusable:  # Decision J6: counted as unknown; the inspector should simplify the condition.
+            return {"verdicts": values, "judge_unusable": unusable, "tests_left": MAX_CONDITION_TESTS - self.tests,
+                    "note": "The judge could not give a usable answer (for example it ran out of tokens while "
+                            "thinking), so every condition counts as unknown and the rule would be rejected. "
+                            "Make the condition simpler and plainly visible in the starting materials."}
         try:
             reasons = await self.judge.explain(features, self.judge_text)
         except Exception as exc:  # The verdicts stand without the reasons.

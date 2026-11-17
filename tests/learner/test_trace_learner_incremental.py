@@ -426,19 +426,21 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([list(learner.rounds()[str(i)]["passed"].values()) for i in range(4)],
                          [[False], [True], [True], [True]])
 
-    async def test_an_unusable_judge_answer_stops_learning_instead_of_rejecting_the_rule(self):
-        # Round 1's tree has no learned features yet, so the first judge call is the rule's insertion.
-        JudgeModel.cut_off_next = 99  # Every attempt of the judge call, not only the first.
-        with self.assertRaisesRegex(JudgeError, "ran out of output tokens"):
-            await self.learner().learn()
-        JudgeModel.cut_off_next = 0
-        learner = self.learner()
-        self.assertFalse((learner.round_dir(0) / "ledger.json").exists())  # No rejection was recorded.
-        self.assertEqual(learner.state()["round"], 0)
-        self.assertFalse((learner.root / ".learning").exists())
+    async def test_an_unusable_judge_answer_rejects_the_rule_documents_it_and_learning_goes_on(self):
+        # Decision J6: round 1's first judge call is the rule's insertion. Cut off, its condition counts
+        # as unknown, so the rule is rejected; the call is saved as evidence and learning continues.
+        JudgeModel.cut_off_next = 1
         state = await self.learner().learn()
-        self.assertEqual((state["round"], learner.rounds()["0"]["accepted"]), (4, [0]))
-        self.assertEqual(VerifierModel.episodes, 1)  # The saved diagnosis was reused.
+        learner = self.learner()
+        self.assertEqual(state["round"], 4)  # All rounds finished.
+        ledger = read_json(learner.round_dir(0) / "ledger.json")
+        self.assertEqual(ledger[0]["decision"], "rejected")
+        self.assertEqual(ledger[0]["insert"]["judged"], {"lf_form_fields": "unknown"})
+        unusable = list((learner.root / "judge_evidence").glob("*-unusable.json"))
+        self.assertEqual(len(unusable), 1)
+        self.assertEqual(read_json(unusable[0])["finish_reason"], "length")
+        report = incremental_report(learner)
+        self.assertEqual(report["judge_answers"]["lf_form_fields"]["unusable"], 1)
 
     def test_what_counts_as_interrupted(self):
         for error in ("HTTPStatusError: HTTP 429 from openrouter.ai", "RuntimeError: HTTP 503 from x",

@@ -453,64 +453,66 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(values, {"lf_a": "true", "lf_b": "false"})
         values, _ = await judged(calls({"lf_a": "true", "lf_b": "unknown"}, {"lf_a": "true"}))  # A repeat.
         self.assertEqual(values, {"lf_a": "true", "lf_b": "unknown"})
+        # Decision J6: an unusable answer is not asked again; every condition counts as unknown.
         for message, error in ((calls({"lf_a": "true"}, {"lf_a": "false", "lf_b": "true"}), "conflicting"),
                                (calls({"lf_a": "true"}, name="answer"), r"called \['answer'\]"),
                                (calls({"lf_a": "true"}), r"missing \['lf_b'\]"),
                                (calls({"lf_a": "true", "lf_b": "maybe"}), "invalid")):
-            with self.subTest(error=error), self.assertRaisesRegex(JudgeError, error):
-                await judged(message)
+            with self.subTest(error=error):
+                values, response = await judged(message)
+                self.assertEqual(values, {"lf_a": "unknown", "lf_b": "unknown"})
+                self.assertRegex(response.metadata["judge_unusable"], error)
 
-    async def test_cut_off_or_blocked_judge_answers_say_why(self):
+    async def test_cut_off_or_blocked_judge_answers_count_as_unknown_with_evidence(self):
         for reason, message in (("length", "ran out of output tokens"), ("content_filter", "content filter")):
             judge = JudgeModel()
             judge.complete = lambda messages, tools, reason=reason: _response(reason)
             resolver = self.resolver({"lf_tables": {"description": "The PDF has tables."}}, judge)
-            with self.subTest(reason=reason), self.assertRaisesRegex(JudgeError, message):
-                await resolver.resolve(ResolveSkillRequest("pdf", "x", {}, "artifact"))
+            with self.subTest(reason=reason):
+                result = await resolver.resolve(ResolveSkillRequest("pdf", "x", {}, "artifact"))
+                judged = result.metadata["feature_judge"]
+                self.assertEqual(judged["values"], {"lf_tables": "unknown"})
+                self.assertIn(message, judged["unusable"][0])
+                self.assertEqual(judged["evidence"][0]["finish_reason"], reason)
+                self.assertEqual(result.usage["model_calls"], 1)  # Asked once, never again.
 
-    async def test_unusable_judgment_keeps_its_cost(self):
-        resolver = self.resolver({"lf_tables": {"description": "The PDF has tables."}},
-                                 JudgeModel(call("report_features", {"lf_tables": "maybe"})))
-        with self.assertRaises(JudgeError) as caught:
-            await resolver.resolve(ResolveSkillRequest("pdf", "x", {}, "artifact"))
-        self.assertEqual(caught.exception.usage["model_calls"], 3)  # Asked three times before giving up.
+    async def test_the_judge_is_asked_once_with_a_forced_strict_call_and_documented(self):
+        # Decision J6: the call is constrained; unknown and unusable answers leave their full input and output.
+        class Recorder:
+            def __init__(self, answer):
+                self.answer, self.seen = answer, []
 
-    async def test_an_unusable_judge_answer_is_asked_again_with_another_seed(self):
-        class Flaky:
-            seed, seeds = 42, []
+            async def complete(self, messages, tools, seed=None, tool_choice=None):
+                self.seen.append((tools, tool_choice))
+                return ModelResponse(self.answer, dict(USAGE), {"finish_reason": "stop"})
 
-            async def complete(self, messages, tools, seed=None):
-                self.seeds.append(seed)
-                good = call("report_features", {"lf_tables": "true"})
-                return ModelResponse(good if seed else {"role": "assistant", "content": "hmm"}, dict(USAGE), {})
+        features = {"lf_tables": {"description": "Has tables."}, "lf_forms": {"description": "Has forms."}}
+        with tempfile.TemporaryDirectory() as temporary:
+            log = Path(temporary) / "judge_calls.jsonl"
+            model = Recorder(call("report_features", {"lf_tables": "true", "lf_forms": "unknown"}))
+            values, _ = await FeatureJudge(model, log=log).judge(features, "visible text")
+            self.assertEqual(values, {"lf_tables": "true", "lf_forms": "unknown"})
+            [(tools, choice)] = model.seen
+            self.assertEqual(choice, "required")
+            self.assertTrue(tools[0]["function"]["strict"])
+            model = Recorder({"role": "assistant", "content": "thinking..."})
+            values, response = await FeatureJudge(model, log=log).judge(features, "visible text")
+            self.assertEqual(values, {"lf_tables": "unknown", "lf_forms": "unknown"})
+            self.assertEqual(len(model.seen), 1)
+            lines = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([line["usable"] for line in lines], [True, False])
+            self.assertEqual(lines[0]["values"], {"lf_tables": "true", "lf_forms": "unknown"})
+            evidence = sorted((Path(temporary) / "judge_evidence").glob("*.json"))
+            self.assertEqual(sorted(path.name.split("-")[-1] for path in evidence), ["unknown.json", "unusable.json"])
+            record = json.loads(next(p for p in evidence if p.name.endswith("unusable.json")).read_text(encoding="utf-8"))
+            self.assertEqual(record["visible_text"], "visible text")
+            self.assertEqual(record["output"], {"role": "assistant", "content": "thinking..."})
+            self.assertIn("lf_forms", record["conditions"])
 
-        model = Flaky()
-        values, response = await FeatureJudge(model).judge({"lf_tables": {"description": "Has tables."}}, "x")
-        self.assertEqual(values, {"lf_tables": "true"})
-        self.assertEqual(model.seeds, [None, 43])  # The first call uses the client's own seed.
-        self.assertEqual(response.metadata["judge_retries"], 1)
-
-    async def test_a_greedy_judge_samples_only_when_it_asks_again(self):
-        # Decision J6: temperature 0 for every first answer; a retry would repeat it, so retries sample.
-        from skill_agent.learned_features import RETRY_TEMPERATURE
-
-        class Greedy:
-            seed, temperature, calls = 42, 0, []
-
-            async def complete(self, messages, tools, seed=None, temperature=None):
-                self.calls.append((seed, temperature))
-                good = call("report_features", {"lf_tables": "true"})
-                return ModelResponse(good if temperature else {"role": "assistant", "content": "hmm"}, dict(USAGE), {})
-
-        model = Greedy()
-        values, _ = await FeatureJudge(model).judge({"lf_tables": {"description": "Has tables."}}, "x")
-        self.assertEqual(values, {"lf_tables": "true"})
-        self.assertEqual(model.calls, [(None, None), (43, RETRY_TEMPERATURE)])
-
-    def test_a_call_can_override_the_client_temperature(self):
+    def test_a_judge_call_can_force_one_tool_call(self):
         from skill_agent.models import OpenAICompatibleClient
-        client = OpenAICompatibleClient(base_url="http://127.0.0.1:8000/v1", model="m", api_key_env=None,
-                                        temperature=0)
+        import asyncio
+        client = OpenAICompatibleClient(base_url="http://127.0.0.1:8000/v1", model="m", api_key_env=None)
         sent = []
 
         async def post(payload):
@@ -518,10 +520,12 @@ class ResolverTests(unittest.IsolatedAsyncioTestCase):
             return ({"choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
                      "usage": {}}, 0, {})
         client._post = post
-        import asyncio
-        asyncio.run(client.complete([{"role": "user", "content": "x"}], []))
-        asyncio.run(client.complete([{"role": "user", "content": "x"}], [], temperature=1.0))
-        self.assertEqual([p["temperature"] for p in sent], [0, 1.0])
+        tool = [{"type": "function", "function": {"name": "t", "parameters": {"type": "object"}}}]
+        asyncio.run(client.complete([{"role": "user", "content": "x"}], tool))
+        asyncio.run(client.complete([{"role": "user", "content": "x"}], tool, tool_choice="required"))
+        self.assertEqual([p["tool_choice"] for p in sent], ["auto", "required"])
+        self.assertNotIn("parallel_tool_calls", sent[0])
+        self.assertIs(sent[1]["parallel_tool_calls"], False)
 
 
 if __name__ == "__main__":
