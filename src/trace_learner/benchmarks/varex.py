@@ -53,4 +53,5 @@ class VarexHooks:
                 "fields_scored": len(fields), "wrong_fields": wrong}
 
     async def open_inspection(self, task):
-        return await self.adapter.open_session(task)
+        # The inspector's tools cut their own outputs (decision I5); the worker's cut (H1) is not applied.
+        return await self.adapter.open_session(task, observation_chars=None)

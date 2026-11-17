@@ -98,6 +98,37 @@ class PDFSessionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(OutputLimitError, "output budget"):
             await process(sys.executable, "-c", "print('x'*5000)", limit=100)
 
+    async def test_worker_sees_cut_outputs_and_survives_the_hard_limit(self):
+        # Decision H1: first and last 3,000 characters with a note; the hard limit is not fatal.
+        from skill_agent.pdf_session import cut_output
+        text = "A" * 3000 + "B" * 10_000 + "C" * 3000
+        cut = cut_output(text)
+        self.assertTrue(cut.startswith("A" * 3000) and cut.endswith("C" * 3000))
+        self.assertIn("10,000 characters left out", cut)
+        self.assertNotIn("B", cut.replace("Output cut", ""))
+        self.assertEqual(cut_output("short"), "short")
+        self.assertEqual(cut_output(text, None), text)
+        with tempfile.TemporaryDirectory() as temp:
+            pdf = Path(temp) / "original.pdf"
+            pdf.write_bytes(b"%PDF fake fixture")
+            session = await VenvPDFSession(pdf=pdf, schema={}, task="extract", output_limit=50_000).start()
+            whole = await VenvPDFSession(pdf=pdf, schema={}, task="extract", observation_chars=None).start()
+            try:
+                shell = session.tools["shell"]
+                result = await shell.execute({"command": "python -c \"print('x' * 20000)\""})
+                self.assertEqual(result["exit_code"], 0)
+                self.assertLess(len(result["output"]), 6300)
+                self.assertIn("characters left out", result["output"])
+                result = await shell.execute({"command": "python -c \"print('y' * 200000)\""})
+                self.assertIsNone(result["exit_code"])
+                self.assertIn("Command stopped: it printed more than 50,000 bytes", result["output"])
+                self.assertTrue(result["output"].startswith("y" * 6000))
+                result = await whole.tools["shell"].execute({"command": "python -c \"print('z' * 20000)\""})
+                self.assertGreaterEqual(result["output"].count("z"), 20000)
+            finally:
+                await session.close()
+                await whole.close()
+
     async def test_invalid_answer_is_not_repaired(self):
         with tempfile.TemporaryDirectory() as temp:
             session = VenvPDFSession(pdf="unused", schema={}, task="test")

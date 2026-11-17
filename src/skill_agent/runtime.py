@@ -74,6 +74,40 @@ AUTOMATIC_SKILL_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
 ONCE_SKILL_INSTRUCTIONS += LEARNED_RULES_INSTRUCTIONS
 
 
+# Decision H4: the plain-skill baseline, adapted from Trace2Skill's preloaded-skill agent
+# (spreadsheet_agent/system_prompt/cli_skill_preloaded_full_system_v1.txt, "Relevant Skill").
+PRELOADED_SKILL_SECTION = (
+    "## Relevant Skill\n\n"
+    "The following skill is loaded for your reference.\n\n"
+    "### What are Skills?\n"
+    "- Skills are local instructions stored in SKILL.md files that provide detailed guidance for specific tasks.\n"
+    "- The following <skill_content> shows the content of the SKILL.md file.\n"
+    "{resources}"
+    "\n### Mandatory Skill Usage Protocol\n"
+    "- First analyze the task and the input, plan how you will use the skill.\n"
+    "- During your task execution, if the skill contains relevant guidance, you must follow it.\n"
+    "- Only act on your own judgement if:\n"
+    "    - No skill is relevant to the task, OR\n"
+    "    - The skill does not cover the specific operation you need to perform.\n\n"
+    "<skill_content>\n{content}\n</skill_content>"
+)
+
+
+def strip_front_matter(markdown):
+    """SKILL.md without its YAML header, as Trace2Skill shows it."""
+    if markdown.startswith("---"):
+        end = markdown.find("\n---", 3)
+        if end != -1:
+            return markdown[end + 4:].lstrip("\n")
+    return markdown
+
+
+def preloaded_skill_section(markdown, files=()):
+    resources = ("- The resources SKILL.md refers to (" + ", ".join(files) + ") are in the current working "
+                 "folder. You can read or run them there.\n") if files else ""
+    return PRELOADED_SKILL_SECTION.format(resources=resources, content=strip_front_matter(markdown).rstrip())
+
+
 class Tool(Protocol):
     definition: dict
     async def execute(self, arguments: dict) -> dict: ...
@@ -168,6 +202,25 @@ class OnceSkillPolicy:
         if turn == 0:
             await session.load_skill(task=session.task, selection={
                 "policy": "initial", "turn": turn, "source_turns": [], "input_source": "task"})
+
+
+class PreloadedSkillPolicy:
+    """The whole SKILL.md once in the system prompt, as a plain agent would get it (decision H4).
+
+    No request_skill tool, no catalog and none of the tree arms' skill instructions; the skill
+    text is shown under Trace2Skill's "Relevant Skill" wording. files: the skill's other files,
+    named so the worker knows they are in its folder.
+    """
+
+    preloaded = True
+
+    def __init__(self, files=()):
+        self.files = tuple(files)
+
+    async def before_model(self, session, turn):
+        if turn == 0:
+            await session.load_skill(selection={"policy": "preloaded", "turn": turn, "source_turns": [],
+                                                "input_source": "task"})
 
 
 @dataclass
@@ -302,9 +355,10 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
             raise ValueError("request_skill is reserved for the agent's skill resolver")
         tools = dict(session.tools)
         instructions = system_prompt
-        if skill_enabled:
-            if skill_context is None:
-                raise ValueError("skill-enabled episodes require a skill context")
+        preloaded = getattr(policy, "preloaded", False)
+        if skill_enabled and skill_context is None:
+            raise ValueError("skill-enabled episodes require a skill context")
+        if skill_enabled and not preloaded:
             tools = {"request_skill": SkillRequestTool(
                 skill_context, acknowledge_only=getattr(policy, "automatic_guidance", False),
                 selection_mode=getattr(policy, "selection_mode", "rolling")), **tools}
@@ -322,7 +376,10 @@ async def run_episode(*, model, session, skill_context, system_prompt, policy=No
                 if note:
                     events.append({"type": "user_message", "turn": turn, "content": note})
                     history.append({"role": "user", "content": note})
-            active = "\n\n<active_skill>\n" + skill_text + "\n</active_skill>" if skill_text else ""
+            if preloaded:  # The same text at every step: the skill given once, in the system prompt.
+                active = "\n\n" + preloaded_skill_section(skill_text, policy.files) if skill_text else ""
+            else:
+                active = "\n\n<active_skill>\n" + skill_text + "\n</active_skill>" if skill_text else ""
             messages = [{"role": "system", "content": instructions + active}, *history]
             definitions = [tool.definition for tool in tools.values()]
             events.append({"type": "model_request", "turn": turn, "messages": messages,

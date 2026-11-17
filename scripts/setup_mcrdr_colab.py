@@ -636,7 +636,7 @@ def parse_args(argv=None) -> argparse.Namespace:
                         help="Learned skill folder to serve in the reduced arm, e.g. .../versions/v1/pdf")
     parser.add_argument("--replicates", type=int)
     parser.add_argument("--concurrency", type=int)
-    parser.add_argument("--conditions", nargs="+", choices=("none", "full", "reduced"))
+    parser.add_argument("--conditions", nargs="+", choices=("none", "full", "reduced", "preloaded"))
     parser.add_argument("--skill-loading", choices=("rolling", "initial", "model_initiated"))
     parser.add_argument("--service-port", type=int, default=SERVICE_PORT)
     parser.add_argument("--run", action="store_true", help="Also run, inspect and summarize")

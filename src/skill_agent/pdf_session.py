@@ -20,7 +20,25 @@ PDF_COMMANDS = {"pdftotext": "-v", "pdfinfo": "-v", "pdftoppm": "-v",
 
 
 class OutputLimitError(RuntimeError):
-    pass
+    def __init__(self, message, partial=b""):
+        super().__init__(message)
+        self.partial = partial  # The output read before the limit was hit.
+
+
+# Decision H1: like Trace2Skill's ReAct agent, the worker sees at most the first and last 3,000
+# characters of a command's output, with a note on what was left out.
+OBSERVATION_CHARS = 6000
+
+
+def cut_output(text, limit=OBSERVATION_CHARS):
+    """Keep the first and last limit/2 characters; say how much was left out and how to see it."""
+    if limit is None or len(text) <= limit:
+        return text
+    half = limit // 2
+    note = (f"\n\n[Output cut: showing the first {half:,} and last {half:,} characters; "
+            f"{len(text) - 2 * half:,} characters left out. Save long output to a file and read parts "
+            "of it with head, tail or grep.]\n\n")
+    return text[:half] + note + text[-half:]
 
 
 async def process(*args, timeout=60, limit=128_000, cwd=None, env=None):
@@ -37,7 +55,8 @@ async def process(*args, timeout=60, limit=128_000, cwd=None, env=None):
         while block := await child.stdout.read(8192):
             size += len(block)
             if size > limit:
-                raise OutputLimitError("command output budget exceeded")
+                chunks.append(block[: max(0, len(block) - (size - limit))])
+                raise OutputLimitError("command output budget exceeded", b"".join(chunks))
             chunks.append(block)
         await child.wait()
 
@@ -60,6 +79,11 @@ async def process(*args, timeout=60, limit=128_000, cwd=None, env=None):
             except ProcessLookupError:
                 pass
         await child.wait()
+        # Close the pipes now: the attempt may go on, and a transport left for garbage collection
+        # after its event loop has closed raises warnings on Windows.
+        transport = getattr(child, "_transport", None)
+        if transport is not None:
+            transport.close()
         raise
     return child.returncode, b"".join(chunks).decode("utf-8", errors="replace")
 
@@ -134,21 +158,36 @@ class ShellTool:
         command = arguments["command"]
         if os.name == "nt":
             command = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + command
-        code, text = await process(
-            *shell, command, cwd=self.session.directory,
-            env=command_environment(self.session.python_executable),
-            timeout=self.session.command_timeout, limit=self.session.output_limit)
-        return {"exit_code": code, "output": text}
+        try:
+            code, text = await process(
+                *shell, command, cwd=self.session.directory,
+                env=command_environment(self.session.python_executable),
+                timeout=self.session.command_timeout, limit=self.session.output_limit)
+        except OutputLimitError as exc:
+            # Decision H1: the worker sees the start and can retry with a narrower command,
+            # instead of the whole attempt ending on one oversized output.
+            limit = self.session.observation_chars or self.session.output_limit
+            start = exc.partial.decode("utf-8", errors="replace")[:limit]
+            return {"exit_code": None, "output": start + (
+                f"\n\n[Command stopped: it printed more than {self.session.output_limit:,} bytes. Only the "
+                f"start is shown. Save long output to a file and read parts of it with head, tail or grep.]")}
+        return {"exit_code": code, "output": cut_output(text, self.session.observation_chars)}
 
 
 class VenvPDFSession:
     """Copy only public inputs into a fresh folder. A venv is not a filesystem sandbox."""
 
+    # Decision H3: an attempt cut off by its step or time budget, or by an error, is still scored
+    # on the answer.json it left, as Trace2Skill and SkillOpt score whatever output file exists.
+    collect_on_failure = True
+
     def __init__(self, *, pdf, schema, task, python_executable=None,
-                 command_timeout=60, output_limit=128_000):
+                 command_timeout=60, output_limit=128_000, observation_chars=OBSERVATION_CHARS):
         self.pdf, self.schema = Path(pdf), schema
         self.python_executable = python_path(python_executable)
         self.command_timeout, self.output_limit = command_timeout, output_limit
+        # None shows whole outputs (up to output_limit); the inspector's shell bounds them itself.
+        self.observation_chars = observation_chars
         self.temporary = self.directory = None
         self.tools = {"shell": ShellTool(self)}
         shell = "PowerShell" if os.name == "nt" else "POSIX sh"

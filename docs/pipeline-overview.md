@@ -50,7 +50,9 @@ flowchart TD
 ## 3. The worker
 
 The worker works in a loop. One step is one model call; it asks for a tool call, gets the result, and
-decides the next step. The run ends when it replies without a tool call, or after 20 steps.
+decides the next step. The run ends when it replies without a tool call, or after 30 steps (H2).
+Each command's output reaches it as at most its first and last 3,000 characters (H1). A run cut off
+by its step limit is still scored on the `answer.json` it wrote (H3).
 
 **Two ways to load the guidance** (config `skill_loading`):
 - `rolling` (K3): the guidance is rebuilt before every step, as in the diagram below.

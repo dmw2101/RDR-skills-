@@ -267,3 +267,7 @@ class AccountingTests(unittest.TestCase):
             write_json(path, config)
             with self.assertRaises(ValueError):
                 load_config(path)
+            config["run"]["skill_loading"] = "rolling"
+            config["run"]["conditions"] = ["none", "preloaded"]  # Decision H4.
+            write_json(path, config)
+            self.assertEqual(load_config(path)["run"]["conditions"], ["none", "preloaded"])

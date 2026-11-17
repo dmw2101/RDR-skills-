@@ -18,26 +18,28 @@ from . import __version__
 from .storage import read_json, write_json
 from .contracts import fingerprint, source_fingerprint
 from .resolvers import StaticSkillResolver
-from .runtime import (ModelInitiatedSkillPolicy, NoSkillPolicy, OnceSkillPolicy, RollingSkillPolicy,
-                      SessionContext, run_episode)
+from .runtime import (ModelInitiatedSkillPolicy, NoSkillPolicy, OnceSkillPolicy, PreloadedSkillPolicy,
+                      RollingSkillPolicy, SessionContext, run_episode)
 
-CONDITIONS = ("none", "full", "reduced")
+# preloaded (decision H4): the whole skill once in the system prompt, without the skill interface.
+CONDITIONS = ("none", "full", "reduced", "preloaded")
+DEFAULT_CONDITIONS = ("none", "full", "reduced")
 
 
 def selected_conditions(run):
-    """Older configs/manifests retain all three conditions when omitted."""
-    conditions = run.get("conditions", list(CONDITIONS))
+    """Older configs/manifests retain the original three conditions when omitted."""
+    conditions = run.get("conditions", list(DEFAULT_CONDITIONS))
     if (not isinstance(conditions, list) or not conditions
             or any(not isinstance(c, str) or c not in CONDITIONS for c in conditions)
             or len(conditions) != len(set(conditions))):
-        raise ValueError("conditions must be a nonempty list of unique none/full/reduced values")
+        raise ValueError("conditions must be a nonempty list of unique none/full/reduced/preloaded values")
     return tuple(conditions)
 
 
 def episode_filename(task_id, condition, replicate=0):
     """Readable, portable names with the original identity hash for uniqueness."""
     if not isinstance(task_id, str) or not task_id or condition not in CONDITIONS:
-        raise ValueError("expected a document ID and none/full/reduced condition")
+        raise ValueError("expected a document ID and none/full/reduced/preloaded condition")
     if type(replicate) is not int or replicate < 0:
         raise ValueError("replicate must be a nonnegative integer")
     key = fingerprint([task_id, replicate, condition])
@@ -190,6 +192,7 @@ def make_resolvers(config):
                      "factory": "skill_agent.resolvers:HttpSkillResolver",
                      "options": {"base_url": "http://127.0.0.1:8765"},
                  }))}
+    resolvers["preloaded"] = resolvers["full"]  # Same text; only how it is given differs (H4).
     return receipt, resolvers
 
 
@@ -232,6 +235,7 @@ async def run_experiment(config, *, resume=False):
                 "skill_receipt": receipt, "skill_capabilities": probe.capabilities if probe else [],
                 "skill_loading": run.get("skill_loading", "model_initiated").replace("_", "-"),
                 "condition_protocols": {c: "skill-blind-v1" if c == "none" else
+                                        "preloaded-v1" if c == "preloaded" else
                                         run.get("skill_loading", "model_initiated").replace("_", "-")
                                         for c in conditions},
                 "tasks": tasks, "system_prompt": adapter.system_prompt}
@@ -297,6 +301,7 @@ async def run_experiment(config, *, resume=False):
                     if loading == "initial" and hasattr(adapter, "rolling_skill_policy"):
                         raise ValueError("this benchmark supports only rolling or model_initiated skill loading")
                     policy = (NoSkillPolicy() if condition == "none" else
+                              PreloadedSkillPolicy(sorted(files)) if condition == "preloaded" else
                               (adapter.rolling_skill_policy() if hasattr(adapter, "rolling_skill_policy")
                                else RollingSkillPolicy()) if loading == "rolling" else
                               OnceSkillPolicy() if loading == "initial" else
@@ -328,8 +333,10 @@ async def run_experiment(config, *, resume=False):
         jobs = []
         for index, task in enumerate(tasks):
             for replicate in range(run["replicates"]):
-                shift = (index + replicate) % len(CONDITIONS)
-                order = CONDITIONS[shift:] + CONDITIONS[:shift]
+                # Runs without the preloaded arm keep their original three-arm rotation.
+                cycle = CONDITIONS if "preloaded" in conditions else DEFAULT_CONDITIONS
+                shift = (index + replicate) % len(cycle)
+                order = cycle[shift:] + cycle[:shift]
                 # Filter the existing rotation; preserve the retained arms' relative order.
                 jobs.extend(attempt(task, replicate, condition) for condition in order if condition in conditions)
         pending = [asyncio.create_task(job) for job in jobs]
@@ -491,7 +498,7 @@ def paired_bootstrap(document_metrics, *, samples=2000, seed=42):
             def score(condition):
                 return sum(grouped[(d, condition)][0] for d in ids) / sum(grouped[(d, condition)][1] for d in ids)
             return score("reduced") - score(baseline)
-        for baseline in ("full", "none"):
+        for baseline in ("full", "none", "preloaded"):  # preloaded last: earlier intervals stay identical.
             available = {condition for _, condition in grouped}
             if "reduced" not in available or baseline not in available:
                 continue

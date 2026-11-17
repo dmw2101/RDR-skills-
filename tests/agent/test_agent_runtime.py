@@ -148,6 +148,55 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state.events[-1]["selection"]["input_source"], "recent_model_turns")
         self.assertTrue(RollingSkillPolicy().keep_task)
 
+    async def test_preloaded_skill_is_in_the_system_prompt_without_the_skill_interface(self):
+        # Decision H4: the plain baseline, built like Trace2Skill's preloaded agent.
+        from skill_agent.runtime import AUTOMATIC_SKILL_INSTRUCTIONS, PreloadedSkillPolicy
+        text = "---\nname: pdf\ndescription: PDF things\n---\n# PDF guide\nUse pdftotext."
+        class Ping:
+            definition = {"type": "function", "function": {"name": "ping", "parameters": {"type": "object"}}}
+            async def execute(self, args):
+                return {"ok": True}
+        call = {"role": "assistant", "content": "",
+                "tool_calls": [{"id": "one", "type": "function", "function": {"name": "ping", "arguments": "{}"}}]}
+        model = FakeModel([call, {"role": "assistant", "content": "done"}])
+        session = FakeSession()
+        session.tools["ping"] = Ping()
+        state = SessionContext("pdf", "snapshot", "Read the PDF", StaticSkillResolver("pdf", "snapshot", text),
+                               source_fingerprint(text))
+        state.capabilities = [{"name": "TOPIC", "description": "x"}]
+        result = await run_episode(model=model, session=session, skill_context=state, system_prompt="base",
+                                   policy=PreloadedSkillPolicy(["FORMS.md", "scripts"]))
+        self.assertEqual(result.status, "completed")
+        system = model.requests[0][0]["content"]
+        self.assertEqual(model.requests[0][0], model.requests[1][0])  # Given once: never changes.
+        self.assertTrue(system.startswith("base\n\n## Relevant Skill"))
+        self.assertIn("<skill_content>\n# PDF guide\nUse pdftotext.\n</skill_content>", system)
+        self.assertIn("(FORMS.md, scripts) are in the current working folder", system)
+        self.assertIn("Mandatory Skill Usage Protocol", system)
+        for absent in ("name: pdf", "<active_skill>", "<skill_catalog>", "<learned_rules>",
+                       AUTOMATIC_SKILL_INSTRUCTIONS[:60], SKILL_REQUEST_INSTRUCTIONS[:60]):
+            self.assertNotIn(absent, system)
+        self.assertEqual([t["function"]["name"] for t in model.definitions[0]], ["ping"])
+        skills = [event for event in state.events if event["type"] == "skill"]
+        self.assertEqual([event["selection"]["policy"] for event in skills], ["preloaded"])
+
+    async def test_cut_off_attempt_keeps_its_answer_when_the_session_allows(self):
+        # Decision H3: a run that hits its step limit is still scored on the answer it wrote.
+        class Ping:
+            definition = {"type": "function", "function": {"name": "ping", "parameters": {"type": "object"}}}
+            async def execute(self, args):
+                return {"ok": True}
+        call = {"role": "assistant", "content": "",
+                "tool_calls": [{"id": "one", "type": "function", "function": {"name": "ping", "arguments": "{}"}}]}
+        for keep in (True, False):
+            session = FakeSession()
+            session.tools["ping"] = Ping()
+            session.collect_on_failure = keep
+            result = await run_episode(model=FakeModel([call]), session=session, skill_context=None,
+                                       system_prompt="base", policy=NoSkillPolicy(), max_calls=2)
+            self.assertEqual(result.status, "budget_exhausted")
+            self.assertEqual(result.prediction, {"answer": 42} if keep else None)
+
     async def test_once_policy_builds_guidance_only_before_the_first_step(self):
         # Decision K4: one view from the task, kept for the whole attempt.
         from skill_agent.runtime import ONCE_SKILL_INSTRUCTIONS, OnceSkillPolicy

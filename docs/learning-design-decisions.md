@@ -282,6 +282,45 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Detail:** each attempt records one skill event with `selection.policy: "initial"`, so a passing task stores one snapshot (T4's 6 become 1). The system prompt of skill arms differs from rolling runs. Not supported on SOPBench Bank, which has its own rolling policy.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
+## Decisions about the worker's harness and the baselines
+
+These apply to every arm alike (no skill, full skill, preloaded skill, tree arms), to learning and to the checker's reruns. They follow the released code of Trace2Skill (`spreadsheet_agent/`, `src/react_agent/`) and SkillOpt's SpreadsheetBench agent, so our baselines are run the way theirs were. Results from before 2026-11-17 used none of them and are not directly comparable.
+
+### H1. The worker sees at most 6,000 characters of each command's output
+- **Decision:** a shell command's output is shown to the worker as its first 3,000 and last 3,000 characters, with a note saying how much was left out and to save long output to a file and read it with head, tail or grep. A command that prints more than the 128,000-byte hard limit is stopped and returns its first 6,000 characters with a note, as an ordinary tool result; the attempt goes on.
+- **Alternatives:** whole outputs up to 128,000 bytes, and an attempt that ends when a command passes it (the behaviour until now); SkillOpt's cut at about 4,000 characters.
+- **Why:** in the dev-30 pilot of 2026-11-17, 4 runs crashed: 3 when a command printed raw PDF bytes or character-level detail past 128,000 bytes (`OutputLimitError`, which the tool loop did not catch), and 1 when a 65,000-character dump of the PDF pushed the conversation past the 4B's 32k context (HTTP 400). Each of those documents passed in other arms, and the no-skill worker ran such commands most often; the harness, not the arm, was at fault. Trace2Skill cuts every observation to the same 3,000 + 3,000 characters.
+- **Where:** `skill_agent.pdf_session` (`OBSERVATION_CHARS`, `cut_output`, `ShellTool.execute`, `OutputLimitError.partial`); `VenvPDFSession(observation_chars=...)`; `VarexAdapter.open_session`.
+- **Ablation:** none as a config switch; `observation_chars=None` in code shows whole outputs.
+- **Detail:** the inspector's shell does not use this cut (`VarexHooks.open_inspection` passes `None`); its tools keep their own 12,000-character cut (I5). It does gain the non-fatal hard limit.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### H2. The worker gets 30 steps
+- **Decision:** `run.max_calls` is 30 in the VAREX configs, for evaluation, learning and the checker's reruns.
+- **Alternatives:** 20 (until now); Trace2Skill's 100.
+- **Why:** in the dev-30 pilot, 12 runs ran out of 20 steps, almost all in skill arms, and they were still exploring (no command repeated more than twice; 11 of the 12 documents passed in another arm). Finished runs took a median of 8 to 10 steps. Each step adds about 500 tokens (700 to 950 for the heaviest runs) to a skill arm's start of about 5,500, so 30 steps fit the 4B's 32k context and 40 would not for heavy runs; Trace2Skill's 100 assumes larger models with longer contexts. SkillOpt uses 30.
+- **Where:** `run.max_calls` and `validation.max_calls` in `examples/agent/varex*.json` and `examples/learning/varex.learner.json`; the server configs set it the same way. The code default stays 20 so older configs keep their run IDs.
+- **Ablation:** `run.max_calls: 20`.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### H3. A cut-off attempt is scored on the answer it left
+- **Decision:** when a VAREX attempt ends without finishing (out of steps, out of time, or an error), its `answer.json`, if present and valid, is still collected and scored. Its status still records how it ended (`budget_exhausted`, `failed`), so such passes can be counted and reported per arm.
+- **Alternatives:** score only attempts that finish on their own (the behaviour until now), so a written answer counted as all wrong.
+- **Why:** Trace2Skill scores the output folder in a separate step that never looks at how a run ended, and SkillOpt scores the output file whenever its loop stops; a missing file is wrong in both. Ours was stricter than both: in the pilot, about 4 of the 12 out-of-steps runs had already written `answer.json` and scored zero, 11 of the 12 in skill arms.
+- **Where:** `VenvPDFSession.collect_on_failure` (`skill_agent/pdf_session.py`), which `run_episode` already honours; `VarexAdapter._score` now scores any record with a prediction. Learning's pass/fail (`VarexHooks.outcomes`) and the checker go through the same scoring.
+- **Ablation:** none as a config switch.
+- **Detail:** in learning, an attempt that ran out of steps with a fully right answer now counts as passed, so it becomes a stored success rather than going to the inspector.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
+### H4. A plain preloaded-skill baseline arm
+- **Decision:** a new condition, `preloaded`: the whole `SKILL.md` (without its YAML header) is in the system prompt once, under the "Relevant Skill" wording of Trace2Skill's preloaded agent ("What are Skills?", "Mandatory Skill Usage Protocol", `<skill_content>`), with a line naming the skill's other files in the working folder (K1). The worker gets no `request_skill` tool, no `<skill_catalog>`, and none of the tree arms' skill instructions or learned-rules text. The `full` arm stays, as a control with the tree arms' interface and the whole skill.
+- **Alternatives:** the `full` arm alone as the skill baseline (until now).
+- **Why:** the `full` arm shares the tree arms' interface: a `request_skill` tool that only acknowledges requests, a catalog, instructions about `<learned_rules>` blocks that never appear, and the skill re-sent before every step. That is the right control for "the tree against the same skill given whole", but it is not the skill as Trace2Skill and SkillOpt give it, and for a 4B model the extra text may matter. A reviewer could call it a weakened baseline.
+- **Where:** `skill_agent.runtime` (`PreloadedSkillPolicy`, `PRELOADED_SKILL_SECTION`, `preloaded_skill_section`, `run_episode`); `skill_agent.experiments` (`CONDITIONS`, `make_resolvers`, `condition_protocols`: `preloaded-v1`); `skill_agent.reporting`.
+- **Ablation:** leave `preloaded` out of `run.conditions`.
+- **Detail:** configs that omit `run.conditions` still run none, full and reduced, in their original rotation.
+- **Status:** written 2026-11-17, not yet run on the GPU.
+
 ## Decisions about scoring
 
 ### P1. A VAREX document passes only when every scored field is right

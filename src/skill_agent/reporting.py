@@ -16,13 +16,14 @@ from .contracts import fingerprint
 from .experiments import CONDITIONS, load_run, paired_bootstrap
 from .storage import read_json, write_json
 
-DISPLAY_ORDER = ("full", "reduced", "none")
-LABELS = {"full": "Full skill", "reduced": "RDR-reduced", "none": "Skill-blind"}
-SHORT = {"full": "Full", "reduced": "Reduced", "none": "Blind"}
+DISPLAY_ORDER = ("preloaded", "full", "reduced", "none")
+LABELS = {"preloaded": "Preloaded skill", "full": "Full skill", "reduced": "RDR-reduced", "none": "Skill-blind"}
+SHORT = {"preloaded": "Preloaded", "full": "Full", "reduced": "Reduced", "none": "Blind"}
 SPEC_KEYS = {"series", "outliers", "top_documents", "bootstrap_samples"}
 DEFINITIONS = [
     "Field exact match: correct normalized fields / scored fields, pooled over documents (official VAREX scorer).",
-    "Completed: episodes whose status is 'completed'; unfinished episodes score zero even if an answer file exists.",
+    "Completed: episodes whose status is 'completed'. On VAREX, unfinished episodes are scored on the answer "
+    "file they left, if any (decision H3); in runs made before that, they scored zero.",
     "Perfect documents: episodes in which every scored field matches.",
     "Input tokens per episode: reported agent-model plus resolver input tokens.",
     "Median and p90: linear interpolation between order statistics; mean = total / episodes.",
@@ -224,7 +225,7 @@ def aggregate(episodes):
 def differences(by_condition):
     result = {}
     reduced = by_condition.get("reduced")
-    for baseline in ("full", "none"):
+    for baseline in ("full", "none", "preloaded"):
         if reduced and by_condition.get(baseline):
             result[f"reduced_minus_{baseline}"] = (reduced["field_exact_match"]
                                                    - by_condition[baseline]["field_exact_match"])
@@ -389,7 +390,7 @@ def render_markdown(report):
             ["Completed"] + [f"{pooled[c]['completed']} / {pooled[c]['episodes']}" for c in conditions],
             ["Perfect documents"] + [f"{pooled[c]['perfect_documents']} / {pooled[c]['episodes']}" for c in conditions],
         ]) + [""]
-        compared = [b for b in ("full", "none") if b in conditions and "reduced" in conditions]
+        compared = [b for b in ("full", "none", "preloaded") if b in conditions and "reduced" in conditions]
         if compared:
             out += ["### Reduced accuracy difference", ""]
             rows = [[run] + [pp(r["differences"].get(f"reduced_minus_{b}")) for b in compared]

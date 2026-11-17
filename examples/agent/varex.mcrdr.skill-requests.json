@@ -33,7 +33,7 @@
     "limit": 2,
     "replicates": 1,
     "concurrency": 1,
-    "max_calls": 20,
+    "max_calls": 30,
     "timeout_seconds": 600
   }
 }

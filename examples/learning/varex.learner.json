@@ -75,7 +75,7 @@
     "replicates": 1,
     "changed_successes": "rerun",
     "protected_limit": 3,
-    "max_calls": 20,
+    "max_calls": 30,
     "timeout_seconds": 600
   }
 }

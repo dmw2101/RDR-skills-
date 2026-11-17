@@ -150,6 +150,7 @@ class OfficialScorerParityTests(unittest.TestCase):
             original_checksum = hashlib.sha256((root / "scorer/score.py").read_bytes()).hexdigest()
             write_json(root / "private/a.json", {"x": "HELLO", "number": "123", "ignored": "value"})
             write_json(root / "private/b.json", {"x": "missing"})
+            write_json(root / "private/c.json", {"x": "kept"})
             adapter = VarexAdapter.__new__(VarexAdapter)
             adapter.root = root
             adapter.provenance = {"scorer_revision": "fixture uses pinned source"}
@@ -157,17 +158,22 @@ class OfficialScorerParityTests(unittest.TestCase):
             records = [{"task_id": "a", "condition": "reduced", "replicate": 0,
                         "status": "completed", "prediction": {"x": " hello ", "number": "123.0"}},
                        {"task_id": "b", "condition": "reduced", "replicate": 0,
-                        "status": "failed", "prediction": None}]
+                        "status": "failed", "prediction": None},
+                       # Decision H3: a run cut off at its step limit is scored on the answer it left.
+                       {"task_id": "c", "condition": "reduced", "replicate": 0,
+                        "status": "budget_exhausted", "prediction": {"x": "kept"}}]
             output = root / "scores"
             wrapped = adapter.score(records, output)
             spec = importlib.util.spec_from_file_location("official_direct", root / "scorer/score.py")
             scorer = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(scorer)
             direct = scorer.score_model_mode("agent", "reduced_0", output / "reduced_0",
-                {key: read_json(root / "private" / f"{key}.json") for key in ("a", "b")},
-                {"a": "Flat", "b": "Flat"}, scorer.load_field_exclusions(root / "scorer/field_exclusions.json"), output)
+                {key: read_json(root / "private" / f"{key}.json") for key in ("a", "b", "c")},
+                {"a": "Flat", "b": "Flat", "c": "Flat"},
+                scorer.load_field_exclusions(root / "scorer/field_exclusions.json"), output)
             self.assertEqual(wrapped["summaries"][0]["exact_match_normalized"], direct["agg"]["exact_match_normalized"])
-            self.assertEqual(direct["agg"]["docs"], 2)
-            self.assertEqual(direct["agg"]["exact_match_normalized"], .5)
+            self.assertEqual(direct["agg"]["docs"], 3)
+            self.assertEqual(direct["agg"]["exact_match_normalized"], .6)
             self.assertIn("_error", read_json(output / "reduced_0/b.pred.json"))
+            self.assertEqual(read_json(output / "reduced_0/c.pred.json"), {"x": "kept"})
             self.assertEqual(hashlib.sha256((root / "scorer/score.py").read_bytes()).hexdigest(), original_checksum)

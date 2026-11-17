@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from ..contracts import fingerprint
-from ..pdf_session import VenvPDFSession, python_path, venv_identity
+from ..pdf_session import OBSERVATION_CHARS, VenvPDFSession, python_path, venv_identity
 from ..storage import read_json, write_json
 
 DATA_REVISION = "2dfc3386a4567c7d56bf1abf4d12ff42afed27b6"
@@ -239,11 +239,11 @@ class VarexAdapter:
                                  f"{form_values_text(fields)}PDF text layer:\n{text}")
         return cache[task["id"]]
 
-    async def open_session(self, task):
+    async def open_session(self, task, *, observation_chars=OBSERVATION_CHARS):
         public = self.root / "public" / task["id"]
         return await VenvPDFSession(python_executable=self.python_executable,
                                    pdf=public / "document.pdf", schema=read_json(public / "schema.json"),
-                                   task=task["task"]).start()
+                                   task=task["task"], observation_chars=observation_chars).start()
 
     def score(self, records, output_dir):
         # Official code uses locale-default text I/O. Run it unchanged in UTF-8
@@ -277,7 +277,9 @@ class VarexAdapter:
             for record in group:
                 doc_id = record["task_id"]
                 gt[doc_id] = read_json(self.root / "private" / f"{doc_id}.json")
-                value = record["prediction"] if record["status"] == "completed" else {"_error": record["status"]}
+                # Decision H3: a cut-off attempt is scored on the answer.json it left, if any.
+                prediction = record.get("prediction")
+                value = prediction if isinstance(prediction, dict) else {"_error": record["status"]}
                 write_json(predictions / f"{doc_id}.pred.json", value)
             result = scorer.score_model_mode("agent", f"{condition}_{replicate}", predictions, gt,
                                              {key: "Flat" for key in gt}, exclusions, output_dir)
