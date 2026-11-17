@@ -129,6 +129,26 @@ class PDFSessionTests(unittest.IsolatedAsyncioTestCase):
                 await session.close()
                 await whole.close()
 
+    @unittest.skipIf(os.name == "nt", "a process outside the killed group needs POSIX setsid")
+    async def test_a_pipe_held_open_after_the_kill_cannot_hang_the_attempt(self):
+        # Decision H1 (18 Nov): a background process in its own session keeps the pipe open after the
+        # command is killed; the cleanup is bounded, so the worker still gets its answer.
+        with tempfile.TemporaryDirectory() as temp:
+            pdf = Path(temp) / "original.pdf"
+            pdf.write_bytes(b"%PDF fake fixture")
+            session = await VenvPDFSession(pdf=pdf, schema={}, task="extract", output_limit=50_000).start()
+            started = asyncio.get_running_loop().time()
+            try:
+                with patch("skill_agent.pdf_session.DRAIN_SECONDS", 1), \
+                        patch("skill_agent.pdf_session.KILLED_WAIT_SECONDS", 1):
+                    result = await session.tools["shell"].execute({"command":
+                        "setsid sleep 20 & python -c \"print('y' * 200000)\""})
+            finally:
+                await session.close()
+            self.assertIsNone(result["exit_code"])
+            self.assertIn("Command stopped", result["output"])
+            self.assertLess(asyncio.get_running_loop().time() - started, 15)
+
     async def test_invalid_answer_is_not_repaired(self):
         with tempfile.TemporaryDirectory() as temp:
             session = VenvPDFSession(pdf="unused", schema={}, task="test")

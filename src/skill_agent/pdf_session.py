@@ -78,21 +78,46 @@ async def process(*args, timeout=60, limit=128_000, cwd=None, env=None):
                 child.kill()
             except ProcessLookupError:
                 pass
-        # Read what is left in the pipe (the process is dead, so it ends). Over the output limit the
-        # reader has paused the pipe, and on Linux wait() only returns once the pipe has reached its
-        # end: without this, a command printing past the limit froze the attempt (seen 18 Nov).
-        try:
-            await asyncio.wait_for(child.stdout.read(), 30)
-        except (asyncio.TimeoutError, OSError, RuntimeError):
-            pass
-        await child.wait()
-        # Close the pipes now: the attempt may go on, and a transport left for garbage collection
-        # after its event loop has closed raises warnings on Windows.
-        transport = getattr(child, "_transport", None)
-        if transport is not None:
-            transport.close()
+        await _finish_killed(child)
         raise
     return child.returncode, b"".join(chunks).decode("utf-8", errors="replace")
+
+
+# Decision H1 (18 Nov): bounds for cleaning up after a killed command, so it can never hang.
+DRAIN_SECONDS = 30
+KILLED_WAIT_SECONDS = 10
+
+
+async def _finish_killed(child):
+    """After a kill: empty the pipe, wait for the exit, and never hang.
+
+    Over the output limit the reader has paused the pipe, and on Linux wait() only returns once the
+    pipe has reached its end, so the rest is read in chunks and thrown away (the worker only sees the
+    start). If something outside the killed process group still holds the pipe open, the wait is
+    bounded, the pipe is closed and the attempt goes on.
+    """
+    async def drain():
+        while await child.stdout.read(65536):
+            pass
+
+    try:
+        await asyncio.wait_for(drain(), DRAIN_SECONDS)
+    except (asyncio.TimeoutError, OSError, RuntimeError):
+        pass
+    # Closing the pipes also matters on Windows: a transport left for garbage collection after its
+    # event loop has closed raises warnings there.
+    transport = getattr(child, "_transport", None)
+    try:
+        await asyncio.wait_for(child.wait(), KILLED_WAIT_SECONDS)
+    except asyncio.TimeoutError:
+        if transport is not None:
+            transport.close()
+        try:
+            await asyncio.wait_for(child.wait(), 5)
+        except asyncio.TimeoutError:
+            pass
+    if transport is not None:
+        transport.close()
 
 
 def python_path(executable=None):
