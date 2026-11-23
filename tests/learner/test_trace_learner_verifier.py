@@ -148,7 +148,7 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         # that does not exist, and every worker that followed it hit an AttributeError).
         system = model.requests[0][0][0]["content"]
         self.assertIn("must be one you ran successfully with inspect_shell", system)
-        self.assertIn("do not add untested alternatives", system)
+        self.assertIn("Name one working method", system)
 
     async def test_first_prompt_carries_the_judge_text_and_the_base_skill(self):
         # Decisions I10 and I12: the judge's exact text and the original skill, up front.
