@@ -221,6 +221,19 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Caveat:** greedy thinking can loop until `max_tokens`; such an answer is unusable and counts as `unknown`, so the evidence folder should be checked after each run. Runs before this used a sampling judge.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
+### J7. Jev can be the judge, everywhere the judge is used
+- **Decision:** a config switch makes TypeSafe's Jev (a hosted model that answers multiple-choice questions with probabilities and writes no text) the judge. Set the judge model to `{"factory": "skill_agent.jev:JevClient", "options": {"model": "jev-1.14.0"}}` (a pinned version, not an alias) in every place a judge is configured: the learner's `judge.model`, `validation.judge_model` (learning attempts and checker re-runs) and the test configs' resolver `judge_model`, so learning and testing use the same judge.
+  - **Answer:** each learned condition is one `choice` question with the options `true` and `false`; all conditions of one call go in one request, with the judged text as the `state`. The more likely option is the answer (argmax, as greedy decoding takes the most likely token). Jev never answers `unknown`: missing evidence counts as `false`, which, like `unknown`, never fires a rule (J2). The question text keeps each condition's definition and examples and drops the 4B judge's wording about when to answer `unknown`.
+  - **Logged:** both probabilities of every condition, in `judge_calls.jsonl` (`probabilities`) and the run records' `feature_judge`; they do not change the answer. An answer without a true/false choice for every condition is unusable and handled as in J6.
+  - **No reasons:** the inspector's `test_conditions` (I11) returns Jev's verdicts and probabilities only, with no `explain` call and no 4B model; the 27B inspector, which has the judge's exact text (I10), works out why a condition came out false. With the 4B judge the tool is unchanged.
+  - **Retries:** HTTP 529 ("overloaded") is retried like 429 and 502–504, for every model client. Other failures stop the call as before.
+- **Alternatives:** yes/no probability with cut-offs (above 0.7 true, below 0.3 false, `unknown` between; rejected: two more settings to choose and defend); a three-option choice with `unknown` (Jev's docs warn that "none of the above"-style options work poorly); keeping the 4B for the inspector's reasons (rejected: a second model whose reasons can contradict Jev's verdict); a replay of recorded judge questions before learning (rejected in favour of a small smoke test, then the full learn and test runs).
+- **Why:** the 4B judge's time is almost all thinking (about 95% of its output tokens; 14–36 s per call, and 2 answers ran out of tokens in the 18 Nov learning run). Jev generates nothing, bills input tokens only ($0.042 per million) and answers the questions of a request in parallel.
+- **Where:** `skill_agent/jev.py` (`JevClient`, `JevJudge`, `question`); `learned_features.make_feature_judge` (used by the learner, the pipeline and `LearnedFeatureResolver`); `FeatureJudge.explains` and `_ask`; `VerifierSession._test_conditions`; `models.RETRY_STATUSES`; `trace_learner.report.judge_models` (the learning report names the judge model next to the judge rows, M2).
+- **Ablation:** the 4B judge config (the default).
+- **Caveat:** Jev is a hosted service: the judged text (task, schema, form fields and text layer of each document) is sent to TypeSafe. The key is read from `TYPESAFE_API_KEY`. Whether Jev returns the same answer to the same request is not stated in its docs.
+- **Status:** written 2026-11-23, not yet run (waiting for an API key).
+
 ## Decisions about the tree and the engine
 
 ### T1. Learning starts from a root-only tree

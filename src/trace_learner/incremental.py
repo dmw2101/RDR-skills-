@@ -24,7 +24,7 @@ from rdr_engine.skill_compiler import SkillBundle
 from rdr_engine.visualise import write_tree_page
 from rdr_service.backend import RDRBackend
 from skill_agent.experiments import episode_filename, factory, load_config, load_run, run_experiment, select_tasks
-from skill_agent.learned_features import FeatureJudge, JudgeError
+from skill_agent.learned_features import JudgeError, make_feature_judge
 from skill_agent.storage import read_json, write_json
 
 from . import __version__
@@ -64,7 +64,7 @@ class IncrementalLearner:
         self.changed_successes = self.validation.get("changed_successes", "rerun")
         # Decision M2: the learner's own judge calls (stored cases, rules, condition tests) are logged;
         # its calls inside worker and checker runs are already in those runs' records.
-        self.judge = FeatureJudge(factory(config["judge"]["model"]), log=self.root / "judge_calls.jsonl")
+        self.judge = make_feature_judge(factory(config["judge"]["model"]), log=self.root / "judge_calls.jsonl")
         self._materials = {}
 
     # -- paths and saved state ----------------------------------------------------------------

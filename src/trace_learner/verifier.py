@@ -205,11 +205,14 @@ class VerifierSession:
                 "examples": {"type": "array", "items": {"type": "string"}},
                 "counterexamples": {"type": "array", "items": {"type": "string"}}},
                 "required": ["name", "description"]}
+            returns = ("each verdict (true/false/unknown) and a short reason from a separate call"
+                       if getattr(judge, "explains", True) else
+                       "each verdict (true or false) with the judge's probability of each; the judge gives no "
+                       "reasons")  # Decision J7: Jev answers with probabilities only.
             tools.append(_Tool(
                 "test_conditions",
                 f"Ask the judge, as it will be asked when your rule is checked, to answer draft new_feature "
-                f"conditions on THIS failing document's starting materials. Returns each verdict "
-                f"(true/false/unknown) and a short reason from a separate call. At most "
+                f"conditions on THIS failing document's starting materials. Returns {returns}. At most "
                 f"{MAX_CONDITION_TESTS} tests per inspection.",
                 {"conditions": {"type": "array", "items": feature, "minItems": 1, "maxItems": 4}},
                 ["conditions"], self._test_conditions))
@@ -247,6 +250,14 @@ class VerifierSession:
                     "note": "The judge could not give a usable answer (for example it ran out of tokens while "
                             "thinking), so every condition counts as unknown and the rule would be rejected. "
                             "Make the condition simpler and plainly visible in the starting materials."}
+        if not getattr(self.judge, "explains", True):  # Decision J7: Jev gives probabilities, not reasons.
+            return {"verdicts": values,
+                    "probabilities": (getattr(response, "metadata", None) or {}).get("probabilities"),
+                    "tests_left": MAX_CONDITION_TESTS - self.tests,
+                    "note": "The verdicts are what count: a rule is rejected unless each new condition is true "
+                            "here. The rule check asks this same question on this same text. The judge gives "
+                            "no reasons; when a verdict is false, reread the starting materials to see what "
+                            "the condition asks for that they do not plainly show, and rewrite it."}
         try:
             reasons = await self.judge.explain(features, self.judge_text)
         except Exception as exc:  # The verdicts stand without the reasons.

@@ -98,6 +98,9 @@ class FeatureJudge:
     unknown for any condition, so the cause can be traced.
     """
 
+    # Whether explain() can write reasons (the inspector's condition test, I11). Jev cannot (J7).
+    explains = True
+
     def __init__(self, model, log=None):
         """log: a JSON-lines file that gets one line per model call (decision M2); its folder also gets
         ``judge_evidence/`` with the full input and output of unusable and unknown answers. None keeps none."""
@@ -116,6 +119,8 @@ class FeatureJudge:
                 "switch_seconds": metadata.get("switch_seconds"),
                 "retry_wait_seconds": metadata.get("retry_wait_seconds"),
                 "finish_reason": metadata.get("finish_reason")}
+        if metadata.get("probabilities") is not None:  # Jev (J7): each condition's true/false probabilities.
+            line["probabilities"] = metadata["probabilities"]
         self.log.parent.mkdir(parents=True, exist_ok=True)
         with self.log.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(line) + "\n")
@@ -134,6 +139,23 @@ class FeatureJudge:
 
     async def judge(self, features, text):
         """features: {name: {description, examples, counterexamples}} -> (values, response)."""
+        response = await self._ask(features, text)
+        try:
+            values = self._values(response, features)
+        except ValueError as exc:
+            values = {name: "unknown" for name in features}
+            response.metadata["judge_unusable"] = str(exc)
+            self._record("judge", response, usable=False, values=values)
+            self._evidence("unusable", features, text, response, reason=str(exc), values=values)
+            print(f"  judge answer unusable ({exc}); counted as unknown for {sorted(features)}", flush=True)
+            return values, response
+        self._record("judge", response, values=values)
+        if "unknown" in values.values():
+            self._evidence("unknown", features, text, response, values=values)
+        return values, response
+
+    async def _ask(self, features, text):
+        """One constrained model call answering every condition (decision J6)."""
         definitions = "\n".join(
             f"- {name}: {spec['description']}"
             + (f"\n  true examples: {'; '.join(spec.get('examples') or [])}" if spec.get("examples") else "")
@@ -153,20 +175,7 @@ class FeatureJudge:
         ]
         # Decision J6: one constrained call; the answer must be a single report_features call.
         options = {"tool_choice": "required"} if _accepts(self.model.complete, "tool_choice") else {}
-        response = await self.model.complete(messages, [tool], **options)
-        try:
-            values = self._values(response, features)
-        except ValueError as exc:
-            values = {name: "unknown" for name in features}
-            response.metadata["judge_unusable"] = str(exc)
-            self._record("judge", response, usable=False, values=values)
-            self._evidence("unusable", features, text, response, reason=str(exc), values=values)
-            print(f"  judge answer unusable ({exc}); counted as unknown for {sorted(features)}", flush=True)
-            return values, response
-        self._record("judge", response, values=values)
-        if "unknown" in values.values():
-            self._evidence("unknown", features, text, response, values=values)
-        return values, response
+        return await self.model.complete(messages, [tool], **options)
 
     async def explain(self, features, text, limit=1500):
         """One short reason per condition, from a separate call without the answer form.
@@ -224,6 +233,11 @@ class FeatureJudge:
         return values
 
 
+def make_feature_judge(model, log=None):
+    """The judge for a configured model: a model that brings its own judge (Jev, J7) supplies it."""
+    return model.feature_judge(log) if hasattr(model, "feature_judge") else FeatureJudge(model, log=log)
+
+
 class LearnedFeatureResolver:
     """Resolve through the skill service, judging learned features when the snapshot has any.
 
@@ -242,7 +256,7 @@ class LearnedFeatureResolver:
             model = factory(judge_model)
         else:
             model = OpenAICompatibleClient(**judge_model)
-        self.judge = FeatureJudge(model)
+        self.judge = make_feature_judge(model)
         self.provenance = {"selector": "learned-feature-judge-v1", "model": judge_model}
         self.features = {}
         self.document_values = {}  # (artifact, materials text) -> document-scope values, judged once.

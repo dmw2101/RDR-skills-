@@ -105,6 +105,14 @@ def answers_table(answers):
         "No learned condition was judged."
 
 
+def judge_models(config):
+    """Which model judged (J7: the 4B or Jev), so each report's judge rows can be attributed."""
+    def name(spec):
+        return (spec or {}).get("options", {}).get("model") or (spec or {}).get("model")
+    learner = name((config.get("judge") or {}).get("model"))
+    return {"learner": learner, "runs": name((config.get("validation") or {}).get("judge_model")) or learner}
+
+
 def _ordered(usage):
     return {role: usage[role] for role in (*ROLE_ORDER, *sorted(set(usage) - set(ROLE_ORDER))) if role in usage}
 
@@ -345,6 +353,7 @@ def incremental_report(learner):
     half = len(passed) // 2
     report = {"mode": "incremental", "attempts": attempts, "rules": rules, "costs": dict(sorted(costs.items())),
               "usage": _ordered(usage), "judge_answers": dict(sorted(answers.items())),
+              "judge_models": judge_models(learner.config),
               "total_known_cost_usd": sum(known), "status": learner.status(),
               "first_half": {"passed": sum(passed[:half]), "attempts": half},
               "second_half": {"passed": sum(passed[half:]), "attempts": len(passed) - half}}
@@ -394,6 +403,9 @@ def render_incremental(report):
     lines += ["", "## Model calls, tokens and latency", "",
               usage_table(report.get("usage") or {}),
               "",
+              *([f"Judge model: learner's judge `{report['judge_models']['learner']}`, judge in learning attempts "
+                 f"and checker re-runs `{report['judge_models']['runs']}`.", ""]
+                if report.get("judge_models") else []),
               "Model time is the sum of each call's own latency (waits and model switches excluded, M1). The "
               "learner's judge calls are counted from `judge_calls.jsonl`, written from 2026-11-17 on (M2); "
               "earlier runs leave that row out. Calls without usage are counted but not in the totals.",

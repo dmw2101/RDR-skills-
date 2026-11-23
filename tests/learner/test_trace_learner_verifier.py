@@ -197,6 +197,31 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(text.startswith("<starting_materials>\n") and text.endswith("</starting_materials>")
                             for text in judge.texts))  # The same text a document condition is judged on.
 
+    async def test_a_judge_without_reasons_returns_probabilities(self):
+        # Decision J7: Jev answers true or false with probabilities and writes no reasons.
+        class Judge:
+            explains = False
+
+            async def judge(self, features, text):
+                return {"lf_forms": "false"}, ModelResponse({}, {}, {"probabilities": {
+                    "lf_forms": {"true": 0.38, "false": 0.62}}})
+
+            async def explain(self, features, text):
+                raise AssertionError("a judge without reasons is never asked for them")
+        replies = [call("test_conditions", {"conditions": [{"name": "lf_forms", "description": "Has form fields."}]}),
+                   call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}}, 1)]
+        model = ScriptedModel(replies)
+        outcome = await verify_episode(model=model, task=self.task, record=episode(), hooks=Hooks(),
+                                       workspace=self.workspace, max_calls=10, materials="x", judge=Judge())
+        result = [e["result"] for e in outcome["events"] if e["type"] == "tool"][0]
+        self.assertEqual(result["verdicts"], {"lf_forms": "false"})
+        self.assertEqual(result["probabilities"], {"lf_forms": {"true": 0.38, "false": 0.62}})
+        self.assertNotIn("reasons", result)
+        self.assertNotIn("samples", result["note"])
+        tool = next(d for d in model.requests[0][1] if d["function"]["name"] == "test_conditions")
+        self.assertIn("probability", tool["function"]["description"])
+        self.assertNotIn("reason from a separate call", tool["function"]["description"])
+
     async def test_inspector_tools_ask_for_schema_constrained_arguments(self):
         # Decision I15: every inspector tool is strict, so vLLM constrains its arguments to the schema.
         model = ScriptedModel([call("submit_diagnosis", {"diagnosis": {"attribution": "not_skill", "root_cause": "x"}})])

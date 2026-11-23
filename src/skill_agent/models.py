@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 from .http import HTTPStatusError, json_request
 
 # Rate limits and temporary server errors; refused requests are not billed, so retrying is free.
-RETRY_STATUSES = frozenset({429, 502, 503, 504})
+RETRY_STATUSES = frozenset({429, 502, 503, 504, 529})  # 529: "overloaded" (TypeSafe, Anthropic).
 
 
 @dataclass(frozen=True)

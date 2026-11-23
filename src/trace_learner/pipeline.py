@@ -9,7 +9,7 @@ from urllib.parse import quote
 from rdr_engine.learned import CONTEXT_KEY
 from skill_agent.contracts import source_fingerprint
 from skill_agent.experiments import factory, load_run
-from skill_agent.learned_features import FeatureJudge
+from skill_agent.learned_features import make_feature_judge
 from skill_agent.storage import read_json, write_json
 
 from . import __version__
@@ -97,7 +97,7 @@ class Learner:
         if receipt.get("source_fingerprint") != source_fingerprint(
                 (skill_dir / "initial.md").read_bytes().decode("utf-8")):
             raise ValueError("skill_dir is not the skill the collected run used")
-        self.judge = FeatureJudge(factory(config["judge"]["model"]))
+        self.judge = make_feature_judge(factory(config["judge"]["model"]))
 
     # -- stage 1: outcomes and cornerstones ---------------------------------------------------
     def outcomes(self):
