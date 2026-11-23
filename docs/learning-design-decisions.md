@@ -123,7 +123,8 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Why:** the rejection "not true for the failing document" was the most common one (9 of 19 proposals in the first 30 documents), and each costs a full retry inspection (I4). Model switches are short (median 1.5 s, at most 8 s in that run), so a test costs about one judge call.
 - **Where:** `VerifierSession._test_conditions` (`MAX_CONDITION_TESTS`), `FeatureJudge.explain`; `verify_episode(judge=...)`, passed by `incremental` (`IncrementalLearner.judge`).
 - **Ablation:** none as a switch; without a judge or materials the tool is not offered.
-- **Caveat:** the judge samples (S1), so a verdict may differ when the rule is checked. The tool's note says to make conditions plainly true. The reason comes from a separate call and may disagree with the verdict.
+- **Caveat:** the reason comes from a separate call and may disagree with the verdict.
+- **Detail (2026-11-23):** the tool's note still said "the judge samples, so a borderline condition may flip", although the judge has been greedy since J6; so the 18 Nov learning run (`learn-4b-rootonly3160-v2`) gave the inspector a wrong note. It now says the rule check asks the same question on the same text and almost always gets the same verdict (a greedy replay of 150 dev-30 answers on 22 Nov reproduced 149).
 - **Detail (2026-11-17, smoke test `learn-4b-rootonly-smoke5-v3`):** on document 40158 the inspector sent the conditions as JSON text in 3 of its 5 calls, and each was refused. The list as JSON text, and a single bare condition object, are now read as the same request. In that inspection the two accepted tests both came back true, and the rule was kept on its first try (11 min, against 22 min plus a 14-minute retry for the same document on 16 Nov). Each reason call took 28 to 36 s and about 1,200 to 1,600 output tokens, against 7 to 11 s for a verdict.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 

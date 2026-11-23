@@ -253,8 +253,8 @@ class VerifierSession:
             reasons = f"(no reasons: {type(exc).__name__})"
         return {"verdicts": values, "reasons": reasons, "tests_left": MAX_CONDITION_TESTS - self.tests,
                 "note": "The verdicts are what count: a rule is rejected unless each new condition is true "
-                        "here. The judge samples, so a borderline condition may flip; make it plainly true "
-                        "in the starting materials. Reasons come from a separate call and may disagree."}
+                        "here. The judge is greedy: the rule check asks this same question on this same text "
+                        "and almost always gets the same verdict. Reasons come from a separate call and may disagree."}
 
     async def _read_trace(self, args):
         start, end = int(args["from_turn"]), int(args["to_turn"])
