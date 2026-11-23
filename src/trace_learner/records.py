@@ -9,7 +9,7 @@ from skill_agent.learned_features import judge_context
 # answers that could not be used. Such an attempt says nothing about the worker, the inspector or
 # the skill, so it is retried, never kept.
 INTERRUPTION = re.compile(r"HTTP (429|5\d\d) from |URLError|Connection\w*Error|RemoteDisconnected|"
-                          r"IncompleteRead|TimeoutError|JudgeError")
+                          r"IncompleteRead|TimeoutError|JudgeError|judge call failed")
 
 
 class Interrupted(RuntimeError):

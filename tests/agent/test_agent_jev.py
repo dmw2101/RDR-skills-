@@ -74,6 +74,24 @@ class JevJudgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(json.loads(self.log.read_text(encoding="utf-8"))["usable"])
         self.assertEqual(len(list((self.log.parent / "judge_evidence").glob("*-unusable.json"))), 1)
 
+    async def test_a_failed_call_is_a_judge_error_not_a_verdict(self):
+        # A wrong key, a lost connection or a timeout must interrupt the run, never reject a rule.
+        from urllib.error import URLError
+        from skill_agent.learned_features import JudgeError
+
+        class Failing:
+            def __init__(self, exc):
+                self.exc = exc
+
+            async def ask(self, state, questions):
+                raise self.exc
+        for exc in (HTTPStatusError(401, "api.typesafe.ai"), URLError("lost"), TimeoutError()):
+            with self.assertRaises(JudgeError) as caught:
+                await JevJudge(Failing(exc), log=self.log).judge(FEATURES, "text")
+            self.assertIn("judge call failed", str(caught.exception))
+            self.assertIn(type(exc).__name__, str(caught.exception))
+        self.assertFalse(self.log.exists())  # No answer, so nothing logged as one.
+
     async def test_jev_writes_no_reasons(self):
         judge = JevJudge(FakeJev({}))
         self.assertFalse(judge.explains)

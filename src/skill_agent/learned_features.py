@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .contracts import ResolveSkillRequest, source_fingerprint
+from .http import HTTPStatusError
 from .models import OpenAICompatibleClient
 from .resolvers import HttpSkillResolver
 
@@ -138,8 +139,16 @@ class FeatureJudge:
         path.write_text(json.dumps(record, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
 
     async def judge(self, features, text):
-        """features: {name: {description, examples, counterexamples}} -> (values, response)."""
-        response = await self._ask(features, text)
+        """features: {name: {description, examples, counterexamples}} -> (values, response).
+
+        A call that fails (refused after the client's retries, lost, timed out, or a wrong key) raises
+        JudgeError, which every caller treats as an interruption to rerun, never as a verdict: a rule
+        check that caught it as an ordinary error would reject the rule without a judgment (J7).
+        """
+        try:
+            response = await self._ask(features, text)
+        except (HTTPStatusError, OSError, ValueError) as exc:  # URLError and timeouts are OSErrors.
+            raise JudgeError(f"judge call failed ({type(exc).__name__}: {exc})", {"model_calls": 1}) from exc
         try:
             values = self._values(response, features)
         except ValueError as exc:

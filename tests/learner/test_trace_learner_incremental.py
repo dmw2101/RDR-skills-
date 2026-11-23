@@ -445,7 +445,10 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
     def test_what_counts_as_interrupted(self):
         for error in ("HTTPStatusError: HTTP 429 from openrouter.ai", "RuntimeError: HTTP 503 from x",
                       "JudgeError: judge response was cut off", "URLError: <urlopen error timed out>",
-                      "ConnectionResetError: reset", "TimeoutError: read timed out"):
+                      "ConnectionResetError: reset", "TimeoutError: read timed out",
+                      # J7: a failed judge call, wrapped by the skill refresh (a wrong key is a 4xx).
+                      "RuntimeError: skill refresh failed: judge call failed (HTTPStatusError: HTTP 401 from x)",
+                      "RuntimeError: skill refresh failed: judge call failed (URLError: <urlopen error lost>)"):
             self.assertTrue(was_interrupted({"status": "failed", "error": error}), error)
         for outcome in ({"status": "failed", "error": None},  # The model simply never finished.
                         {"status": "budget_exhausted", "error": "TimeoutError: "},  # The episode's own budget.
