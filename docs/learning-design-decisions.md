@@ -161,6 +161,15 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Caveat:** the `diagnosis` argument is declared as a free JSON object, so the constraint guarantees valid JSON of the right outer shape; its fields are still checked by `Diagnosis` validation (I6). Not yet seen on a live inspection.
 - **Status:** written 2026-11-17, not yet run on the GPU.
 
+### I16. Advice may only name code the inspector ran
+- **Decision:** the inspector's prompt says that any command, function, method or attribute its advice names must be one it ran successfully with `inspect_shell` on the failing document in that inspection; it names one working method, with no untested alternatives ("X / Y") and nothing from memory.
+- **Alternatives:** a check at submission that every code name in the advice appears in one of the inspection's successful shell commands, or exists in the worker's Python environment (not done: heuristic text parsing, and the prompt may be enough); flagging new tool errors in the checker's re-runs and sending the rule back to the retry (not done for cost; the evidence it would use is already in the re-run records); no change.
+- **Why:** rule 3.1 of `learn-jev-rootonly3160` (23 Nov) told the worker to read form fields with "pypdf get_fields() / pdfplumber page.annotations". `page.annotations` does not exist (pdfplumber's attribute is `page.annots`); the inspector had run only `get_fields()`. All three checker re-runs followed the advice, hit `AttributeError`, recovered with `get_fields()` and passed, so the checker, which looks only at final answers, kept the rule. On dev-30 the rule fired on 27 documents; 9 hit the error (20 `AttributeError`s against 3 under the 4B-learned tree), and on i-956h (seed-43 re-run of round 15) it led directly to the failure. The worker took 431 model calls against 305 for the 4B-learned tree.
+- **Where:** `src/trace_learner/prompts/verifier.md` (the `guidance_text` bullet).
+- **Ablation:** none as a switch.
+- **Caveat:** a prompt rule, not a guarantee; tool errors caused by advice still pass the checker unseen. Runs before 24 Nov did not have it.
+- **Status:** written 2026-11-24, not yet run.
+
 ## Decisions about the judge
 
 ### J1. The judge reads the worker's starting materials and recent activity

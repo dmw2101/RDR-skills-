@@ -144,6 +144,11 @@ class VerifierTests(unittest.IsolatedAsyncioTestCase):
                       "skill_views", "show_tree"):
             self.assertIn(title, first)
         self.assertIn('"fragment_ids": "same as turn 0"', first)  # Unchanged guidance is not listed twice.
+        # Decision I16: advice may only name code the inspector ran (rule 3.1 named a pdfplumber attribute
+        # that does not exist, and every worker that followed it hit an AttributeError).
+        system = model.requests[0][0][0]["content"]
+        self.assertIn("must be one you ran successfully with inspect_shell", system)
+        self.assertIn("do not add untested alternatives", system)
 
     async def test_first_prompt_carries_the_judge_text_and_the_base_skill(self):
         # Decisions I10 and I12: the judge's exact text and the original skill, up front.
