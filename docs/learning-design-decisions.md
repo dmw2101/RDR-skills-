@@ -345,6 +345,14 @@ entry, with *Status: replaced by …*, so earlier results stay explainable.
 - **Caveat:** the harness fixes H1 to H3 came from crashes and lost answers in the dev-30 pilot, so dev-30 influenced the harness. They apply to every arm alike and follow Trace2Skill's and SkillOpt's set-up, but a report on dev-30 should say so.
 - **Status:** decided 2026-11-17; the learning run starts that evening after the dev-30 baselines.
 
+### D3. The final experiment: learn on held-out 1–150 with Jev, test four arms on the 149
+- **Decision:** one learning run (seed 42) on held-out documents 1–150 from the root-only tree, with Jev as the judge everywhere (J7) and I16 in force; then four arms on D1's 149-document test set (dev-30 plus held-out 151–269), each one run: no skill, full skill (`preloaded`), root-only base, and the learned tree (Jev as the test judge). Learning runs first; the baselines follow in a second chain. The test set is prepared with `skill_agent prepare --heldout-from 151`, whose `splits.json` has a `test` split (dev then held-out) that run configs select with `"split": "test"`.
+- **Alternatives:** several learning seeds (rejected for cost: about 16–25 h each); a learned arm with the 4B judge (rejected: the judge question was settled on 24 Nov, see below, and it would add about 20 h); baselines first.
+- **Why:** on dev-30, two seeds per judge gave the same average (20.0 documents fully right each; fields 247.5 for Jev against 244.0), Jev kept as many rules (10 against 12 over both seeds), and its answers agreed with the thinking 4B judge on 269 of 281 questions (95.7%; all 12 disagreements on the two ambiguous conditions), while it was about 60 times faster, never cut off, and cheap. The 4B judge got worse with tree size: on seed 43's 8-condition tree it gave 7 unusable answers and 73 `unknown`s on dev-30. A 150-document tree will be larger still.
+- **Where:** `prepare_varex(heldout_from=...)`; `experiments.load_config` (split `test`); server configs `learn-jev-rootonly150*.json`, `test149-*.json`.
+- **Caveat:** the inspector fixes I10–I14 were designed on held-out 1–30, which are in the learning set, so the learning-phase numbers on them are slightly flattered (the test numbers are not). Dev-30 influenced the harness (H1–H3) for every arm alike.
+- **Status:** decided 2026-11-24.
+
 ## Decisions about the skill
 
 ### K1. The skill arms get the whole PDF skill package, not only SKILL.md

@@ -99,8 +99,8 @@ def load_config(path):
             raise ValueError(f"{name} must be a positive integer")
     if run["limit"] is not None and (type(run["limit"]) is not int or run["limit"] < 1):
         raise ValueError("limit must be positive or null")
-    if run["split"] not in ("dev", "heldout"):
-        raise ValueError("split must be dev or heldout")
+    if run["split"] not in ("dev", "heldout", "test"):  # test: decision D1's dev plus held-out set.
+        raise ValueError("split must be dev, heldout or test")
     if run["skill_loading"] not in ("model_initiated", "rolling", "initial"):
         raise ValueError("skill_loading must be model_initiated, rolling or initial")
     if run.get("task_ids") is not None:

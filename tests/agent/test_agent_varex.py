@@ -69,6 +69,23 @@ class VarexPreparationTests(unittest.TestCase):
             self.assertEqual(read_json(batch / "provenance.json")["selection"]["heldout_limit"], 2)
             self.assertNotIn("heldout_limit", read_json(target / "provenance.json")["selection"])
 
+            # Decision D1's test set: every dev document plus the held-out ones after a learning batch.
+            test = Path(temporary) / "test"
+            with patch.dict("sys.modules", {"datasets": ds, "huggingface_hub": hf}), patch(
+                "skill_agent.benchmarks.varex.download_scorer", side_effect=fake_scorer):
+                receipt = prepare_varex(test, heldout_from=3)
+                with self.assertRaisesRegex(ValueError, "beyond the 3 held-out"):
+                    prepare_varex(Path(temporary) / "too-far", heldout_from=4)
+                with self.assertRaisesRegex(ValueError, "cannot be combined"):
+                    prepare_varex(Path(temporary) / "mixed2", heldout_from=3, heldout_limit=2)
+            self.assertEqual((receipt["dev"], receipt["heldout"]), (30, 1))
+            splits = read_json(test / "splits.json")
+            self.assertEqual(splits["heldout"], ids[32:])
+            self.assertEqual(splits["test"], ids[:30] + ids[32:])
+            self.assertFalse(set(splits["test"]) & set(read_json(batch / "splits.json")["heldout"]))
+            self.assertEqual(len(VarexAdapter(data_dir=test).tasks("test")), 31)
+            self.assertEqual(read_json(test / "provenance.json")["selection"]["heldout_from"], 3)
+
 
 class JudgeMaterialsTests(unittest.TestCase):
     """The judge's view of what the worker starts with: task, schema and PDF text layer."""

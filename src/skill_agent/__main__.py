@@ -71,6 +71,8 @@ def main(argv=None):
     selection.add_argument("--task-ids", nargs="+", help="Download only these exact document IDs from the dev split")
     selection.add_argument("--heldout-limit", type=int,
                            help="Prepare only the first N held-out PDFs and no dev PDFs (e.g. a learning batch)")
+    selection.add_argument("--heldout-from", type=int,
+                           help="Test set: all dev PDFs plus held-out PDFs from this 1-based position on (e.g. 151)")
     for command in ("doctor", "run"):
         sub = commands.add_parser(command)
         sub.add_argument("--config", required=True)
@@ -89,7 +91,7 @@ def main(argv=None):
     try:
         if args.command == "prepare":
             result = prepare_varex(args.output, dev_limit=args.dev_limit, task_ids=args.task_ids,
-                                   heldout_limit=args.heldout_limit)
+                                   heldout_limit=args.heldout_limit, heldout_from=args.heldout_from)
         elif args.command == "summarize":
             result = summarize(args.run_dir)
         elif args.command == "rename-episodes":

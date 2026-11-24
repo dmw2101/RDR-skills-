@@ -97,12 +97,19 @@ def form_values_text(fields):
     return f"Filled PDF form fields (field name: value):\n{lines}\n\n"
 
 
-def prepare_varex(destination, *, dev_limit=None, task_ids=None, heldout_limit=None):
+def prepare_varex(destination, *, dev_limit=None, task_ids=None, heldout_limit=None, heldout_from=None):
     """Explicit opt-in download; all data and executable scorer remain local/ignored.
 
     heldout_limit prepares only the first N held-out documents (no dev documents), e.g. as a
     learning batch that never overlaps the dev documents used for evaluation.
+    heldout_from prepares the test set of decision D1: all dev documents plus the held-out documents
+    from that 1-based position on (151: dev-30 plus held-out 151-269), so it never overlaps a learning
+    batch of heldout_limit = heldout_from - 1. Its splits.json also has "test": dev then held-out.
     """
+    if heldout_from is not None and (type(heldout_from) is not int or heldout_from < 2
+                                     or dev_limit is not None or task_ids is not None
+                                     or heldout_limit is not None):
+        raise ValueError("heldout_from must be an integer of at least 2 and cannot be combined with other selections")
     from datasets import load_dataset
     from huggingface_hub import hf_hub_download
 
@@ -165,6 +172,10 @@ def prepare_varex(destination, *, dev_limit=None, task_ids=None, heldout_limit=N
             if heldout_limit > len(heldout_ids):
                 raise ValueError(f"heldout_limit {heldout_limit} exceeds the {len(heldout_ids)} held-out documents")
             dev_ids, heldout_ids = [], heldout_ids[:heldout_limit]
+        elif heldout_from is not None:
+            if heldout_from > len(heldout_ids):
+                raise ValueError(f"heldout_from {heldout_from} is beyond the {len(heldout_ids)} held-out documents")
+            heldout_ids = heldout_ids[heldout_from - 1:]
         selected = dev_ids + heldout_ids
         print(f"Found {len(ids)} Flat documents; downloading {len(selected)} PDFs.", flush=True)
         tasks = []
@@ -183,13 +194,18 @@ def prepare_varex(destination, *, dev_limit=None, task_ids=None, heldout_limit=N
         print("Downloading pinned official scorer...", flush=True)
         download_scorer(scoring)
         write_json(staging / "tasks.json", tasks)
-        write_json(staging / "splits.json", {"seed": 42, "dev": dev_ids, "heldout": heldout_ids})
+        splits = {"seed": 42, "dev": dev_ids, "heldout": heldout_ids}
+        if heldout_from is not None:  # Decision D1's test set as one split, for runs over all of it.
+            splits["test"] = dev_ids + heldout_ids
+        write_json(staging / "splits.json", splits)
         files = {str(p.relative_to(staging)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest()
                  for p in staging.rglob("*") if p.is_file()}
         selection = {"dev_limit": dev_limit, "flat_population": len(ids), "task_ids": task_ids,
                      "population_sha256": fingerprint(sorted(ids))}
         if heldout_limit is not None:  # Absent otherwise, so earlier provenance stays byte-identical.
             selection["heldout_limit"] = heldout_limit
+        if heldout_from is not None:
+            selection["heldout_from"] = heldout_from
         write_json(staging / "provenance.json", {"dataset": "ibm-research/VAREX",
             "data_revision": DATA_REVISION, "scorer_revision": SCORER_REVISION, "files": files,
             "selection": selection,
