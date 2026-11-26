@@ -92,6 +92,18 @@ class JevJudgeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(type(exc).__name__, str(caught.exception))
         self.assertFalse(self.log.exists())  # No answer, so nothing logged as one.
 
+    async def test_a_refusal_keeps_the_providers_reason(self):
+        # 26 Nov: Jev refused calls with HTTP 400 and the reason was lost; it now reaches the run's log.
+        from skill_agent.learned_features import JudgeError
+
+        class Refusing:
+            async def ask(self, state, questions):
+                raise HTTPStatusError(400, "api.typesafe.ai", body='{"error":\n  "questions invalid"}')
+        with self.assertRaises(JudgeError) as caught:
+            await JevJudge(Refusing(), log=self.log).judge(FEATURES, "text")
+        self.assertIn('HTTP 400 from api.typesafe.ai; reply: {"error": "questions invalid"}', str(caught.exception))
+        self.assertNotIn("questions invalid", str(HTTPStatusError(400, "h", body="questions invalid")))
+
     async def test_jev_writes_no_reasons(self):
         judge = JevJudge(FakeJev({}))
         self.assertFalse(judge.explains)

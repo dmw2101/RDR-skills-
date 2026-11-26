@@ -148,7 +148,13 @@ class FeatureJudge:
         try:
             response = await self._ask(features, text)
         except (HTTPStatusError, OSError, ValueError) as exc:  # URLError and timeouts are OSErrors.
-            raise JudgeError(f"judge call failed ({type(exc).__name__}: {exc})", {"model_calls": 1}) from exc
+            detail = f"{type(exc).__name__}: {exc}"
+            # The provider's own reason (e.g. why Jev refused a request with HTTP 400), on one short line,
+            # so the run's log says why it stopped (J7).
+            reply = " ".join(str(getattr(exc, "body", "") or "").split())[:300]
+            if reply:
+                detail += f"; reply: {reply}"
+            raise JudgeError(f"judge call failed ({detail})", {"model_calls": 1}) from exc
         try:
             values = self._values(response, features)
         except ValueError as exc:

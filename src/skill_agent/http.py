@@ -6,11 +6,20 @@ from urllib.request import Request, urlopen
 
 
 class HTTPStatusError(RuntimeError):
-    """A non-2xx response. The message never echoes the body, which may contain private inputs."""
+    """A non-2xx response. The message never echoes the body, which may contain private inputs;
+    the body's start is kept in ``body`` for callers that decide to record it (the judge, J7)."""
 
-    def __init__(self, status, host, retry_after=None):
+    def __init__(self, status, host, retry_after=None, body=""):
         super().__init__(f"HTTP {status} from {host}")
-        self.status, self.retry_after = status, retry_after
+        self.status, self.retry_after, self.body = status, retry_after, body
+
+
+def _error_body(error, limit=1000):
+    """The start of an error response's body as text, or "" when it cannot be read."""
+    try:
+        return error.read(limit).decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001 - the status is what matters; a missing body is not an error.
+        return ""
 
 
 def _retry_after(headers):
@@ -33,7 +42,7 @@ def json_request(url, payload=None, *, headers=None, timeout=60, max_bytes=8_000
         with urlopen(request, timeout=timeout) as response:
             raw = response.read(max_bytes + 1)
     except HTTPError as error:
-        raise HTTPStatusError(error.code, request.host, _retry_after(error.headers)) from None
+        raise HTTPStatusError(error.code, request.host, _retry_after(error.headers), _error_body(error)) from None
     if len(raw) > max_bytes:
         raise ValueError("HTTP response exceeds size limit; nothing was silently truncated")
     result = json.loads(raw)
